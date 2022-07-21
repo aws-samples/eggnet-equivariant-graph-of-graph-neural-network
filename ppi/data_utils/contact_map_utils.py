@@ -6,6 +6,7 @@ Helpers for parsing protein structure files and generating contact maps.
 """
 
 import gzip
+import boto3
 import numpy as np
 import pandas as pd
 from io import StringIO
@@ -13,6 +14,9 @@ from sklearn.metrics import pairwise_distances
 from Bio import pairwise2
 from Bio.Seq import Seq
 from Bio.PDB.Polypeptide import three_to_one, is_aa
+from Bio.PDB import PDBParser
+from tqdm import tqdm
+from .xpdb import SloppyStructureBuilder
 
 
 def idx_align(pdb_seq: str, og_seq: str):
@@ -244,3 +248,65 @@ def chain_to_coords(chain, target_atoms=["N", "CA", "C", "O"], name=""):
     output["coords"] = coords.tolist()
     output["name"] = "{}-{}".format(name, chain.id)
     return output
+
+
+def read_file_from_s3(bucket: str, prefix: str):
+    s3 = boto3.resource("s3")
+    obj = s3.Object(bucket, prefix)
+    return obj.get()["Body"]
+
+
+def extract_coords(structure, target_atoms=["N", "CA", "C", "O"]):
+    """
+    Extract the atomic coordinates for all the chains.
+    """
+    records = {}
+    for chain in structure.get_chains():
+        record = chain_to_coords(
+            chain, name=structure.id, target_atoms=target_atoms
+        )
+        if record is not None:
+            records[chain.id] = record
+    return records
+
+
+def parse_pdb_ids(pdb_ids: list) -> dict:
+    """
+    Parse a list of PDB ids to structures by first retrieving
+    PDB files from AWS OpenData Registry, then parse to structure objects.
+    """
+    PDB_BUCKET_NAME = "pdbsnapshots"
+    pdb_parser = PDBParser(
+        QUIET=True,
+        PERMISSIVE=True,
+        structure_builder=SloppyStructureBuilder(),
+    )
+    parsed_structures = {}
+    for pdb_id in tqdm(pdb_ids):
+        try:
+            pdb_file = read_file_from_s3(
+                PDB_BUCKET_NAME,
+                f"20220103/pub/pdb/data/structures/all/pdb/pdb{pdb_id.lower()}.ent.gz",
+            )
+        except Exception as e:
+            print(pdb_id, "caused the following error:")
+            print(e)
+        else:
+            structure = pdb_parser.get_structure(
+                pdb_id, gunzip_to_ram(pdb_file)
+            )
+            rec = extract_coords(structure)
+            parsed_structures[pdb_id] = rec
+    return parsed_structures
+
+
+def remove_nan_residues(rec: dict) -> dict:
+    """
+    Remove the residues from a parsed protein chain where coordinates contains nan's
+    """
+    coords = np.asarray(rec["coords"])  # shape: (n_residues, 4, 3)
+    mask = np.isfinite(coords.sum(axis=(1, 2)))
+    if mask.sum() < coords.shape[0]:
+        rec["seq"] = "".join(np.asarray(list(rec["seq"]))[mask])
+        rec["coords"] = coords[mask].tolist()
+    return rec

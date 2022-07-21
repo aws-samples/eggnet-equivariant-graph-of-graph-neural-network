@@ -49,22 +49,14 @@ class PepBDBDataset(BasePPIDataset):
         self.featurizer2 = featurizer2
         super(PepBDBDataset, self).__init__(data_list, **kwargs)
 
-    def _preprocess(self, complex: dict):
-        structure = complex["structure"]
-        # extract the atomic coordinates from the protein pair
-        for chain in structure.get_chains():
-            if chain.id == complex["protein1"]:
-                protein1 = data_utils.chain_to_coords(chain, name=structure.id)
-            elif chain.id == complex["protein2"]:
-                protein2 = data_utils.chain_to_coords(chain, name=structure.id)
-
-        coords_1 = np.asarray(protein1["coords"])
-        coords_2 = np.asarray(protein2["coords"])
+    def _preprocess(self, parsed_structure: dict):
+        coords_1 = np.asarray(parsed_structure["protein1"]["coords"])
+        coords_2 = np.asarray(parsed_structure["protein2"]["coords"])
         # CA-CA distance:
         contact_map = pairwise_distances(
             coords_1[:, 1], coords_2[:, 1], metric="euclidean"
         )
         y = contact_map < self.contact_threshold
-        g1 = self.featurizer1.featurize(protein1)
-        g2 = self.featurizer2.featurize(protein2)
+        g1 = self.featurizer1.featurize(parsed_structure["protein1"])
+        g2 = self.featurizer2.featurize(parsed_structure["protein2"])
         return (g1, g2), y

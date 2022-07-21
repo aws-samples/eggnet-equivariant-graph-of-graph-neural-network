@@ -54,7 +54,7 @@ def _rbf(D, D_min=0.0, D_max=20.0, D_count=16, device="cpu"):
     return RBF
 
 
-def NaturalPolypeptideFeaturizer(object):
+class NaturalPolypeptideFeaturizer(object):
     """
     For polypeptides that only contains 20 natural amino acids (can work
     with unknown residues 'X')
