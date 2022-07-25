@@ -304,8 +304,13 @@ def remove_nan_residues(rec: dict) -> dict:
     """
     Remove the residues from a parsed protein chain where coordinates contains nan's
     """
+    if len(rec["coords"]) == 0:
+        return None
     coords = np.asarray(rec["coords"])  # shape: (n_residues, 4, 3)
     mask = np.isfinite(coords.sum(axis=(1, 2)))
+    if mask.sum() == 0:
+        # all residues coordinates are nan's
+        return None
     if mask.sum() < coords.shape[0]:
         rec["seq"] = "".join(np.asarray(list(rec["seq"]))[mask])
         rec["coords"] = coords[mask].tolist()

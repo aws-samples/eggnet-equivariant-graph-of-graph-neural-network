@@ -3,13 +3,14 @@ Pytorch dataset classes from PPI prediction.
 """
 
 import numpy as np
+import pandas as pd
 from sklearn.metrics import pairwise_distances
 import torch
 import torch.utils.data as data
 import torch.nn.functional as F
 
 # custom modules
-from ppi import data_utils
+from ppi.data_utils import remove_nan_residues
 
 
 class BasePPIDataset(data.Dataset):
@@ -28,6 +29,49 @@ class BasePPIDataset(data.Dataset):
 
     def _preprocess(self, complex):
         raise NotImplementedError
+
+
+def prepare_pepbdb_data_list(parsed_structs: dict, df: pd.DataFrame) -> list:
+    """
+    Prepare the data_list required to construct PepBDBData object.
+    Returns:
+        - a list of protein complex objects/dict:
+            {
+                'pdb_id': str,
+                'chain_id1': str,
+                'chain_id2': str,
+                'protein1': {'seq': str, 'coords': list[list[int]], 'name': str},
+                'protein2': {'seq': str, 'coords': list[list[int]], 'name': str}
+            }
+    """
+    data_list = []
+
+    for pdb_id, rec in parsed_structs.items():
+        sub_df = df.loc[df["PDB ID"] == pdb_id]
+
+        for i, row in sub_df.iterrows():
+            chain_id1, chain_id2 = (
+                row["protein chain ID"],
+                row["peptide chain ID"],
+            )
+            if chain_id1 not in rec or chain_id2 not in rec:
+                # one of the chain doesn't have valid structure in PDB
+                continue
+            protein_complex = {
+                "pdb_id": pdb_id,
+                "chain_id1": chain_id1,
+                "chain_id2": chain_id2,
+            }
+            # remove residues with nan's in coords
+            rec[chain_id1] = remove_nan_residues(rec[chain_id1])
+            rec[chain_id2] = remove_nan_residues(rec[chain_id2])
+            if rec[chain_id1] and rec[chain_id2]:
+                # both chains need to have residues with coords available
+                protein_complex["protein1"] = rec[chain_id1]
+                protein_complex["protein2"] = rec[chain_id2]
+                data_list.append(protein_complex)
+
+    return data_list
 
 
 class PepBDBDataset(BasePPIDataset):
