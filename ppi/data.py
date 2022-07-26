@@ -9,6 +9,7 @@ import torch
 import torch.utils.data as data
 import torch.nn.functional as F
 import dgl
+from tqdm import tqdm
 
 # custom modules
 from ppi.data_utils import remove_nan_residues
@@ -17,19 +18,30 @@ from ppi.data_utils import remove_nan_residues
 class BasePPIDataset(data.Dataset):
     """Dataset for the Base Protein Graph."""
 
-    def __init__(self, data_list):
+    def __init__(self, data_list, preprocess=False):
         super(BasePPIDataset, self).__init__()
 
         self.data_list = data_list
+        if preprocess:
+            print("Preprocessing data...")
+            self._preprocess_all()
 
     def __len__(self):
         return len(self.data_list)
 
     def __getitem__(self, i):
-        return self._preprocess(self.data_list[i])
+        if isinstance(self.data_list[i], dict):
+            # if not processed, process this instance and update
+            self.data_list[i] = self._preprocess(self.data_list[i])
+        return self.data_list[i]
 
     def _preprocess(self, complex):
         raise NotImplementedError
+
+    def _preprocess_all(self):
+        """Preprocess all the records in `data_list` with `_preprocess"""
+        for i in tqdm(range(len(self.data_list))):
+            self.data_list[i] = self._preprocess(self.data_list[i])
 
 
 def prepare_pepbdb_data_list(parsed_structs: dict, df: pd.DataFrame) -> list:
