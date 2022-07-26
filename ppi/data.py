@@ -67,10 +67,14 @@ def prepare_pepbdb_data_list(parsed_structs: dict, df: pd.DataFrame) -> list:
             rec[chain_id1] = remove_nan_residues(rec[chain_id1])
             rec[chain_id2] = remove_nan_residues(rec[chain_id2])
             if rec[chain_id1] and rec[chain_id2]:
-                # both chains need to have residues with coords available
-                protein_complex["protein1"] = rec[chain_id1]
-                protein_complex["protein2"] = rec[chain_id2]
-                data_list.append(protein_complex)
+                if (
+                    len(rec[chain_id1]["seq"]) > 0
+                    and len(rec[chain_id2]["seq"]) > 0
+                ):
+                    # both chains need to have residues with coords available
+                    protein_complex["protein1"] = rec[chain_id1]
+                    protein_complex["protein2"] = rec[chain_id2]
+                    data_list.append(protein_complex)
 
     return data_list
 
@@ -112,7 +116,8 @@ class PepBDBDataset(BasePPIDataset):
             g1s.append(g1)
             g2s.append(g2)
             y = y.sum(axis=1) > 0  # interacting residues on protein1
-            y = torch.tensor(y, dtype=torch.float32)  # shape: (n_nodes, )
+            y = torch.tensor(y, dtype=torch.float32).unsqueeze(-1)
+            # shape: (n_nodes, 1)
             n_nodes = g1.num_nodes()
             assert y.shape[0] == n_nodes
             g1.ndata["target"] = y
@@ -152,7 +157,7 @@ class PepBDBComplexDataset(BasePPIDataset):
             y1 = torch.tensor(y.sum(axis=1) > 0, dtype=torch.float32)
             # interacting residues on protein2
             y2 = torch.tensor(y.sum(axis=0) > 0, dtype=torch.float32)
-            y = torch.cat((y1, y2))  # shape: (n_nodes, )
+            y = torch.cat((y1, y2)).unsqueeze(-1)  # shape: (n_nodes, 1)
             n_nodes = g.num_nodes()
             assert y.shape[0] == n_nodes
             g.ndata["target"] = y
