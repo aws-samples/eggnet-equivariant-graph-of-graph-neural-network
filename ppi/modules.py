@@ -43,7 +43,7 @@ class GVPModel(nn.Module):
         Returns:
             None
         """
-        super(GVPModel, self).__init__(**kwargs)
+        super(GVPModel, self).__init__()
         self.residual = residual
         self.num_outputs = num_outputs
         self.seq_embedding = seq_embedding
