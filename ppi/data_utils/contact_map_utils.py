@@ -15,6 +15,9 @@ from Bio import pairwise2
 from Bio.Seq import Seq
 from Bio.PDB.Polypeptide import three_to_one, is_aa
 from Bio.PDB import PDBParser
+from Bio.PDB.PDBIO import PDBIO
+from Bio.PDB.Entity import Entity as PDBEntity
+from rdkit import Chem
 from tqdm import tqdm
 from .xpdb import SloppyStructureBuilder
 
@@ -212,7 +215,9 @@ def get_atom_coords(residue, target_atoms=["N", "CA", "C", "O"]):
     return np.asarray(atom_coords)
 
 
-def chain_to_coords(chain, target_atoms=["N", "CA", "C", "O"], name=""):
+def chain_to_coords(
+    chain, target_atoms=["N", "CA", "C", "O"], name="", residue_smiles=False
+):
     """Convert a PDB chain in to coordinates of target atoms from all
     AAs
 
@@ -220,6 +225,7 @@ def chain_to_coords(chain, target_atoms=["N", "CA", "C", "O"], name=""):
         chain: a Bio.PDB.Chain object
         target_atoms: Target atoms which residues will be resturned.
         name: String. Name of the protein.
+        residue_smiles: bool. Whether to get a list of smiles strings for the residues
     Returns:
         Dictonary containing protein sequence `seq`, 3D coordinates `coord` and name `name`.
 
@@ -237,6 +243,13 @@ def chain_to_coords(chain, target_atoms=["N", "CA", "C", "O"], name=""):
         # has no or only 1 AA in the chain
         return None
     output["seq"] = pdb_seq
+    if residue_smiles:
+        residues = []
+        for res in chain.get_residues():
+            if is_aa(res):
+                mol = residue_to_mol(res)
+                residues.append(Chem.MolToSmiles(mol))
+        output["residues"] = residues
     # get the atom coords
     coords = np.asarray(
         [
@@ -256,21 +269,26 @@ def read_file_from_s3(bucket: str, prefix: str):
     return obj.get()["Body"]
 
 
-def extract_coords(structure, target_atoms=["N", "CA", "C", "O"]):
+def extract_coords(
+    structure, target_atoms=["N", "CA", "C", "O"], residue_smiles=False
+):
     """
     Extract the atomic coordinates for all the chains.
     """
     records = {}
     for chain in structure.get_chains():
         record = chain_to_coords(
-            chain, name=structure.id, target_atoms=target_atoms
+            chain,
+            name=structure.id,
+            target_atoms=target_atoms,
+            residue_smiles=residue_smiles,
         )
         if record is not None:
             records[chain.id] = record
     return records
 
 
-def parse_pdb_ids(pdb_ids: list) -> dict:
+def parse_pdb_ids(pdb_ids: list, residue_smiles=False) -> dict:
     """
     Parse a list of PDB ids to structures by first retrieving
     PDB files from AWS OpenData Registry, then parse to structure objects.
@@ -295,7 +313,7 @@ def parse_pdb_ids(pdb_ids: list) -> dict:
             structure = pdb_parser.get_structure(
                 pdb_id, gunzip_to_ram(pdb_file)
             )
-            rec = extract_coords(structure)
+            rec = extract_coords(structure, residue_smiles=residue_smiles)
             parsed_structures[pdb_id] = rec
     return parsed_structures
 
@@ -315,3 +333,16 @@ def remove_nan_residues(rec: dict) -> dict:
         rec["seq"] = "".join(np.asarray(list(rec["seq"]))[mask])
         rec["coords"] = coords[mask].tolist()
     return rec
+
+
+def residue_to_mol(residue: PDBEntity, **kwargs) -> Chem.rdchem.Mol:
+    """Convert a parsed Biopython PDB object (Residue, Chain, Structure) to a
+    rdkit Mol object"""
+    # Write the PDB object into PDB string
+    stream = StringIO()
+    pdbio = PDBIO()
+    pdbio.set_structure(residue)
+    pdbio.save(stream)
+    # Parse the PDB string with rdkit
+    mol = Chem.MolFromPDBBlock(stream.getvalue(), **kwargs)
+    return mol
