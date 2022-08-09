@@ -3,3 +3,4 @@ dgl-cu111==0.9.0
 dgllife==0.2.9
 torchmetrics==0.9.3
 pytorch-lightning==1.6.5
+rdkit==2022.3.4

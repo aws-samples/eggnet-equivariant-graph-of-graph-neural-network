@@ -346,3 +346,24 @@ def residue_to_mol(residue: PDBEntity, **kwargs) -> Chem.rdchem.Mol:
     # Parse the PDB string with rdkit
     mol = Chem.MolFromPDBBlock(stream.getvalue(), **kwargs)
     return mol
+
+
+def mol_to_pdb_structure(
+    mol: Chem.rdchem.Mol, pdb_parser=None, protein_id=""
+) -> PDBEntity:
+    """
+    Convert a rdkit Mol object to a Biopython PDB Structure object
+    """
+    # Write the Mol object into PDB string
+    stream = StringIO()
+    stream.write(Chem.MolToPDBBlock(mol))
+    stream.seek(0)
+    # parse the stream into a PDB Structure object
+    if not pdb_parser:
+        pdb_parser = PDBParser(
+            QUIET=True,
+            PERMISSIVE=True,
+            structure_builder=SloppyStructureBuilder(),
+        )
+    structure = pdb_parser.get_structure(protein_id, stream)
+    return structure

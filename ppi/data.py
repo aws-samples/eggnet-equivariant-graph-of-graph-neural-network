@@ -1,6 +1,8 @@
 """
 Pytorch dataset classes from PPI prediction.
 """
+import pickle
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -12,7 +14,7 @@ import dgl
 from tqdm import tqdm
 
 # custom modules
-from ppi.data_utils import remove_nan_residues
+from ppi.data_utils import remove_nan_residues, mol_to_pdb_structure
 
 
 class BasePPIDataset(data.Dataset):
@@ -176,3 +178,42 @@ class PepBDBComplexDataset(BasePPIDataset):
 
             graphs.append(g)
         return dgl.batch(graphs)
+
+
+class PIGNetComplexDataset(data.Dataset):
+    """
+    To work with preprocessed pickles sourced from PDBBind dataset by the
+    PIGNet paper.
+    Modified from https://github.com/ACE-KAIST/PIGNet/blob/main/dataset.py
+    """
+
+    def __init__(
+        self,
+        keys: List[str],
+        data_dir: str,
+        id_to_y: Dict[str, float],
+        featurizer: object,
+    ):
+        self.keys = keys
+        self.data_dir = data_dir
+        self.id_to_y = id_to_y
+        self.featurizer = featurizer
+
+    def __len__(self) -> int:
+        return len(self.keys)
+
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        key = self.keys[idx]
+        with open(self.data_dir + "/" + key, "rb") as f:
+            m1, _, m2, _ = pickle.load(f)
+
+        graph = self.featurizer.featurize(
+            {
+                "ligand": mol_to_pdb_structure(m1),
+                "protein": mol_to_pdb_structure(m2),
+            }
+        )
+        sample = {"graph": graph}
+        sample["affinity"] = self.id_to_y[key] * -1.36
+        sample["key"] = key
+        return sample
