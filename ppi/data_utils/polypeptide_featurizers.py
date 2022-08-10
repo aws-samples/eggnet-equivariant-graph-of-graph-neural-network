@@ -487,7 +487,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
 
         # shape: [ligand_n_atoms, 3]
         ligand_coords = torch.as_tensor(
-            ligand.GetConformers()[0].GetPositions()
+            ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
         )
         # take the centroid of ligand atoms
         ligand_coords = ligand_coords.mean(axis=0).reshape(-1, 3)

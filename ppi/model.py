@@ -50,8 +50,9 @@ class LitGVPModel(pl.LightningModule):
 
         parser.add_argument("--num_layers", type=int, default=3)
         parser.add_argument("--drop_rate", type=float, default=0.1)
-        parser.add_argument("--residual", type=bool, default=True)
-        parser.add_argument("--seq_embedding", type=bool, default=True)
+        parser.add_argument("--residual", action="store_true")
+        parser.add_argument("--seq_embedding", action="store_true")
+        parser.set_defaults(residual=False, seq_embedding=False)
         return parent_parser
 
     def _compute_loss(self, logits, targets):
@@ -81,7 +82,7 @@ class LitGVPModel(pl.LightningModule):
         # graph-level targets
         g_targets = batch["g_targets"]
         loss = self._compute_loss(g_logits, g_targets)
-        self.log("{}_loss".format(prefix), loss, batch_size=batch.batch_size)
+        self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])
         return loss
 
     def training_step(self, batch, batch_idx):

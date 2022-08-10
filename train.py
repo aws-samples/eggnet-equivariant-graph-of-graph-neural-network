@@ -195,7 +195,9 @@ def main(args):
     pl.seed_everything(42, workers=True)
     # 1. Load data
     train_dataset, valid_dataset, test_dataset = get_datasets(
-        name=args.dataset_name, input_type=args.input_type
+        name=args.dataset_name,
+        input_type=args.input_type,
+        data_dir=args.data_dir,
     )
     print(
         "Data loaded:",
@@ -228,7 +230,10 @@ def main(args):
         collate_fn=test_dataset.collate_fn,
     )
     # 3. Prepare model
-    datum = train_dataset[0][0]
+    if args.dataset_name == "PDBBind":
+        datum = train_dataset[0]["graph"]
+    else:
+        datum = train_dataset[0][0]
     dict_args = vars(args)
     model = init_model(datum=datum, num_outputs=1, **dict_args)
     # 4. Training model
@@ -298,6 +303,13 @@ if __name__ == "__main__":
         type=str,
         default="complex",
     )
+    parser.add_argument(
+        "--data_dir",
+        help="directory to dataset",
+        type=str,
+        default="",
+    )
+
     # training hparams
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
     parser.add_argument("--bs", type=int, default=32, help="batch size")
