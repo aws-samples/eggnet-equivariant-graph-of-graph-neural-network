@@ -1,6 +1,7 @@
 """
 Pytorch dataset classes from PPI prediction.
 """
+import os
 import pickle
 from typing import Any, Dict, List, Tuple, Union
 
@@ -204,12 +205,12 @@ class PIGNetComplexDataset(data.Dataset):
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         key = self.keys[idx]
-        with open(self.data_dir + "/" + key, "rb") as f:
+        with open(os.path.join(self.data_dir, "data", key), "rb") as f:
             m1, _, m2, _ = pickle.load(f)
 
         graph = self.featurizer.featurize(
             {
-                "ligand": mol_to_pdb_structure(m1),
+                "ligand": m1,
                 "protein": mol_to_pdb_structure(m2),
             }
         )
@@ -217,3 +218,15 @@ class PIGNetComplexDataset(data.Dataset):
         sample["affinity"] = self.id_to_y[key] * -1.36
         sample["key"] = key
         return sample
+
+    def collate_fn(self, samples):
+        """Collating protein complex graphs and graph-level targets."""
+        graphs = []
+        g_targets = []
+        for rec in samples:
+            graphs.append(rec["graph"])
+            g_targets.append(rec["affinity"])
+        return {
+            "graph": dgl.batch(graphs),
+            "g_targets": torch.tensor(g_targets).unsqueeze(-1),
+        }

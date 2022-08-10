@@ -10,7 +10,8 @@ import dgl
 
 from rdkit import Chem
 from Bio.PDB.Polypeptide import is_aa
-import .contact_map_utils as utils
+from . import contact_map_utils as utils
+
 
 def _normalize(tensor, dim=-1):
     """
@@ -469,10 +470,11 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         Returns:
             dgl.graph instance representing with the protein complex information
         """
-        ligand, protein = protein_complex['ligand'], protein_complex['protein']
+        ligand, protein = protein_complex["ligand"], protein_complex["protein"]
+        ligand = Chem.RemoveHs(ligand)
 
-        protein_coords = [] 
-        residue_smiles = [] # SMILES strings of residues in the protein 
+        protein_coords = []
+        residue_smiles = []  # SMILES strings of residues in the protein
         for res in protein.get_residues():
             if is_aa(res):
                 protein_coords.append(utils.get_atom_coords(res))
@@ -481,24 +483,29 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
 
         # backbone ["N", "CA", "C", "O"] coordinates for proteins
         # shape: [seq_len, 4, 3]
-        protein_coords = np.asarray(protein_coords)
+        protein_coords = torch.as_tensor(np.asarray(protein_coords))
 
         # shape: [ligand_n_atoms, 3]
-        ligand_coords = np.array(ligand.GetConformers()[0].GetPositions())
+        ligand_coords = torch.as_tensor(
+            ligand.GetConformers()[0].GetPositions()
+        )
         # take the centroid of ligand atoms
         ligand_coords = ligand_coords.mean(axis=0).reshape(-1, 3)
 
         # combine protein and ligand coordinates
-        X_ca = np.stack((protein_coords[:, 1], ligand_coords))
+        X_ca = torch.cat((protein_coords[:, 1], ligand_coords), axis=0)
 
-        residues = torch.as_tensor(
-            [
-                self.residue_featurizer(smiles)
-                for smiles in residue_smiles + [Chem.MolToSmiles(ligand)]
-            ],
-            device=self.device,
-            dtype=torch.long,
-        )  # shape: [seq_len + 1, d_embed]
+        residues = (
+            torch.stack(
+                [
+                    self.residue_featurizer.featurize(smiles)
+                    for smiles in residue_smiles + [Chem.MolToSmiles(ligand)]
+                ],
+            )
+            .to(self.device)
+            .to(torch.long)
+        )
+        # shape: [seq_len + 1, d_embed]
 
         # construct knn graph from C-alpha coordinates
         g = dgl.knn_graph(X_ca, k=min(self.top_k, X_ca.shape[0]))
@@ -521,9 +528,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         sidechains = torch.cat([sidechains, torch.zeros(1, 3)])
 
         node_s = torch.cat([dihedrals, residues], dim=-1)
-        node_v = torch.cat(
-            [orientations, sidechains.unsqueeze(-2)], dim=-2
-        )
+        node_v = torch.cat([orientations, sidechains.unsqueeze(-2)], dim=-2)
         edge_s = torch.cat([rbf, pos_embeddings], dim=-1)
         edge_v = _normalize(E_vectors).unsqueeze(-2)
 

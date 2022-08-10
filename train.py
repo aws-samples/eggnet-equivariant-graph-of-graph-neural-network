@@ -1,3 +1,4 @@
+from rdkit import Chem
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -19,8 +20,16 @@ import torchmetrics
 # custom imports
 # from ppi.modules import GATModel, GVPModel
 from ppi.model import LitGVPModel
-from ppi.data import prepare_pepbdb_data_list, PepBDBComplexDataset
-from ppi.data_utils import NaturalComplexFeaturizer
+from ppi.data import (
+    prepare_pepbdb_data_list,
+    PepBDBComplexDataset,
+    PIGNetComplexDataset,
+)
+from ppi.data_utils import (
+    NaturalComplexFeaturizer,
+    PDBBindComplexFeaturizer,
+    FingerprintFeaturizer,
+)
 
 # mapping model names to constructors
 MODEL_CONSTRUCTORS = {
@@ -60,7 +69,7 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
     return model
 
 
-def get_datasets(name="PepBDB", input_type="complex"):
+def get_datasets(name="PepBDB", input_type="complex", data_dir=""):
     if name == "PepBDB":
         # load parsed PepBDB structures
         train_structs = pickle.load(
@@ -120,6 +129,34 @@ def get_datasets(name="PepBDB", input_type="complex"):
             )
         elif input_type == "polypeptides":
             raise NotImplementedError
+    elif name == "PDBBind":
+        # PIGNet parsed PDBBind datasets
+        # read labels
+        with open(os.path.join(data_dir, "pdb_to_affinity.txt")) as f:
+            lines = f.readlines()
+            lines = [l.split() for l in lines]
+            id_to_y = {l[0]: float(l[1]) for l in lines}
+
+        with open(os.path.join(data_dir, "keys/test_keys.pkl"), "rb") as f:
+            test_keys = pickle.load(f)
+
+        with open(os.path.join(data_dir, "keys/train_keys.pkl"), "rb") as f:
+            train_keys = pickle.load(f)
+
+        # featurizer for PDBBind
+        residue_featurizer = FingerprintFeaturizer("MACCS")
+        featurizer = PDBBindComplexFeaturizer(residue_featurizer)
+        test_dataset = PIGNetComplexDataset(
+            test_keys, data_dir, id_to_y, featurizer
+        )
+        n_train = int(0.8 * len(train_keys))
+        train_dataset = PIGNetComplexDataset(
+            train_keys[:n_train], data_dir, id_to_y, featurizer
+        )
+        valid_dataset = PIGNetComplexDataset(
+            train_keys[n_train:], data_dir, id_to_y, featurizer
+        )
+
     return train_dataset, valid_dataset, test_dataset
 
 
@@ -155,6 +192,7 @@ def evaluate(model, data_loader):
 
 
 def main(args):
+    pl.seed_everything(42, workers=True)
     # 1. Load data
     train_dataset, valid_dataset, test_dataset = get_datasets(
         name=args.dataset_name, input_type=args.input_type
