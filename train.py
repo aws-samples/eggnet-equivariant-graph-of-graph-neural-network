@@ -160,7 +160,7 @@ def get_datasets(name="PepBDB", input_type="complex", data_dir=""):
     return train_dataset, valid_dataset, test_dataset
 
 
-def evaluate(model, data_loader):
+def evaluate_node_classification(model, data_loader):
     """Evaluate model on dataset and return metrics."""
     # make predictions on test set
     device = torch.device("cuda:0")
@@ -173,7 +173,7 @@ def evaluate(model, data_loader):
     with torch.no_grad():
         for batch in data_loader:
             batch = batch.to(device)
-            logits = model(batch)
+            logits, _ = model(batch)
             targets = batch.ndata["target"]
             train_mask = batch.ndata["mask"]
             probs = torch.sigmoid(logits[train_mask]).to("cpu")
@@ -187,6 +187,35 @@ def evaluate(model, data_loader):
         "MCC": MCC.compute().item(),
         "AUPR": AUPR.compute().item(),
         "AUROC": AUROC.compute().item(),
+    }
+    return results
+
+
+def evaluate_graph_regression(model, data_loader):
+    """Evaluate model on dataset and return metrics for graph-level regression."""
+    # make predictions on test set
+    device = torch.device("cuda:0")
+    model = model.to(device)
+    model.eval()
+
+    R2Score = torchmetrics.R2Score()
+    SpearmanCorrCoef = torchmetrics.SpearmanCorrCoef()
+    MSE = torchmetrics.MeanSquaredError()
+    with torch.no_grad():
+        for batch in data_loader:
+            batch = {key: val.to(device) for key, val in batch.items()}
+            _, preds = model(batch["graph"])
+            preds = preds.to("cpu")
+            targets = batch["g_targets"].to("cpu")
+
+            r2 = R2Score(preds, targets)
+            rho = SpearmanCorrCoef(preds, targets)
+            mse = MSE(preds, targets)
+
+    results = {
+        "R2": R2Score.compute().item(),
+        "rho": SpearmanCorrCoef.compute().item(),
+        "MSE": MSE.compute().item(),
     }
     return results
 
@@ -262,7 +291,10 @@ def main(args):
         checkpoint_path=checkpoint_callback.best_model_path,
     )
     print("Testing performance on test set")
-    scores = evaluate(model, test_loader)
+    if args.dataset_name == "PepBDB":
+        scores = evaluate_node_classification(model, test_loader)
+    elif args.dataset_name == "PDBBind":
+        scores = evaluate_graph_regression(model, test_loader)
     pprint(scores)
     # save scores to file
     json.dump(
