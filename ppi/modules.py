@@ -89,17 +89,17 @@ class GVPModel(nn.Module):
         Args:
             batch: dgl.DGLGraph
         Returns:
-            logits
+            (logits, g_logits)
         """
-        logits = self._forward(batch)
-        return logits
+        logits, g_logits = self._forward(batch)
+        return logits, g_logits
 
     def _forward(self, g):
         """Helper function to perform GVP network forward pass.
         Args:
             g: dgl.graph
         Returns:
-            logits
+            (logits, g_logits)
         """
         h_V = (g.ndata["node_s"], g.ndata["node_v"])
         h_E = (g.edata["edge_s"], g.edata["edge_v"])
@@ -131,11 +131,12 @@ class GVPModel(nn.Module):
             )
             out = self.W_out(h_V_out)
 
-        # # aggregate node vectors to graph
-        # g.ndata["out"] = out
-        # out = dgl.mean_nodes(g, "out")  # [bs, num_outputs]
+        out = self.dense(out) + 0.5  # [n_nodes, num_outputs]
+        # aggregate node vectors to graph
+        g.ndata["out"] = out
+        graph_out = dgl.mean_nodes(g, "out")  # [n_graphs, num_outputs]
 
-        return self.dense(out) + 0.5  # [n_nodes, num_outputs]
+        return out, graph_out
 
 
 class GATModel(nn.Module):
@@ -205,17 +206,17 @@ class GATModel(nn.Module):
         Args:
             batch: dgl.graph
         Returns:
-            logits
+            (node_logits, graph_logits)
         """
-        logits = self._forward(batch)
-        return logits
+        logits, g_logits = self._forward(batch)
+        return logits, g_logits
 
     def _forward(self, g):
         """Helper function to perform the forward pass.
         Args:
             g: dgl.graph
         Returns:
-            logits
+            (node_logits, graph_logits)
         """
         seq = g.ndata["seq"]
         # one-hot encodings
@@ -231,8 +232,10 @@ class GATModel(nn.Module):
             gat_out = gat_out.view(-1, self.next_in_feats)
 
         out = self.dropout(self.relu(gat_out))  # [n_nodes, next_in_feats]
-        # aggregate node vectors to graph
-        # g.ndata["out"] = out
-        # out = dgl.mean_nodes(g, "out")  # [bs, next_in_feats]
+        out = self.dense(out) + 0.5  # [n_nodes, num_outputs]
 
-        return self.dense(out) + 0.5  # [bs, num_outputs]
+        # aggregate node vectors to graph
+        g.ndata["out"] = out
+        graph_out = dgl.mean_nodes(g, "out")  # [bs, next_in_feats]
+
+        return out, graph_out

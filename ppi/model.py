@@ -56,7 +56,9 @@ class LitGVPModel(pl.LightningModule):
 
     def _compute_loss(self, logits, targets):
         # binary classification
-        loss = F.binary_cross_entropy_with_logits(logits, targets)
+        # loss = F.binary_cross_entropy_with_logits(logits, targets)
+        # regression
+        loss = F.mse_loss(logits, targets)
         return loss
 
     def forward(self, g):
@@ -71,10 +73,14 @@ class LitGVPModel(pl.LightningModule):
         Returns:
             Loss
         """
-        logits = self.forward(batch)
-        targets = batch.ndata["target"]
-        train_mask = batch.ndata["mask"]
-        loss = self._compute_loss(logits[train_mask], targets[train_mask])
+        logits, g_logits = self.forward(batch["graph"])
+        # node-level targets and mask
+        # targets = batch.ndata["target"]
+        # train_mask = batch.ndata["mask"]
+        # loss = self._compute_loss(logits[train_mask], targets[train_mask])
+        # graph-level targets
+        g_targets = batch["g_targets"]
+        loss = self._compute_loss(g_logits, g_targets)
         self.log("{}_loss".format(prefix), loss, batch_size=batch.batch_size)
         return loss
 
