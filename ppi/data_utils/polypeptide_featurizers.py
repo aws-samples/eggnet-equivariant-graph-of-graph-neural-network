@@ -483,7 +483,9 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
 
         # backbone ["N", "CA", "C", "O"] coordinates for proteins
         # shape: [seq_len, 4, 3]
-        protein_coords = torch.as_tensor(np.asarray(protein_coords))
+        protein_coords = torch.as_tensor(
+            np.asarray(protein_coords), dtype=torch.float32
+        )
 
         # shape: [ligand_n_atoms, 3]
         ligand_coords = torch.as_tensor(
