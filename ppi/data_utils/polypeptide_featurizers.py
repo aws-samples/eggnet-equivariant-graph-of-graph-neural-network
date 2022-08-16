@@ -728,7 +728,7 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         protein_graph.ndata["node_v"] = protein_coords
         # protein edge features
         protein_graph.edata["edge_s"] = protein_graph.edata["e"]
-        protein_graph.edata["edge_v"] = protein_vectors.norm(dim=-1)
+        protein_graph.edata["edge_v"] = protein_vectors.normalize(dim=-1)
 
         ligand_vectors = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
         # ligand node features
@@ -736,7 +736,7 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         ligand_graph.ndata["node_v"] = ligand_coords
         # ligand edge features
         ligand_graph.edata["edge_s"] = ligand_graph.edata["e"]
-        ligand_graph.edata["edge_v"] = ligand_vectors.norm(dim=-1)
+        ligand_graph.edata["edge_v"] = ligand_vectors.normalize(dim=-1)
 
         # combine protein and ligand coordinates
         X_ca = torch.cat((protein_coords, ligand_coords), axis=0)
