@@ -737,9 +737,9 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
             device=self.device,
         )
 
-        node_s = torch.cat([protein_graph.ndata['h'], ligand_graph.ndata['h']], dim=-1)
+        node_s = torch.cat([protein_graph.ndata['h'], ligand_graph.ndata['h']], dim=0)
         node_v = X_ca
-        edge_s = torch.cat([protein_graph.edata['e'], ligand_graph.ndata['e']], dim=-1)
+        edge_s = torch.cat([protein_graph.edata['e'], ligand_graph.ndata['e']], dim=0)
         edge_v = _normalize(E_vectors).unsqueeze(-2)
 
         node_s, node_v, edge_s, edge_v = map(
