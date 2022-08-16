@@ -582,7 +582,6 @@ class PDBBindHierarchicalBigraphComplexFeaturizer(BaseFeaturizer):
         """
         ligand, protein = protein_complex["ligand"], protein_complex["protein"]
         ligand = Chem.RemoveHs(ligand)
-
         ligand_graph = mol_to_bigraph(mol=ligand,
                                       node_featurizer=CanonicalAtomFeaturizer, 
                                       edge_featurizer=CanonicalBondFeaturizer)
@@ -610,51 +609,81 @@ class PDBBindHierarchicalBigraphComplexFeaturizer(BaseFeaturizer):
             np.asarray(protein_coords), dtype=torch.float32
         )
 
-        # shape: [ligand_n_atoms, 3]
-        ligand_coords = torch.as_tensor(
-            ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
-        )
-        # # take the centroid of ligand atoms
-        # ligand_coords = ligand_coords.mean(axis=0).reshape(-1, 3)
-
-        # combine protein and ligand coordinates
-        X_ca = torch.cat((protein_coords[:, 1], ligand_coords[:, 1]), axis=0)
-
         residues = (
             torch.stack(
                 [
                     self.residue_featurizer.featurize(smiles)
-                    for smiles in residue_smiles + [Chem.MolToSmiles(ligand)]
+                    for smiles in residue_smiles
                 ],
             )
             .to(self.device)
             .to(torch.long)
         )
         # shape: [seq_len + 1, d_embed]
+        
+        # construct knn graph from C-alpha coordinates
+        ca_coords = protein_coords[:, 1]
+        ca_graph = dgl.knn_graph(ca_coords, k=min(self.top_k, ca_coords.shape[0]))
+        ca_edge_index = ca_graph.edges()
+
+        pos_embeddings = self._positional_embeddings(ca_edge_index)
+        ca_vectors = ca_coords[ca_edge_index[0]] - ca_coords[ca_edge_index[1]]
+        rbf = _rbf(
+            ca_vectors.norm(dim=-1),
+            D_count=self.num_rbf,
+            device=self.device,
+        )
+
+        dihedrals = self._dihedrals(protein_coords)
+        orientations = self._orientations(ca_coords)
+        sidechains = self._sidechains(protein_coords)
+
+        node_s = torch.cat([dihedrals, residues], dim=-1)
+        node_v = torch.cat([orientations, sidechains.unsqueeze(-2)], dim=-2)
+        edge_s = torch.cat([rbf, pos_embeddings], dim=-1)
+        edge_v = _normalize(ca_vectors).unsqueeze(-2)
+
+        node_s, node_v, edge_s, edge_v = map(
+            torch.nan_to_num, (node_s, node_v, edge_s, edge_v)
+        )
+
+        # node features
+        protein_graph.ndata["node_s"] = node_s
+        protein_graph.ndata["node_v"] = node_v
+        # edge features
+        protein_graph.edata["edge_s"] = edge_s
+        protein_graph.edata["edge_v"] = edge_v
+
+        # shape: [ligand_n_atoms, 3]
+        ligand_coords = torch.as_tensor(
+            ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
+        )
+
+        ligand_vectors = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
+        # ligand node features
+        ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
+        ligand_graph.ndata["node_v"] = ligand_coords
+        # ligand edge features
+        ligand_graph.edata["edge_s"] = ligand_graph.edata["e"]
+        ligand_graph.edata["edge_v"] = _normalize(ligand_vectors).unsqueeze(-2)
+
+        # combine protein and ligand coordinates
+        X_cat = torch.cat((protein_coords, ligand_coords), axis=0)
 
         # construct knn graph from C-alpha coordinates
-        complex_graph = dgl.knn_graph(X_ca, k=min(self.top_k, X_ca.shape[0]))
+        complex_graph = dgl.knn_graph(X_cat, k=min(self.top_k, X_cat.shape[0]))
         edge_index = complex_graph.edges()
 
-        pos_embeddings = self._positional_embeddings(edge_index)
-        E_vectors = X_ca[edge_index[0]] - X_ca[edge_index[1]]
+        E_vectors = X_cat[edge_index[0]] - X_cat[edge_index[1]]
         rbf = _rbf(
             E_vectors.norm(dim=-1),
             D_count=self.num_rbf,
             device=self.device,
         )
 
-        dihedrals = self._dihedrals(protein_coords)
-        orientations = self._orientations(X_ca)
-        sidechains = self._sidechains(protein_coords)
-
-        # dummy-fill for the ligand node
-        dihedrals = torch.cat([dihedrals, torch.zeros(1, 6)])
-        sidechains = torch.cat([sidechains, torch.zeros(1, 3)])
-
-        node_s = torch.cat([dihedrals, residues], dim=-1)
-        node_v = torch.cat([orientations, sidechains.unsqueeze(-2)], dim=-2)
-        edge_s = torch.cat([rbf, pos_embeddings], dim=-1)
+        node_s = torch.cat([protein_graph.ndata['node_s'], ligand_graph.ndata['node_s']], dim=0)
+        node_v = X_cat
+        edge_s = rbf
         edge_v = _normalize(E_vectors).unsqueeze(-2)
 
         node_s, node_v, edge_s, edge_v = map(
@@ -662,11 +691,11 @@ class PDBBindHierarchicalBigraphComplexFeaturizer(BaseFeaturizer):
         )
 
         # node features
-        g.ndata["node_s"] = node_s
-        g.ndata["node_v"] = node_v
+        complex_graph.ndata["node_s"] = node_s
+        complex_graph.ndata["node_v"] = node_v
         # edge features
-        g.edata["edge_s"] = edge_s
-        g.edata["edge_v"] = edge_v
+        complex_graph.edata["edge_s"] = edge_s
+        complex_graph.edata["edge_v"] = edge_v
         return protein_graph, ligand_graph, complex_graph
 
 
@@ -721,6 +750,14 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         ligand_coords = torch.as_tensor(
             ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
         )
+
+        ligand_vectors = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
+        # ligand node features
+        ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
+        ligand_graph.ndata["node_v"] = ligand_coords
+        # ligand edge features
+        ligand_graph.edata["edge_s"] = ligand_graph.edata["e"]
+        ligand_graph.edata["edge_v"] = _normalize(ligand_vectors).unsqueeze(-2)
 
         protein_vectors = protein_coords[protein_graph.edges()[0].long()] - protein_coords[protein_graph.edges()[1].long()]
         # protein node features
