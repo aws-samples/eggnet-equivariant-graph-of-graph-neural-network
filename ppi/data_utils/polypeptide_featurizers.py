@@ -615,7 +615,7 @@ class PDBBindHierarchicalBigraphComplexFeaturizer(BaseFeaturizer):
         # construct knn graph from C-alpha coordinates
         ca_coords = protein_coords[:, 1]
         protein_graph = dgl.knn_graph(ca_coords, k=min(self.top_k, ca_coords.shape[0]))
-        ca_edge_index = ca_graph.edges()
+        ca_edge_index = protein_graph.edges()
 
         pos_embeddings = self._positional_embeddings(ca_edge_index)
         ca_vectors = ca_coords[ca_edge_index[0]] - ca_coords[ca_edge_index[1]]
