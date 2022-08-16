@@ -722,19 +722,21 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
             ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
         )
 
+        protein_vectors = protein_coords[protein_graph.edges()[0].long()] - protein_coords[protein_graph.edges()[1].long()]
         # protein node features
         protein_graph.ndata["node_s"] = protein_graph.ndata["h"]
         protein_graph.ndata["node_v"] = protein_coords
         # protein edge features
         protein_graph.edata["edge_s"] = protein_graph.edata["e"]
-        protein_graph.edata["edge_v"] = protein_coords[protein_graph.edges()[0].long()] - protein_coords[protein_graph.edges()[1].long()]
+        protein_graph.edata["edge_v"] = protein_vectors.norm(dim=-1)
 
+        ligand_vectors = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
         # ligand node features
         ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
         ligand_graph.ndata["node_v"] = ligand_coords
         # ligand edge features
         ligand_graph.edata["edge_s"] = ligand_graph.edata["e"]
-        ligand_graph.edata["edge_v"] = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
+        ligand_graph.edata["edge_v"] = ligand_vectors.norm(dim=-1)
 
         # combine protein and ligand coordinates
         X_ca = torch.cat((protein_coords, ligand_coords), axis=0)
