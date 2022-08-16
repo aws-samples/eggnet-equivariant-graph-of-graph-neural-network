@@ -704,12 +704,12 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         ligand = Chem.RemoveHs(ligand)
         ligand_graph = mol_to_bigraph(mol=ligand,
                                       node_featurizer=CanonicalAtomFeaturizer(), 
-                                      edge_featurizer=CanonicalBondFeaturizer()).to(self.device)
+                                      edge_featurizer=CanonicalBondFeaturizer())
 
         protein = Chem.RemoveHs(protein)
         protein_graph = mol_to_bigraph(mol=protein,
                                       node_featurizer=CanonicalAtomFeaturizer(), 
-                                      edge_featurizer=CanonicalBondFeaturizer()).to(self.device)
+                                      edge_featurizer=CanonicalBondFeaturizer())
 
         # shape: [protein_n_atoms, 3]
         # shape: [seq_len, 4, 3]
@@ -723,7 +723,7 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         )
 
         # combine protein and ligand coordinates
-        X_ca = torch.cat((protein_coords[:, 1], ligand_coords[:, 1]), axis=0)
+        X_ca = torch.cat((protein_coords, ligand_coords), axis=0)
 
         # construct knn graph from C-alpha coordinates
         complex_graph = dgl.knn_graph(X_ca, k=min(self.top_k, X_ca.shape[0]))
