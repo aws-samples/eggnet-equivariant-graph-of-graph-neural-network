@@ -15,7 +15,7 @@ from . import contact_map_utils as utils
 from dgllife.utils import mol_to_bigraph
 from dgllife.utils.featurizers import CanonicalAtomFeaturizer, CanonicalBondFeaturizer
 
-from pignet_featurizers import mol_to_feature
+from .pignet_featurizers import mol_to_feature
 
 
 def _normalize(tensor, dim=-1):
