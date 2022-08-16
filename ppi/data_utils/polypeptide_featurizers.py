@@ -882,9 +882,9 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         ligand_graph.edata["edge_v"] = _normalize(ligand_vectors).unsqueeze(-2)
 
         # construct complex graph from rdkit computed interactions
-        n_ligand = interaction_indice.shape[1]
-        n_protein = interaction_indice.shape[2]
-        interaction_indice_pad = F.pad(interaction_indice, (0, n_ligand, n_protein, 0))
+        n_ligand = sample['interaction_indice'].shape[1]
+        n_protein = sample['interaction_indice'].shape[2]
+        interaction_indice_pad = F.pad(sample['interaction_indice'], (0, n_ligand, n_protein, 0))
         src, dst = np.nonzero(interaction_indice_pad.max(dim=0))
         complex_graph = dgl.graph((src, dst))
         edge_index = complex_graph.edges()
@@ -901,7 +901,7 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
 
         node_s = torch.cat([sample['target_h'], sample['ligand_h']], dim=0)
         node_v = torch.cat([sample['target_pos'], sample['ligand_pos']], dim=0)
-        edge_s = interaction_indice
+        edge_s = sample['interaction_indice']
         edge_v = _normalize(E_vectors).unsqueeze(-2)
 
         node_s, node_v, edge_s, edge_v = map(
