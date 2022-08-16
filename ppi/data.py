@@ -230,3 +230,113 @@ class PIGNetComplexDataset(data.Dataset):
             "graph": dgl.batch(graphs),
             "g_targets": torch.tensor(g_targets).unsqueeze(-1),
         }
+
+
+class PIGNetHierarchicalBigraphComplexDataset(data.Dataset):
+    """
+    To work with preprocessed pickles sourced from PDBBind dataset by the
+    PIGNet paper.
+    Modified from https://github.com/ACE-KAIST/PIGNet/blob/main/dataset.py
+    """
+
+    def __init__(
+        self,
+        keys: List[str],
+        data_dir: str,
+        id_to_y: Dict[str, float],
+        featurizer: object,
+    ):
+        self.keys = keys
+        self.data_dir = data_dir
+        self.id_to_y = id_to_y
+        self.featurizer = featurizer
+
+    def __len__(self) -> int:
+        return len(self.keys)
+
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        key = self.keys[idx]
+        with open(os.path.join(self.data_dir, "data", key), "rb") as f:
+            m1, _, m2, _ = pickle.load(f)
+
+        protein_graph, ligand_graph, complex_graph = self.featurizer.featurize(
+            {
+                "ligand": m1,
+                "protein": mol_to_pdb_structure(m2),
+            }
+        )
+        sample = {"protein_graph": protein_graph, "ligand_graph": ligand_graph, "complex_graph": complex_graph}
+        sample["affinity"] = self.id_to_y[key] * -1.36
+        sample["key"] = key
+        return sample
+
+    def collate_fn(self, samples):
+        """Collating protein complex graphs and graph-level targets."""
+        protein_graphs, ligand_graphs, complex_graphs = [], [], []
+        g_targets = []
+        for rec in samples:
+            protein_graphs.append(rec["protein_graph"])
+            ligand_graphs.append(rec["ligand_graph"])
+            complex_graphs.append(rec["complex_graph"])
+            g_targets.append(rec["affinity"])
+        return {
+            "protein_graph": dgl.batch(protein_graphs),
+            "ligand_graph": dgl.batch(ligand_graphs),
+            "complex_graph": dgl.batch(complex_graphs),
+            "g_targets": torch.tensor(g_targets).unsqueeze(-1),
+        }
+
+
+class PIGNetAtomicBigraphComplexDataset(data.Dataset):
+    """
+    To work with preprocessed pickles sourced from PDBBind dataset by the
+    PIGNet paper.
+    Modified from https://github.com/ACE-KAIST/PIGNet/blob/main/dataset.py
+    """
+
+    def __init__(
+        self,
+        keys: List[str],
+        data_dir: str,
+        id_to_y: Dict[str, float],
+        featurizer: object,
+    ):
+        self.keys = keys
+        self.data_dir = data_dir
+        self.id_to_y = id_to_y
+        self.featurizer = featurizer
+
+    def __len__(self) -> int:
+        return len(self.keys)
+
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        key = self.keys[idx]
+        with open(os.path.join(self.data_dir, "data", key), "rb") as f:
+            m1, _, m2, _ = pickle.load(f)
+
+        protein_graph, ligand_graph, complex_graph = self.featurizer.featurize(
+            {
+                "ligand": m1,
+                "protein": m2,
+            }
+        )
+        sample = {"protein_graph": protein_graph, "ligand_graph": ligand_graph, "complex_graph": complex_graph}
+        sample["affinity"] = self.id_to_y[key] * -1.36
+        sample["key"] = key
+        return sample
+
+    def collate_fn(self, samples):
+        """Collating protein complex graphs and graph-level targets."""
+        protein_graphs, ligand_graphs, complex_graphs = [], [], []
+        g_targets = []
+        for rec in samples:
+            protein_graphs.append(rec["protein_graph"])
+            ligand_graphs.append(rec["ligand_graph"])
+            complex_graphs.append(rec["complex_graph"])
+            g_targets.append(rec["affinity"])
+        return {
+            "protein_graph": dgl.batch(protein_graphs),
+            "ligand_graph": dgl.batch(ligand_graphs),
+            "complex_graph": dgl.batch(complex_graphs),
+            "g_targets": torch.tensor(g_targets).unsqueeze(-1),
+        }
