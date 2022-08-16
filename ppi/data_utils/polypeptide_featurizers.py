@@ -620,17 +620,17 @@ class PDBBindHierarchicalBigraphComplexFeaturizer(BaseFeaturizer):
         # combine protein and ligand coordinates
         X_ca = torch.cat((protein_coords[:, 1], ligand_coords[:, 1]), axis=0)
 
-        # residues = (
-        #     torch.stack(
-        #         [
-        #             self.residue_featurizer.featurize(smiles)
-        #             for smiles in residue_smiles + [Chem.MolToSmiles(ligand)]
-        #         ],
-        #     )
-        #     .to(self.device)
-        #     .to(torch.long)
-        # )
-        # # shape: [seq_len + 1, d_embed]
+        residues = (
+            torch.stack(
+                [
+                    self.residue_featurizer.featurize(smiles)
+                    for smiles in residue_smiles + [Chem.MolToSmiles(ligand)]
+                ],
+            )
+            .to(self.device)
+            .to(torch.long)
+        )
+        # shape: [seq_len + 1, d_embed]
 
         # construct knn graph from C-alpha coordinates
         complex_graph = dgl.knn_graph(X_ca, k=min(self.top_k, X_ca.shape[0]))
@@ -721,6 +721,20 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         ligand_coords = torch.as_tensor(
             ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
         )
+
+        # protein node features
+        protein_graph.ndata["node_s"] = protein_graph.ndata["h"]
+        protein_graph.ndata["node_v"] = protein_coords
+        # protein edge features
+        protein_graph.edata["edge_s"] = protein_graph.edata["e"]
+        protein_graph.edata["edge_v"] = torch.zeros(protein_graph.num_edges(), 3)
+
+        # ligand node features
+        ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
+        ligand_graph.ndata["node_v"] = ligand_coords
+        # ligand edge features
+        ligand_graph.edata["edge_s"] = ligand_graph.edata["e"]
+        ligand_graph.edata["edge_v"] = torch.zeros(ligand_graph.num_edges(), 3)
 
         # combine protein and ligand coordinates
         X_ca = torch.cat((protein_coords, ligand_coords), axis=0)
