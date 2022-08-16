@@ -659,7 +659,7 @@ class PDBBindHierarchicalBigraphComplexFeaturizer(BaseFeaturizer):
         ligand_graph.edata["edge_v"] = _normalize(ligand_vectors).unsqueeze(-2)
 
         # combine protein and ligand coordinates
-        X_cat = torch.cat((protein_coords, ligand_coords), axis=0)
+        X_cat = torch.cat((protein_coords[:, 1], ligand_coords), axis=0)
 
         # construct knn graph from C-alpha coordinates
         complex_graph = dgl.knn_graph(X_cat, k=min(self.top_k, X_cat.shape[0]))
