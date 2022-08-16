@@ -588,20 +588,11 @@ class PDBBindHierarchicalBigraphComplexFeaturizer(BaseFeaturizer):
 
         protein_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
-        res_mols = []
         for res in protein.get_residues():
             if is_aa(res):
                 protein_coords.append(utils.get_atom_coords(res))
                 res_mol = utils.residue_to_mol(res)
                 residue_smiles.append(Chem.MolToSmiles(res_mol))
-                res_mols.append(Chem.RemoveHs(res_mol))
-
-        residue_graphs = []
-        for res_mol in res_mols:
-            protein_graph = mol_to_bigraph(mol=ligand,
-                                           node_featurizer=CanonicalAtomFeaturizer, 
-                                           edge_featurizer=CanonicalBondFeaturizer)
-            residue_graphs.append(protein_graph)
 
         # backbone ["N", "CA", "C", "O"] coordinates for proteins
         # shape: [seq_len, 4, 3]
