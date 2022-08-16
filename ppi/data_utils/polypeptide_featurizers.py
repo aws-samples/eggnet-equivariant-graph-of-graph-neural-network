@@ -686,7 +686,7 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
 
     def __init__(self, residue_featurizer, **kwargs):
         self.residue_featurizer = residue_featurizer
-        super(PDBBindHierarchicalBigraphComplexFeaturizer, self).__init__(**kwargs)
+        super(PDBBindAtomicBigraphComplexFeaturizer, self).__init__(**kwargs)
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
         """Featurizes the protein complex information as a graph for the GNN
