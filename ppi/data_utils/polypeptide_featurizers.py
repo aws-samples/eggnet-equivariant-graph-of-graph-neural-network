@@ -884,11 +884,11 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         # construct complex graph from rdkit computed interactions
         n_ligand = sample['interaction_indice'].shape[1]
         n_protein = sample['interaction_indice'].shape[2]
-        interaction_indice_pad = F.pad(torch.from_numpy(sample['interaction_indice']), 
-                                       (0, n_ligand, n_protein, 0))
+        interaction_indice_pad = np.pad(sample['interaction_indice'], 
+                                [(0, 0), (n_protein, 0), (0, n_ligand)])
         print(interaction_indice_pad.max(dim=0))
-        src, dst = np.nonzero(interaction_indice_pad.max(dim=0))
-        complex_graph = dgl.graph((src, dst))
+        src, dst = np.nonzero(interaction_indice_pad.max(axis=0))
+        complex_graph = dgl.graph((torch.from_numpy(src), torch.from_numpy(dst)))
         edge_index = complex_graph.edges()
 
         # combine protein and ligand coordinates
