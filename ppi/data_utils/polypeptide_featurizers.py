@@ -583,8 +583,8 @@ class PDBBindHierarchicalBigraphComplexFeaturizer(BaseFeaturizer):
         ligand, protein = protein_complex["ligand"], protein_complex["protein"]
         ligand = Chem.RemoveHs(ligand)
         ligand_graph = mol_to_bigraph(mol=ligand,
-                                      node_featurizer=CanonicalAtomFeaturizer, 
-                                      edge_featurizer=CanonicalBondFeaturizer)
+                                      node_featurizer=CanonicalAtomFeaturizer(), 
+                                      edge_featurizer=CanonicalBondFeaturizer())
 
         protein_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
