@@ -886,6 +886,7 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         n_protein = sample['interaction_indice'].shape[2]
         interaction_indice_pad = F.pad(torch.from_numpy(sample['interaction_indice']), 
                                        (0, n_ligand, n_protein, 0))
+        print(interaction_indice_pad.max(dim=0))
         src, dst = np.nonzero(interaction_indice_pad.max(dim=0))
         complex_graph = dgl.graph((src, dst))
         edge_index = complex_graph.edges()
