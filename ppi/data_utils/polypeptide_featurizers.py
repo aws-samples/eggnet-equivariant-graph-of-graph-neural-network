@@ -840,11 +840,13 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         ligand_graph = mol_to_bigraph(mol=ligand,
                                       node_featurizer=CanonicalAtomFeaturizer(), 
                                       edge_featurizer=CanonicalBondFeaturizer())
+        print(ligand_graph.num_nodes())
 
         protein = Chem.RemoveHs(protein)
         protein_graph = mol_to_bigraph(mol=protein,
                                       node_featurizer=CanonicalAtomFeaturizer(), 
                                       edge_featurizer=CanonicalBondFeaturizer())
+        print(protein_graph.num_nodes())
 
         # shape: [protein_n_atoms, 3]
         # shape: [seq_len, 4, 3]
