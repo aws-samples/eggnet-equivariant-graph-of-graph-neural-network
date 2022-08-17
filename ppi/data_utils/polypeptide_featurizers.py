@@ -904,7 +904,7 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
                             torch.from_numpy(sample['ligand_h'])], dim=0)
         node_v = torch.cat([torch.from_numpy(sample['target_pos']), 
                             torch.from_numpy(sample['ligand_pos'])], dim=0)
-        edge_s = torch.from_numpy(sample['interaction_indice'])
+        edge_s = torch.from_numpy(interaction_indice_pad)
         edge_v = _normalize(E_vectors).unsqueeze(-2)
 
         node_s, node_v, edge_s, edge_v = map(
