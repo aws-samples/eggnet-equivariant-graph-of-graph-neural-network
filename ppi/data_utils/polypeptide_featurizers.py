@@ -720,7 +720,7 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
             protein_complex: dict
             {
                 'ligand': rdkit.Chem object of the ligand,
-                'protein': PDB.Structure object of the protein,
+                'protein': rdkit.Chem object object of the protein,
             }
         Returns:
             dgl.graph instance representing with the protein complex information
@@ -828,7 +828,7 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
             protein_complex: dict
             {
                 'ligand': rdkit.Chem object of the ligand,
-                'protein': PDB.Structure object of the protein,
+                'protein': rdkit.Chem object of the protein,
             }
         Returns:
             dgl.graph instance representing with the protein complex information
@@ -840,13 +840,11 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         ligand_graph = mol_to_bigraph(mol=ligand,
                                       node_featurizer=CanonicalAtomFeaturizer(), 
                                       edge_featurizer=CanonicalBondFeaturizer())
-        print(ligand_graph.num_nodes())
 
         protein = Chem.RemoveHs(protein)
         protein_graph = mol_to_bigraph(mol=protein,
                                       node_featurizer=CanonicalAtomFeaturizer(), 
                                       edge_featurizer=CanonicalBondFeaturizer())
-        print(protein_graph.num_nodes())
 
         # shape: [protein_n_atoms, 3]
         # shape: [seq_len, 4, 3]
@@ -890,10 +888,7 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
                                 [(0, 0), (n_protein, 0), (0, n_ligand)])
         src, dst = np.nonzero(interaction_indice_pad.max(axis=0))
         complex_graph = dgl.graph((torch.from_numpy(src), torch.from_numpy(dst)))
-        print(complex_graph)
         edge_index = complex_graph.edges()
-        print(interaction_indice_pad.shape)
-        print(interaction_indice_pad.sum())
 
         # combine protein and ligand coordinates
         X_ca = torch.cat((protein_coords, ligand_coords), axis=0)
@@ -910,7 +905,6 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         node_v = torch.cat([torch.from_numpy(sample['target_pos']), 
                             torch.from_numpy(sample['ligand_pos'])], dim=0)
         edge_s = torch.from_numpy(interaction_indice_pad[:, src, dst]).T
-        print(edge_s.shape)
         edge_v = _normalize(E_vectors).unsqueeze(-2)
 
         node_s, node_v, edge_s, edge_v = map(
