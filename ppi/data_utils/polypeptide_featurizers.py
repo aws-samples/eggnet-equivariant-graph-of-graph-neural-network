@@ -888,6 +888,7 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
                                 [(0, 0), (n_protein, 0), (0, n_ligand)])
         src, dst = np.nonzero(interaction_indice_pad.max(axis=0))
         complex_graph = dgl.graph((torch.from_numpy(src), torch.from_numpy(dst)))
+        print(complex_graph)
         edge_index = complex_graph.edges()
 
         # combine protein and ligand coordinates
