@@ -199,11 +199,22 @@ class PIGNetComplexDataset(data.Dataset):
         self.data_dir = data_dir
         self.id_to_y = id_to_y
         self.featurizer = featurizer
+        self.processed_data = [None] * len(self)
 
     def __len__(self) -> int:
         return len(self.keys)
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
+        if self.processed_data[idx] is None:
+            self.processed_data[idx] = self._preprocess(idx)
+        return self.processed_data[idx]
+
+    def _preprocess_all(self):
+        """Preprocess all the records in `data_list` with `_preprocess"""
+        for i in tqdm(range(len(self))):
+            self.processed_data[i] = self._preprocess(i)
+
+    def _preprocess(self, idx: int) -> Dict[str, Any]:
         key = self.keys[idx]
         with open(os.path.join(self.data_dir, "data", key), "rb") as f:
             m1, _, m2, _ = pickle.load(f)
