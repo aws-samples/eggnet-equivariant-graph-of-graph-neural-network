@@ -78,6 +78,13 @@ if __name__ == "__main__":
         default="gvp",
         help="Choose from %s" % ", ".join(list(MODEL_CONSTRUCTORS.keys())),
     )
+    parser.add_argument(
+        "--checkpoint_path",
+        type=str,
+        help="ptl checkpoint path like `lightning_logs/version_x`",
+        required=True,
+    )
+
     # dataset params
     parser.add_argument(
         "--dataset_name",
