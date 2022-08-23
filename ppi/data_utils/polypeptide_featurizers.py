@@ -13,7 +13,7 @@ from Bio.PDB.Polypeptide import is_aa
 from . import contact_map_utils as utils
 
 from dgllife.utils import mol_to_bigraph
-from dgllife.utils.featurizers import CanonicalAtomFeaturizer, CanonicalBondFeaturizer
+from dgllife.utils.featurizers import CanonicalAtomFeaturizer, CanonicalBondFeaturizer, PretrainAtomFeaturizer, PretrainBondFeaturizer
 
 from .pignet_featurizers import mol_to_feature
 
@@ -552,7 +552,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         return g
 
 
-class PDBBindHierarchicalBigraphComplexFeaturizer(BaseFeaturizer):
+class PDBBindHeteroBigraphComplexFeaturizer(BaseFeaturizer):
     """
     For protein complex from PDBBind dataset that contains multiple
     protein chains with natural amino acids and one ligand (small molecule).
@@ -566,9 +566,17 @@ class PDBBindHierarchicalBigraphComplexFeaturizer(BaseFeaturizer):
         (g_rec, g_lig): featurized receptor graph, featurized ligand graph
     """
 
-    def __init__(self, residue_featurizer, **kwargs):
+    def __init__(self, residue_featurizer, molecular_featurizers="canonical", **kwargs):
         self.residue_featurizer = residue_featurizer
-        super(PDBBindHierarchicalBigraphComplexFeaturizer, self).__init__(**kwargs)
+        if molecular_featurizers == "canonical":
+            self.node_featurizer = CanonicalAtomFeaturizer()
+            self.edge_featurizer = CanonicalBondFeaturizer()
+        elif molecular_featurizers == "pretrained":
+            self.node_featurizer = PretrainAtomFeaturizer()
+            self.edge_featurizer = PretrainBondFeaturizer()
+        else:
+            raise NotImplementedError()
+        super(PDBBindHeteroBigraphComplexFeaturizer, self).__init__(**kwargs)
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
         """Featurizes the protein complex information as a graph for the GNN
@@ -585,8 +593,8 @@ class PDBBindHierarchicalBigraphComplexFeaturizer(BaseFeaturizer):
         ligand, protein = protein_complex["ligand"], protein_complex["protein"]
         ligand = Chem.RemoveHs(ligand)
         ligand_graph = mol_to_bigraph(mol=ligand,
-                                      node_featurizer=CanonicalAtomFeaturizer(), 
-                                      edge_featurizer=CanonicalBondFeaturizer())
+                                      node_featurizer=self.node_featurizer, 
+                                      edge_featurizer=self.edge_featurizer)
 
         protein_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
@@ -709,8 +717,16 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         (g_rec, g_lig): featurized receptor graph, featurized ligand graph
     """
 
-    def __init__(self, residue_featurizer, **kwargs):
+    def __init__(self, residue_featurizer, molecular_featurizers="canonical", **kwargs):
         self.residue_featurizer = residue_featurizer
+        if molecular_featurizers == "canonical":
+            self.node_featurizer = CanonicalAtomFeaturizer()
+            self.edge_featurizer = CanonicalBondFeaturizer()
+        elif molecular_featurizers == "pretrained":
+            self.node_featurizer = PretrainAtomFeaturizer()
+            self.edge_featurizer = PretrainBondFeaturizer()
+        else:
+            raise NotImplementedError()
         super(PDBBindAtomicBigraphComplexFeaturizer, self).__init__(**kwargs)
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
@@ -728,13 +744,13 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         ligand, protein = protein_complex["ligand"], protein_complex["protein"]
         ligand = Chem.RemoveHs(ligand)
         ligand_graph = mol_to_bigraph(mol=ligand,
-                                      node_featurizer=CanonicalAtomFeaturizer(), 
-                                      edge_featurizer=CanonicalBondFeaturizer())
+                                      node_featurizer=self.node_featurizer, 
+                                      edge_featurizer=self.edge_featurizer)
 
         protein = Chem.RemoveHs(protein)
         protein_graph = mol_to_bigraph(mol=protein,
-                                      node_featurizer=CanonicalAtomFeaturizer(), 
-                                      edge_featurizer=CanonicalBondFeaturizer())
+                                      node_featurizer=self.node_featurizer, 
+                                      edge_featurizer=self.edge_featurizer)
 
         # shape: [protein_n_atoms, 3]
         # shape: [seq_len, 4, 3]
@@ -817,8 +833,16 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         (g_rec, g_lig): featurized receptor graph, featurized ligand graph
     """
 
-    def __init__(self, residue_featurizer, **kwargs):
+    def __init__(self, residue_featurizer, molecular_featurizers="canonical", **kwargs):
         self.residue_featurizer = residue_featurizer
+        if molecular_featurizers == "canonical":
+            self.node_featurizer = CanonicalAtomFeaturizer()
+            self.edge_featurizer = CanonicalBondFeaturizer()
+        elif molecular_featurizers == "pretrained":
+            self.node_featurizer = PretrainAtomFeaturizer()
+            self.edge_featurizer = PretrainBondFeaturizer()
+        else:
+            raise NotImplementedError()
         super(PIGNetAtomicBigraphComplexFeaturizer, self).__init__(**kwargs)
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
@@ -838,13 +862,13 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
 
         ligand = Chem.RemoveHs(ligand)
         ligand_graph = mol_to_bigraph(mol=ligand,
-                                      node_featurizer=CanonicalAtomFeaturizer(), 
-                                      edge_featurizer=CanonicalBondFeaturizer())
+                                      node_featurizer=self.node_featurizer, 
+                                      edge_featurizer=self.edge_featurizer)
 
         protein = Chem.RemoveHs(protein)
         protein_graph = mol_to_bigraph(mol=protein,
-                                      node_featurizer=CanonicalAtomFeaturizer(), 
-                                      edge_featurizer=CanonicalBondFeaturizer())
+                                      node_featurizer=self.node_featurizer, 
+                                      edge_featurizer=self.edge_featurizer)
 
         # shape: [protein_n_atoms, 3]
         # shape: [seq_len, 4, 3]
