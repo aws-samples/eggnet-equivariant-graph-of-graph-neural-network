@@ -69,7 +69,9 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
     return model
 
 
-def get_datasets(name="PepBDB", input_type="complex", data_dir=""):
+def get_datasets(
+    name="PepBDB", input_type="complex", data_dir="", test_only=False
+):
     if name == "PepBDB":
         # load parsed PepBDB structures
         train_structs = pickle.load(
@@ -140,24 +142,28 @@ def get_datasets(name="PepBDB", input_type="complex", data_dir=""):
         with open(os.path.join(data_dir, "keys/test_keys.pkl"), "rb") as f:
             test_keys = pickle.load(f)
 
-        with open(os.path.join(data_dir, "keys/train_keys.pkl"), "rb") as f:
-            train_keys = pickle.load(f)
-
         # featurizer for PDBBind
         residue_featurizer = FingerprintFeaturizer("MACCS")
         featurizer = PDBBindComplexFeaturizer(residue_featurizer)
         test_dataset = PIGNetComplexDataset(
             test_keys, data_dir, id_to_y, featurizer
         )
-        n_train = int(0.8 * len(train_keys))
-        train_dataset = PIGNetComplexDataset(
-            train_keys[:n_train], data_dir, id_to_y, featurizer
-        )
-        valid_dataset = PIGNetComplexDataset(
-            train_keys[n_train:], data_dir, id_to_y, featurizer
-        )
+        if not test_only:
+            with open(
+                os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+            ) as f:
+                train_keys = pickle.load(f)
+            n_train = int(0.8 * len(train_keys))
+            train_dataset = PIGNetComplexDataset(
+                train_keys[:n_train], data_dir, id_to_y, featurizer
+            )
+            valid_dataset = PIGNetComplexDataset(
+                train_keys[n_train:], data_dir, id_to_y, featurizer
+            )
 
-    return train_dataset, valid_dataset, test_dataset
+            return train_dataset, valid_dataset, test_dataset
+        else:
+            return test_dataset
 
 
 def evaluate_node_classification(model, data_loader):
