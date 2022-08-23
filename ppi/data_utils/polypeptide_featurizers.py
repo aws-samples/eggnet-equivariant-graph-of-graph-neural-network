@@ -552,7 +552,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         return g
 
 
-class PDBBindHeteroBigraphComplexFeaturizer(BaseFeaturizer):
+class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
     """
     For protein complex from PDBBind dataset that contains multiple
     protein chains with natural amino acids and one ligand (small molecule).
@@ -576,7 +576,7 @@ class PDBBindHeteroBigraphComplexFeaturizer(BaseFeaturizer):
             self.edge_featurizer = PretrainBondFeaturizer()
         else:
             raise NotImplementedError()
-        super(PDBBindHeteroBigraphComplexFeaturizer, self).__init__(**kwargs)
+        super(PIGNetHeteroBigraphComplexFeaturizer, self).__init__(**kwargs)
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
         """Featurizes the protein complex information as a graph for the GNN
@@ -703,7 +703,7 @@ class PDBBindHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         return protein_graph, ligand_graph, complex_graph
 
 
-class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
+class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
     """
     For protein complex from PDBBind dataset that contains multiple
     protein chains with natural amino acids and one ligand (small molecule).
@@ -727,7 +727,7 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
             self.edge_featurizer = PretrainBondFeaturizer()
         else:
             raise NotImplementedError()
-        super(PDBBindAtomicBigraphComplexFeaturizer, self).__init__(**kwargs)
+        super(PIGNetAtomicBigraphGeometricComplexFeaturizer, self).__init__(**kwargs)
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
         """Featurizes the protein complex information as a graph for the GNN
@@ -819,7 +819,7 @@ class PDBBindAtomicBigraphComplexFeaturizer(BaseFeaturizer):
         return protein_graph, ligand_graph, complex_graph
 
 
-class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
+class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
     """
     For protein complex from PDBBind dataset that contains multiple
     protein chains with natural amino acids and one ligand (small molecule).
@@ -843,7 +843,7 @@ class PIGNetAtomicBigraphComplexFeaturizer(BaseFeaturizer):
             self.edge_featurizer = PretrainBondFeaturizer()
         else:
             raise NotImplementedError()
-        super(PIGNetAtomicBigraphComplexFeaturizer, self).__init__(**kwargs)
+        super(PIGNetAtomicBigraphPhysicalComplexFeaturizer, self).__init__(**kwargs)
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
         """Featurizes the protein complex information as a graph for the GNN

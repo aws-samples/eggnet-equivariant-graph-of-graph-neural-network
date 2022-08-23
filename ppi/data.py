@@ -232,7 +232,7 @@ class PIGNetComplexDataset(data.Dataset):
         }
 
 
-class PIGNetHierarchicalBigraphComplexDataset(data.Dataset):
+class PIGNetHeteroBigraphComplexDataset(data.Dataset):
     """
     To work with preprocessed pickles sourced from PDBBind dataset by the
     PIGNet paper.
