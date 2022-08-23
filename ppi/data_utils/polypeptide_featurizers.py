@@ -571,9 +571,11 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         if molecular_featurizers == "canonical":
             self.node_featurizer = CanonicalAtomFeaturizer()
             self.edge_featurizer = CanonicalBondFeaturizer()
+            self.add_self_loop = False
         elif molecular_featurizers == "pretrained":
             self.node_featurizer = PretrainAtomFeaturizer()
             self.edge_featurizer = PretrainBondFeaturizer()
+            self.add_self_loop = True
         else:
             raise NotImplementedError()
         super(PIGNetHeteroBigraphComplexFeaturizer, self).__init__(**kwargs)
@@ -594,7 +596,8 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         ligand = Chem.RemoveHs(ligand)
         ligand_graph = mol_to_bigraph(mol=ligand,
                                       node_featurizer=self.node_featurizer, 
-                                      edge_featurizer=self.edge_featurizer)
+                                      edge_featurizer=self.edge_featurizer,
+                                      add_self_loop=self.add_self_loop)
 
         protein_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
@@ -722,9 +725,11 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
         if molecular_featurizers == "canonical":
             self.node_featurizer = CanonicalAtomFeaturizer()
             self.edge_featurizer = CanonicalBondFeaturizer()
+            self.add_self_loop = False
         elif molecular_featurizers == "pretrained":
             self.node_featurizer = PretrainAtomFeaturizer()
             self.edge_featurizer = PretrainBondFeaturizer()
+            self.add_self_loop = True
         else:
             raise NotImplementedError()
         super(PIGNetAtomicBigraphGeometricComplexFeaturizer, self).__init__(**kwargs)
@@ -745,12 +750,14 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
         ligand = Chem.RemoveHs(ligand)
         ligand_graph = mol_to_bigraph(mol=ligand,
                                       node_featurizer=self.node_featurizer, 
-                                      edge_featurizer=self.edge_featurizer)
+                                      edge_featurizer=self.edge_featurizer,
+                                      add_self_loop=self.add_self_loop)
 
         protein = Chem.RemoveHs(protein)
         protein_graph = mol_to_bigraph(mol=protein,
                                       node_featurizer=self.node_featurizer, 
-                                      edge_featurizer=self.edge_featurizer)
+                                      edge_featurizer=self.edge_featurizer,
+                                      add_self_loop=self.add_self_loop)
 
         # shape: [protein_n_atoms, 3]
         # shape: [seq_len, 4, 3]
@@ -838,9 +845,11 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
         if molecular_featurizers == "canonical":
             self.node_featurizer = CanonicalAtomFeaturizer()
             self.edge_featurizer = CanonicalBondFeaturizer()
+            self.add_self_loop = False
         elif molecular_featurizers == "pretrained":
             self.node_featurizer = PretrainAtomFeaturizer()
             self.edge_featurizer = PretrainBondFeaturizer()
+            self.add_self_loop = True
         else:
             raise NotImplementedError()
         super(PIGNetAtomicBigraphPhysicalComplexFeaturizer, self).__init__(**kwargs)
@@ -863,12 +872,14 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
         ligand = Chem.RemoveHs(ligand)
         ligand_graph = mol_to_bigraph(mol=ligand,
                                       node_featurizer=self.node_featurizer, 
-                                      edge_featurizer=self.edge_featurizer)
+                                      edge_featurizer=self.edge_featurizer,
+                                      add_self_loop=self.add_self_loop)
 
         protein = Chem.RemoveHs(protein)
         protein_graph = mol_to_bigraph(mol=protein,
                                       node_featurizer=self.node_featurizer, 
-                                      edge_featurizer=self.edge_featurizer)
+                                      edge_featurizer=self.edge_featurizer,
+                                      add_self_loop=self.add_self_loop)
 
         # shape: [protein_n_atoms, 3]
         # shape: [seq_len, 4, 3]
