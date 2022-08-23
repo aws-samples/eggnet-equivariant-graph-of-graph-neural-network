@@ -1,17 +1,15 @@
 """
 Evaluate a trained pytorch-lightning model on a given dataset.
 """
+from train import get_datasets, evaluate_graph_regression, MODEL_CONSTRUCTORS
+
 import pytorch_lightning as pl
+from torch.utils.data import DataLoader
 
 import argparse
 import os
 import json
 from pprint import pprint
-from torch.utils.data import DataLoader
-
-# custom imports
-from ppi.model import LitGVPModel
-from train import get_datasets, evaluate_graph_regression, MODEL_CONSTRUCTORS
 
 
 def load_model_from_checkpoint(
@@ -62,7 +60,7 @@ def main(args):
         scores,
         open(
             os.path.join(
-                args.checkpoint_path, "{args.dataset_alias}_scores.json"
+                args.checkpoint_path, f"{args.dataset_alias}_scores.json"
             ),
             "w",
         ),
