@@ -100,18 +100,28 @@ class LitGVPMultiStageModel(pl.LightningModule):
         super().__init__()
         hparams = [
             "lr",
-            "node_in_dim",
-            "node_h_dim",
-            "edge_in_dim",
-            "edge_h_dim",
-            "num_layers",
+            "protein_node_in_dim",
+            "protein_node_h_dim",
+            "protein_edge_in_dim",
+            "protein_edge_h_dim",
+            "protein_num_layers",
+            "ligand_node_in_dim",
+            "ligand_node_h_dim",
+            "ligand_edge_in_dim",
+            "ligand_edge_h_dim",
+            "ligand_num_layers",
+            "complex_node_in_dim",
+            "complex_node_h_dim",
+            "complex_edge_in_dim",
+            "complex_edge_h_dim",
+            "complex_num_layers",
             "drop_rate",
             "residual",
             "seq_embedding",
         ]
         self.save_hyperparameters(*hparams)
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
-        self.model = GVPModel(**model_kwargs)
+        self.model = GVPMultiStageModel(**model_kwargs)
 
     @staticmethod
     def add_model_specific_args(parent_parser):
