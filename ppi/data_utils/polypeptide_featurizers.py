@@ -666,7 +666,7 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         ligand_vectors = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
         # ligand node features
         ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
-        ligand_graph.ndata["node_v"] = ligand_coords
+        ligand_graph.ndata["node_v"] = ligand_coords.unsqueeze(-2)
         # ligand edge features
         ligand_graph.edata["edge_s"] = ligand_graph.edata["e"]
         ligand_graph.edata["edge_v"] = _normalize(ligand_vectors).unsqueeze(-2)
