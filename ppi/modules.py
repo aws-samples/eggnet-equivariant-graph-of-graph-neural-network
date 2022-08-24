@@ -441,7 +441,7 @@ class GVPMultiStageModel(nn.Module):
         if self.seq_embedding:
             seq_l = ligand_graph.ndata["seq"]
             # one-hot encodings
-            seq_l = self.W_s_l(seq)
+            seq_l = self.W_s_l(seq_l)
             h_V_l = (torch.cat([h_V_l[0], seq_l], dim=-1), h_V_l[1])
 
         h_V_l = self.W_v_l(h_V_l)
@@ -456,7 +456,7 @@ class GVPMultiStageModel(nn.Module):
         else:
             h_V_out_l = []  # collect outputs from all GVP Conv layers
             for ligand_layer in self.ligand_layers:
-                h_V_l = ligand_layer(g)
+                h_V_l = ligand_layer(ligand_graph)
                 h_V_out_l.append(h_V_l)
                 ligand_graph.ndata["node_s"], ligand_graph.ndata["node_v"] = h_V_l[0], h_V_l[1]
             # concat outputs from GVPConvLayers (separatedly for s and V)
