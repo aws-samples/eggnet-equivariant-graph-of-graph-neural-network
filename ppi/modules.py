@@ -239,3 +239,273 @@ class GATModel(nn.Module):
         graph_out = dgl.mean_nodes(g, "out")  # [bs, next_in_feats]
 
         return out, graph_out
+
+
+class GVPMultiStageModel(nn.Module):
+    """GVP-GNN Model (structure-only) modified from `MQAModel`:
+    https://github.com/drorlab/gvp-pytorch/blob/main/gvp/model.py
+    """
+
+    def __init__(
+        self,
+        protein_node_in_dim: Tuple[int, int],
+        protein_node_h_dim: Tuple[int, int],
+        protein_edge_in_dim: Tuple[int, int],
+        protein_edge_h_dim: Tuple[int, int],
+        ligand_node_in_dim: Tuple[int, int],
+        ligand_node_h_dim: Tuple[int, int],
+        ligand_edge_in_dim: Tuple[int, int],
+        ligand_edge_h_dim: Tuple[int, int],
+        complex_node_in_dim: Tuple[int, int],
+        complex_node_h_dim: Tuple[int, int],
+        complex_edge_in_dim: Tuple[int, int],
+        complex_edge_h_dim: Tuple[int, int],
+        protein_num_layers=3,
+        ligand_num_layers=3,
+        complex_num_layers=3,
+        drop_rate=0.1,
+        residual=True,
+        num_outputs=1,
+        seq_embedding=True,
+        **kwargs,
+    ):
+        """Initializes the module
+        Args:
+            node_in_dim: node dimensions (s, V) in input graph
+            node_h_dim: node dimensions to use in GVP-GNN layers
+            edge_in_dim: edge dimensions (s, V) in input graph
+            edge_h_dim: edge dimensions to embed to before use in GVP-GNN layers
+            num_layers: number of GVP-GNN layers
+            drop_rate: rate to use in all dropout layers
+            residual: whether to have residual connections among GNN layers
+            num_outputs: number of output units
+            seq_embedding: whether to one-hot embed the sequence
+        Returns:
+            None
+        """
+        super(GVPMultiStageModel, self).__init__()
+        self.residual = residual
+        self.num_outputs = num_outputs
+        self.seq_embedding = seq_embedding
+
+        if seq_embedding:
+            self.W_s_p = nn.Embedding(20, 20)
+            protein_node_in_dim = (protein_node_in_dim[0] + 20, protein_node_in_dim[1])
+            self.W_s_l = nn.Embedding(20, 20)
+            ligand_node_in_dim = (ligand_node_in_dim[0] + 20, ligand_node_in_dim[1])
+
+        ## FIRST STAGE
+
+        ## Protein branch
+        self.W_v_p = nn.Sequential(
+            LayerNorm(protein_node_in_dim),
+            GVP(protein_node_in_dim, protein_node_h_dim, activations=(None, None)),
+        )
+        self.W_e_p = nn.Sequential(
+            LayerNorm(protein_edge_in_dim),
+            GVP(protein_edge_in_dim, protein_edge_h_dim, activations=(None, None)),
+        )
+
+        self.protein_layers = nn.ModuleList(
+            GVPConvLayer(protein_node_h_dim, protein_edge_h_dim, drop_rate=drop_rate)
+            for _ in range(protein_num_layers)
+        )
+
+        if self.residual:
+            # concat outputs from GVPConvLayer(s)
+            protein_node_h_dim = (
+                protein_node_h_dim[0] * protein_num_layers,
+                protein_node_h_dim[1] * protein_num_layers,
+            )
+        ns_p, _ = protein_node_h_dim
+        self.W_out_p = nn.Sequential(
+            LayerNorm(protein_node_h_dim), GVP(protein_node_h_dim, (ns_p, 0))
+        )
+
+        ## Ligand branch
+        self.W_v_l = nn.Sequential(
+            LayerNorm(ligand_node_in_dim),
+            GVP(ligand_node_in_dim, ligand_node_h_dim, activations=(None, None)),
+        )
+        self.W_e_l = nn.Sequential(
+            LayerNorm(ligand_edge_in_dim),
+            GVP(ligand_edge_in_dim, ligand_edge_h_dim, activations=(None, None)),
+        )
+
+        self.ligand_layers = nn.ModuleList(
+            GVPConvLayer(ligand_node_h_dim, ligand_edge_h_dim, drop_rate=drop_rate)
+            for _ in range(ligand_num_layers)
+        )
+
+        if self.residual:
+            # concat outputs from GVPConvLayer(s)
+            ligand_node_h_dim = (
+                ligand_node_h_dim[0] * ligand_num_layers,
+                ligand_node_h_dim[1] * ligand_num_layers,
+            )
+        ns_l, _ = ligand_node_h_dim
+        self.W_out_l = nn.Sequential(
+            LayerNorm(ligand_node_h_dim), GVP(ligand_node_h_dim, (ns_l, 0))
+        )
+
+        ## SECOND STAGE
+
+        ## Complex branch
+        self.W_v_c = nn.Sequential(
+            LayerNorm(complex_node_in_dim),
+            GVP(complex_node_in_dim, complex_node_h_dim, activations=(None, None)),
+        )
+        self.W_e_c = nn.Sequential(
+            LayerNorm(complex_edge_in_dim),
+            GVP(complex_edge_in_dim, complex_edge_h_dim, activations=(None, None)),
+        )
+
+        self.complex_layers = nn.ModuleList(
+            GVPConvLayer(complex_node_h_dim, complex_edge_h_dim, drop_rate=drop_rate)
+            for _ in range(complex_num_layers)
+        )
+
+        if self.residual:
+            # concat outputs from GVPConvLayer(s)
+            complex_node_h_dim = (
+                complex_node_h_dim[0] * complex_num_layers,
+                complex_node_h_dim[1] * complex_num_layers,
+            )
+        ns_c, _ = complex_node_h_dim
+        self.W_out_c = nn.Sequential(
+            LayerNorm(complex_node_h_dim), GVP(complex_node_h_dim, (ns_c, 0))
+        )
+
+        ## Decoder
+        self.dense = nn.Sequential(
+            nn.Linear(ns_c, 2 * ns_c),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=drop_rate),
+            nn.Linear(2 * ns_c, self.num_outputs),
+        )
+
+    def forward(self, batch):
+        """Perform the forward pass.
+        Args:
+            batch: dgl.DGLGraph
+        Returns:
+            (logits, g_logits)
+        """
+        logits, g_logits = self._forward(batch)
+        return logits, g_logits
+
+    def _forward(self, protein_graph, ligand_graph, complex_graph):
+        """Helper function to perform GVP network forward pass.
+        Args:
+            g: dgl.graph
+        Returns:
+            (logits, g_logits)
+        """
+
+        ## FIRST STAGE
+
+        ## Protein branch
+        h_V_p = (protein_graph.ndata["node_s"], protein_graph.ndata["node_v"])
+        h_E_p = (protein_graph.edata["edge_s"], protein_graph.edata["edge_v"])
+        if self.seq_embedding:
+            seq_p = protein_graph.ndata["seq"]
+            # one-hot encodings
+            seq_p = self.W_s_p(seq_p)
+            h_V_p = (torch.cat([h_V_p[0], seq_p], dim=-1), h_V_p[1])
+
+        h_V_p = self.W_v_p(h_V_p)
+        h_E_p = self.W_e_p(h_E_p)
+        protein_graph.ndata["node_s"], protein_graph.ndata["node_v"] = h_V_p[0], h_V_p[1]
+        protein_graph.edata["edge_s"], protein_graph.edata["edge_v"] = h_E_p[0], h_E_p[1]
+        # GVP Conv layers
+        if not self.residual:
+            for protein_layer in self.protein_layers:
+                h_V_p = protein_layer(protein_graph)
+            out_p = self.W_out_p(h_V_p)
+        else:
+            h_V_out_p = []  # collect outputs from all GVP Conv layers
+            for protein_layer in self.protein_layers:
+                h_V_p = protein_layer(protein_graph)
+                h_V_out_p.append(h_V_p)
+                protein_graph.ndata["node_s"], protein_graph.ndata["node_v"] = h_V_p[0], h_V_p[1]
+            # concat outputs from GVPConvLayers (separatedly for s and V)
+            h_V_out_p = (
+                torch.cat([h_V_p[0] for h_V_p in h_V_out_p], dim=-1),
+                torch.cat([h_V_p[1] for h_V_p in h_V_out_p], dim=-2),
+            )
+            out_p = self.W_out_p(h_V_out_p)
+
+        ## Ligand branch
+        h_V_l = (ligand_graph.ndata["node_s"], ligand_graph.ndata["node_v"])
+        h_E_l = (ligand_graph.edata["edge_s"], ligand_graph.edata["edge_v"])
+        if self.seq_embedding:
+            seq_l = ligand_graph.ndata["seq"]
+            # one-hot encodings
+            seq_l = self.W_s_l(seq)
+            h_V_l = (torch.cat([h_V_l[0], seq_l], dim=-1), h_V_l[1])
+
+        h_V_l = self.W_v_l(h_V_l)
+        h_E_l = self.W_e_l(h_E_l)
+        ligand_graph.ndata["node_s"], ligand_graph.ndata["node_v"] = h_V_l[0], h_V_l[1]
+        ligand_graph.edata["edge_s"], ligand_graph.edata["edge_v"] = h_E_l[0], h_E_l[1]
+        # GVP Conv layers
+        if not self.residual:
+            for ligand_layer in self.ligand_layers:
+                h_V_l = ligand_layer(ligand_graph)
+            out_l = self.W_out_l(h_V_l)
+        else:
+            h_V_out_l = []  # collect outputs from all GVP Conv layers
+            for ligand_layer in self.ligand_layers:
+                h_V_l = ligand_layer(g)
+                h_V_out_l.append(h_V_l)
+                ligand_graph.ndata["node_s"], ligand_graph.ndata["node_v"] = h_V_l[0], h_V_l[1]
+            # concat outputs from GVPConvLayers (separatedly for s and V)
+            h_V_out_l = (
+                torch.cat([h_V_l[0] for h_V_l in h_V_out_l], dim=-1),
+                torch.cat([h_V_l[1] for h_V_l in h_V_out_l], dim=-2),
+            )
+            out_l = self.W_out_l(h_V_out_l)
+
+        ## SECOND STAGE
+
+        complex_graph["node_s"] = torch.cat([out_p[0], out_l[0]], dim=-1)
+        complex_graph["node_v"] = torch.cat([out_p[1], out_l[1]], dim=-2)
+
+        ## Complex branch
+        h_V_c = (complex_graph.ndata["node_s"], complex_graph.ndata["node_v"])
+        h_E_c = (complex_graph.edata["edge_s"], complex_graph.edata["edge_v"])
+        if self.seq_embedding:
+            seq_c = complex_graph.ndata["seq"]
+            # one-hot encodings
+            seq_c = self.W_s_c(seq_c)
+            h_V_c = (torch.cat([h_V_c[0], seq_c], dim=-1), h_V_c[1])
+
+        h_V_c = self.W_v_c(h_V_c)
+        h_E_c = self.W_e_c(h_E_c)
+        complex_graph.ndata["node_s"], complex_graph.ndata["node_v"] = h_V_c[0], h_V_c[1]
+        complex_graph.edata["edge_s"], complex_graph.edata["edge_v"] = h_E_c[0], h_E_c[1]
+        # GVP Conv layers
+        if not self.residual:
+            for complex_layer in self.complex_layers:
+                h_V_c = complex_layer(complex_graph)
+            out_c = self.W_out_c(h_V_c)
+        else:
+            h_V_out_c = []  # collect outputs from all GVP Conv layers
+            for complex_layer in self.complex_layers:
+                h_V_c = complex_layer(complex_graph)
+                h_V_out_c.append(h_V_c)
+                complex_graph.ndata["node_s"], complex_graph.ndata["node_v"] = h_V_c[0], h_V_c[1]
+            # concat outputs from GVPConvLayers (separatedly for s and V)
+            h_V_out_c = (
+                torch.cat([h_V_c[0] for h_V_c in h_V_out_c], dim=-1),
+                torch.cat([h_V_c[1] for h_V_c in h_V_out_c], dim=-2),
+            )
+            out_c = self.W_out_c(h_V_out_c)
+
+        ## Decoder
+        out_c = self.dense(out_c) + 0.5  # [n_nodes, num_outputs]
+        # aggregate node vectors to graph
+        complex_graph.ndata["out"] = out_c
+        graph_out_c = dgl.mean_nodes(complex_graph, "out")  # [n_graphs, num_outputs]
+
+        return out_c, graph_out_c
