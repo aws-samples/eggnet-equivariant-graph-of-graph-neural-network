@@ -770,18 +770,10 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
             ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
         )
 
-        ligand_vectors = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
-        # ligand node features
-        ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
-        ligand_graph.ndata["node_v"] = ligand_coords
-        # ligand edge features
-        ligand_graph.edata["edge_s"] = ligand_graph.edata["e"]
-        ligand_graph.edata["edge_v"] = _normalize(ligand_vectors).unsqueeze(-2)
-
         protein_vectors = protein_coords[protein_graph.edges()[0].long()] - protein_coords[protein_graph.edges()[1].long()]
         # protein node features
         protein_graph.ndata["node_s"] = protein_graph.ndata["h"]
-        protein_graph.ndata["node_v"] = protein_coords
+        protein_graph.ndata["node_v"] = protein_coords.unsqueeze(-2)
         # protein edge features
         protein_graph.edata["edge_s"] = protein_graph.edata["e"]
         protein_graph.edata["edge_v"] = _normalize(protein_vectors).unsqueeze(-2)
@@ -789,7 +781,7 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
         ligand_vectors = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
         # ligand node features
         ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
-        ligand_graph.ndata["node_v"] = ligand_coords
+        ligand_graph.ndata["node_v"] = ligand_coords.unsqueeze(-2)
         # ligand edge features
         ligand_graph.edata["edge_s"] = ligand_graph.edata["e"]
         ligand_graph.edata["edge_v"] = _normalize(ligand_vectors).unsqueeze(-2)

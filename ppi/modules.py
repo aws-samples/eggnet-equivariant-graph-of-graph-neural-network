@@ -468,9 +468,7 @@ class GVPMultiStageModel(nn.Module):
 
         ## SECOND STAGE
 
-        print(h_V_p[0].shape, h_V_l[0].shape)
         complex_graph.ndata["node_s"] = torch.cat([h_V_p[0], h_V_l[0]], dim=0)
-        print(h_V_p[1].shape, h_V_l[1].shape)
         complex_graph.ndata["node_v"] = torch.cat([h_V_p[1], h_V_l[1]], dim=0)
 
         ## Complex branch
