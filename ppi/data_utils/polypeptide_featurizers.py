@@ -539,9 +539,9 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         )
 
         # node features
-        g.ndata["node_s"] = node_s
-        g.ndata["node_v"] = node_v
+        g.ndata["node_s"] = node_s.contiguous()
+        g.ndata["node_v"] = node_v.contiguous()
         # edge features
-        g.edata["edge_s"] = edge_s
-        g.edata["edge_v"] = edge_v
+        g.edata["edge_s"] = edge_s.contiguous()
+        g.edata["edge_v"] = edge_v.contiguous()
         return g
