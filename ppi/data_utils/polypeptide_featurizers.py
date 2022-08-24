@@ -859,15 +859,15 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
             dgl.graph instance representing with the protein complex information
         """
         ligand, protein = protein_complex["ligand"], protein_complex["protein"]
-        ligand = Chem.RemoveHs(ligand)
-        protein = Chem.RemoveHs(protein)
         sample = mol_to_feature(ligand_mol=ligand, target_mol=protein)
 
+        ligand = Chem.RemoveHs(ligand)
         ligand_graph = mol_to_bigraph(mol=ligand,
                                       node_featurizer=self.node_featurizer, 
                                       edge_featurizer=self.edge_featurizer,
                                       add_self_loop=self.add_self_loop)
 
+        protein = Chem.RemoveHs(protein)
         protein_graph = mol_to_bigraph(mol=protein,
                                       node_featurizer=self.node_featurizer, 
                                       edge_featurizer=self.edge_featurizer,
@@ -929,6 +929,8 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
         node_s, node_v, edge_s, edge_v = map(
             torch.nan_to_num, (node_s, node_v, edge_s, edge_v)
         )
+
+        print(node_s.shape, node_v.shape, edge_s.shape, edge_v.shape)
 
         # node features
         complex_graph.ndata["node_s"] = node_s
