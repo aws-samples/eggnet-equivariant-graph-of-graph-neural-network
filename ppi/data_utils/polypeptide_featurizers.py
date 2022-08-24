@@ -930,14 +930,6 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
             torch.nan_to_num, (node_s, node_v, edge_s, edge_v)
         )
 
-        print(node_s.shape, node_v.shape, edge_s.shape, edge_v.shape)
-        print(sample["target_valid"].shape, sample["ligand_valid"].shape)
-        print(sample["interaction_indice"].shape)
-        print(interaction_indice_pad.shape)
-        print(src.shape)
-        print(dst.shape)
-
-
         # node features
         complex_graph.ndata["node_s"] = node_s
         complex_graph.ndata["node_v"] = node_v
