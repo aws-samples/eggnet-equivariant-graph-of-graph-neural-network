@@ -19,7 +19,7 @@ import torchmetrics
 
 # custom imports
 # from ppi.modules import GATModel, GVPModel
-from ppi.model import LitGVPModel
+from ppi.model import LitGVPModel, LitGVPMultiStageModel
 from ppi.data import (
     prepare_pepbdb_data_list,
     PepBDBComplexDataset,
@@ -34,12 +34,13 @@ from ppi.data_utils import (
 # mapping model names to constructors
 MODEL_CONSTRUCTORS = {
     "gvp": LitGVPModel,
+    "gvp-multistage": LitGVPMultiStageModel,
     # "gat": GATModel,
 }
 
 
 def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
-    if "gvp" in model_name:
+    if model_name == "gvp":
         node_in_dim = (
             datum.ndata["node_s"].shape[1],
             datum.ndata["node_v"].shape[1],
@@ -56,6 +57,61 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
         model = MODEL_CONSTRUCTORS[model_name](
             node_in_dim=node_in_dim,
             edge_in_dim=edge_in_dim,
+            num_outputs=num_outputs,
+            **kwargs
+        )
+    elif model_name == "gvp-multistage":
+        protein_graph, ligand_graph, complex_graph = datum
+
+        # Protein
+        protein_node_in_dim = (
+            protein_graph.ndata["node_s"].shape[1],
+            protein_graph.ndata["node_v"].shape[1],
+        )
+        kwargs["protein_node_h_dim"] = tuple(kwargs["protein_node_h_dim"])
+        protein_edge_in_dim = (
+            protein_graph.edata["edge_s"].shape[1],
+            protein_graph.edata["edge_v"].shape[1],
+        )
+        kwargs["protein_edge_h_dim"] = tuple(kwargs["protein_edge_h_dim"])
+        print("protein_node_h_dim:", kwargs["protein_node_h_dim"])
+        print("protein_edge_h_dim:", kwargs["protein_edge_h_dim"])
+
+        # Ligand
+        ligand_node_in_dim = (
+            ligand_graph.ndata["node_s"].shape[1],
+            ligand_graph.ndata["node_v"].shape[1],
+        )
+        kwargs["ligand_node_h_dim"] = tuple(kwargs["ligand_node_h_dim"])
+        ligand_edge_in_dim = (
+            ligand_graph.edata["edge_s"].shape[1],
+            ligand_graph.edata["edge_v"].shape[1],
+        )
+        kwargs["ligand_edge_h_dim"] = tuple(kwargs["ligand_edge_h_dim"])
+        print("ligand_node_h_dim:", kwargs["ligand_node_h_dim"])
+        print("ligand_edge_h_dim:", kwargs["ligand_edge_h_dim"])
+
+        # Complex
+        complex_node_in_dim = (
+            complex_graph.ndata["node_s"].shape[1],
+            complex_graph.ndata["node_v"].shape[1],
+        )
+        kwargs["complex_node_h_dim"] = tuple(kwargs["complex_node_h_dim"])
+        complex_edge_in_dim = (
+            complex_graph.edata["edge_s"].shape[1],
+            complex_graph.edata["edge_v"].shape[1],
+        )
+        kwargs["complex_edge_h_dim"] = tuple(kwargs["complex_edge_h_dim"])
+        print("complex_node_h_dim:", kwargs["complex_node_h_dim"])
+        print("complex_edge_h_dim:", kwargs["complex_edge_h_dim"])
+
+        model = MODEL_CONSTRUCTORS[model_name](
+            protein_node_in_dim=protein_node_in_dim,
+            protein_edge_in_dim=protein_edge_in_dim,
+            ligand_node_in_dim=ligand_node_in_dim,
+            ligand_edge_in_dim=ligand_edge_in_dim,
+            complex_node_in_dim=complex_node_in_dim,
+            complex_edge_in_dim=complex_edge_in_dim,
             num_outputs=num_outputs,
             **kwargs
         )

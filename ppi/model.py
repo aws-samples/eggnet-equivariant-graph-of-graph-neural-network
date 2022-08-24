@@ -131,23 +131,54 @@ class LitGVPMultiStageModel(pl.LightningModule):
         Returns:
             parent parser with additional model-specific args
         """
-        parser = parent_parser.add_argument_group("GVPModel")
+        parser = parent_parser.add_argument_group("GVPMultiStageModel")
         parser.add_argument(
-            "--node_h_dim",
+            "--protein_node_h_dim",
             type=int,
             nargs="+",
             default=(100, 16),
-            help="node_h_dim in GVP",
+            help="protein_node_h_dim in GVP",
         )
         parser.add_argument(
-            "--edge_h_dim",
+            "--protein_edge_h_dim",
             type=int,
             nargs="+",
             default=(32, 1),
-            help="edge_h_dim in GVP",
+            help="protein_edge_h_dim in GVP",
+        )
+        parser.add_argument(
+            "--ligand_node_h_dim",
+            type=int,
+            nargs="+",
+            default=(100, 16),
+            help="ligand_node_h_dim in GVP",
+        )
+        parser.add_argument(
+            "--ligand_edge_h_dim",
+            type=int,
+            nargs="+",
+            default=(32, 1),
+            help="ligand_edge_h_dim in GVP",
+        )
+        parser.add_argument(
+            "--complex_node_h_dim",
+            type=int,
+            nargs="+",
+            default=(100, 16),
+            help="complex_node_h_dim in GVP",
+        )
+        parser.add_argument(
+            "--complex_edge_h_dim",
+            type=int,
+            nargs="+",
+            default=(32, 1),
+            help="complex_edge_h_dim in GVP",
         )
 
-        parser.add_argument("--num_layers", type=int, default=3)
+        parser.add_argument("--protein_num_layers", type=int, default=3)
+        parser.add_argument("--ligand_num_layers", type=int, default=3)
+        parser.add_argument("--complex_num_layers", type=int, default=3)
+
         parser.add_argument("--drop_rate", type=float, default=0.1)
         parser.add_argument("--residual", action="store_true")
         parser.add_argument("--seq_embedding", action="store_true")
