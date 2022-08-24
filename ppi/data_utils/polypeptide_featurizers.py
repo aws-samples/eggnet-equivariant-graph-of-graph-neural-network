@@ -931,6 +931,7 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
         )
 
         print(node_s.shape, node_v.shape, edge_s.shape, edge_v.shape)
+        print(sample["target_valid"].shape, sample["ligand_valid"].shape)
 
         # node features
         complex_graph.ndata["node_s"] = node_s
