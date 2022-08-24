@@ -801,7 +801,7 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
         )
 
         node_s = torch.cat([protein_graph.ndata['h'], ligand_graph.ndata['h']], dim=0)
-        node_v = X_ca
+        node_v = X_ca.unsqueeze(-2)
         edge_s = rbf
         edge_v = _normalize(E_vectors).unsqueeze(-2)
 
