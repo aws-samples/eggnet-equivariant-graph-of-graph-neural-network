@@ -1,6 +1,7 @@
 """
 Pytorch dataset classes from PPI prediction.
 """
+from rdkit import Chem
 import os
 import pickle
 from typing import Any, Dict, List, Tuple, Union
@@ -214,7 +215,7 @@ class PIGNetComplexDataset(data.Dataset):
     ):
         self.keys = np.array(keys).astype(np.unicode_)
         self.data_dir = data_dir
-        self.id_to_y = pd.Series(id_to_y)
+        self.id_to_y = pd.Series(id_to_y, dtype=np.float32)
         self.featurizer = featurizer
         self.processed_data = pd.Series([None] * len(self))
 
@@ -236,10 +237,12 @@ class PIGNetComplexDataset(data.Dataset):
         with open(os.path.join(self.data_dir, "data", key), "rb") as f:
             m1, _, m2, _ = pickle.load(f)
 
+        if type(m2) is Chem.rdchem.Mol:
+            m2 = mol_to_pdb_structure(m2)
         graph = self.featurizer.featurize(
             {
                 "ligand": m1,
-                "protein": mol_to_pdb_structure(m2),
+                "protein": m2,
             }
         )
         sample = {"graph": graph}
