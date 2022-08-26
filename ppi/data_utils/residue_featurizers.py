@@ -16,8 +16,14 @@ class FingerprintFeaturizer(object):
 
     def __init__(self, fingerprint_type):
         self.fingerprint_type = fingerprint_type
+        self.cache = {}
 
     def featurize(self, smiles: str) -> torch.tensor:
+        if smiles not in self.cache:
+            self.cache[smiles] = self.featurize_(smiles)
+        return self.cache[smiles]
+
+    def featurize_(self, smiles: str) -> torch.tensor:
         mol = Chem.MolFromSmiles(smiles)
         if self.fingerprint_type == "MACCS":
             fps = MACCSkeys.GenMACCSKeys(mol)
