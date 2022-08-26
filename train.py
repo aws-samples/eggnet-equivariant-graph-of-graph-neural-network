@@ -28,7 +28,8 @@ from ppi.data import (
 from ppi.data_utils import (
     NaturalComplexFeaturizer,
     PDBBindComplexFeaturizer,
-    FingerprintFeaturizer,
+    get_residue_featurizer,
+    residue_featurizers,
 )
 
 # mapping model names to constructors
@@ -70,7 +71,11 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
 
 
 def get_datasets(
-    name="PepBDB", input_type="complex", data_dir="", test_only=False
+    name="PepBDB",
+    input_type="complex",
+    data_dir="",
+    test_only=False,
+    residue_featurizer_name="MACCS",
 ):
     if name == "PepBDB":
         # load parsed PepBDB structures
@@ -143,7 +148,7 @@ def get_datasets(
             test_keys = pickle.load(f)
 
         # featurizer for PDBBind
-        residue_featurizer = FingerprintFeaturizer("MACCS")
+        residue_featurizer = get_residue_featurizer(residue_featurizer_name)
         featurizer = PDBBindComplexFeaturizer(residue_featurizer)
         test_dataset = PIGNetComplexDataset(
             test_keys, data_dir, id_to_y, featurizer
@@ -233,6 +238,7 @@ def main(args):
         name=args.dataset_name,
         input_type=args.input_type,
         data_dir=args.data_dir,
+        residue_featurizer_name=args.residue_featurizer_name,
     )
     print(
         "Data loaded:",
@@ -347,7 +353,13 @@ if __name__ == "__main__":
         type=str,
         default="",
     )
-
+    # featurizer params
+    parser.add_argument(
+        "--residue_featurizer_name",
+        help="name of the residue featurizer",
+        type=str,
+        default="MACCS",
+    )
     # training hparams
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
     parser.add_argument("--bs", type=int, default=32, help="batch size")
