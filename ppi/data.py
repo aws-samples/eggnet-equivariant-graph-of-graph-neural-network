@@ -259,5 +259,7 @@ class PIGNetComplexDataset(data.Dataset):
             g_targets.append(rec["affinity"])
         return {
             "graph": dgl.batch(graphs),
-            "g_targets": torch.tensor(g_targets).unsqueeze(-1),
+            "g_targets": torch.tensor(g_targets)
+            .to(torch.float32)
+            .unsqueeze(-1),
         }
