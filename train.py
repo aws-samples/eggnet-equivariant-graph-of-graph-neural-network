@@ -29,7 +29,6 @@ from ppi.data_utils import (
     NaturalComplexFeaturizer,
     PDBBindComplexFeaturizer,
     get_residue_featurizer,
-    residue_featurizers,
 )
 
 # mapping model names to constructors

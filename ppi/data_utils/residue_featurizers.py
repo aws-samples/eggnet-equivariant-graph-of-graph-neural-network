@@ -1,13 +1,13 @@
 """
 Utils for featurizing a small molecule (amino acid residue) from their structures.
 """
+from transformers import T5Tokenizer, T5EncoderModel
 import torch
 import numpy as np
 from dgllife.utils import mol_to_bigraph
 from rdkit import Chem
 from rdkit.Chem import MACCSkeys
 from rdkit.Chem import AllChem
-from transformers import T5Tokenizer, T5EncoderModel
 
 
 class BaseResidueFeaturizer(object):
@@ -83,6 +83,7 @@ class MolT5Featurizer(BaseResidueFeaturizer):
             "laituan245/molt5-%s" % model_size
         ).to(device)
         self.device = device
+        super(MolT5Featurizer, self).__init__()
 
     def _featurize(self, smiles: str) -> torch.tensor:
         input_ids = self.tokenizer(smiles, return_tensors="pt").input_ids

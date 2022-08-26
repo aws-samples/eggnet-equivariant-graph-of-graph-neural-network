@@ -179,6 +179,7 @@ def main(args):
         input_type="complex",
         data_dir=os.path.join(args.data_dir, "scoring"),
         test_only=True,
+        residue_featurizer_name=args.residue_featurizer_name,
     )
     print(
         "Data loaded:",
@@ -215,6 +216,7 @@ def main(args):
         input_type="complex",
         data_dir=os.path.join(args.data_dir, "docking"),
         test_only=True,
+        residue_featurizer_name=args.residue_featurizer_name,
     )
     print(
         "Data loaded:",
@@ -250,6 +252,7 @@ def main(args):
         input_type="complex",
         data_dir=os.path.join(args.data_dir, "screening"),
         test_only=True,
+        residue_featurizer_name=args.residue_featurizer_name,
     )
     print(
         "Data loaded:",
@@ -309,6 +312,13 @@ if __name__ == "__main__":
         type=int,
         default=0,
         help="num_workers used in DataLoader",
+    )
+    # featurizer params
+    parser.add_argument(
+        "--residue_featurizer_name",
+        help="name of the residue featurizer",
+        type=str,
+        default="MACCS",
     )
 
     args = parser.parse_args()

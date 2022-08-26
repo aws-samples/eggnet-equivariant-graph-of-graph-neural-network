@@ -1,3 +1,5 @@
 biopython==1.79
 dgllife==0.2.9
-pytorch-lightning==1.7.1
+pytorch-lightning==1.7.3
+sentencepiece==0.1.97
+transformers==4.21.2
