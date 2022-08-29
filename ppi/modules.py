@@ -384,14 +384,14 @@ class GVPMultiStageModel(nn.Module):
             nn.Linear(2 * ns_c, self.num_outputs),
         )
 
-    def forward(self, batch):
+    def forward(self, protein_batch, ligand_batch, complex_batch):
         """Perform the forward pass.
         Args:
             batch: dgl.DGLGraph
         Returns:
             (logits, g_logits)
         """
-        logits, g_logits = self._forward(batch)
+        logits, g_logits = self._forward(protein_batch, ligand_batch, complex_batch)
         return logits, g_logits
 
     def _forward(self, protein_graph, ligand_graph, complex_graph):
