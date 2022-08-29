@@ -204,7 +204,7 @@ class LitGVPMultiStageModel(pl.LightningModule):
         Returns:
             Loss
         """
-        logits, g_logits = self.forward(batch["graph"])
+        logits, g_logits = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
         # node-level targets and mask
         # targets = batch.ndata["target"]
         # train_mask = batch.ndata["mask"]
