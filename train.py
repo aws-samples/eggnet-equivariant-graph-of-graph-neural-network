@@ -347,6 +347,8 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp"):
                 _, preds = model(batch["graph"])
             elif model_name == "gvp-multistage":
                 _, preds = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
+            else:
+                raise NotImplementedError
             preds = preds.to("cpu")
             targets = batch["g_targets"].to("cpu")
 
