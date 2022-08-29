@@ -67,7 +67,9 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
             **kwargs
         )
     elif model_name == "gvp-multistage":
-        protein_graph, ligand_graph, complex_graph = datum
+        protein_graph = datum["protein_graph"] 
+        ligand_graph = datum["ligand_graph"] 
+        complex_graph = datum["complex_graph"]
 
         # Protein
         protein_node_in_dim = (
@@ -395,7 +397,12 @@ def main(args):
     )
     # 3. Prepare model
     if args.dataset_name == "PDBBind":
-        datum = train_dataset[0]["graph"]
+        if args.model_name == "gvp":
+            datum = train_dataset[0]["graph"]
+        elif args.model_name == "gvp-multistage":
+            datum = train_dataset[0]
+        else:
+            raise NotImplementedError
     else:
         datum = train_dataset[0][0]
     dict_args = vars(args)
