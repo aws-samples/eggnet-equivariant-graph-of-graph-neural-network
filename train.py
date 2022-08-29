@@ -24,11 +24,17 @@ from ppi.data import (
     prepare_pepbdb_data_list,
     PepBDBComplexDataset,
     PIGNetComplexDataset,
+    PIGNetAtomicBigraphComplexDataset,
+    PIGNetHeteroBigraphComplexDataset,
 )
 from ppi.data_utils import (
+    BaseFeaturizer,
     NaturalComplexFeaturizer,
     PDBBindComplexFeaturizer,
     FingerprintFeaturizer,
+    PIGNetHeteroBigraphComplexFeaturizer,
+    PIGNetAtomicBigraphGeometricComplexFeaturizer,
+    PIGNetAtomicBigraphPhysicalComplexFeaturizer,
 )
 
 # mapping model names to constructors
@@ -199,27 +205,94 @@ def get_datasets(
             test_keys = pickle.load(f)
 
         # featurizer for PDBBind
-        residue_featurizer = FingerprintFeaturizer("MACCS")
-        featurizer = PDBBindComplexFeaturizer(residue_featurizer)
-        test_dataset = PIGNetComplexDataset(
-            test_keys, data_dir, id_to_y, featurizer
-        )
-        if not test_only:
-            with open(
-                os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
-            ) as f:
-                train_keys = pickle.load(f)
-            n_train = int(0.8 * len(train_keys))
-            train_dataset = PIGNetComplexDataset(
-                train_keys[:n_train], data_dir, id_to_y, featurizer
+        if input_type == "complex":
+            residue_featurizer = FingerprintFeaturizer("MACCS")
+            featurizer = PDBBindComplexFeaturizer(residue_featurizer)
+            test_dataset = PIGNetComplexDataset(
+                test_keys, data_dir, id_to_y, featurizer
             )
-            valid_dataset = PIGNetComplexDataset(
-                train_keys[n_train:], data_dir, id_to_y, featurizer
-            )
+            if not test_only:
+                with open(
+                    os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                ) as f:
+                    train_keys = pickle.load(f)
+                n_train = int(0.8 * len(train_keys))
+                train_dataset = PIGNetComplexDataset(
+                    train_keys[:n_train], data_dir, id_to_y, featurizer
+                )
+                valid_dataset = PIGNetComplexDataset(
+                    train_keys[n_train:], data_dir, id_to_y, featurizer
+                )
 
-            return train_dataset, valid_dataset, test_dataset
+                return train_dataset, valid_dataset, test_dataset
+            else:
+                return test_dataset
+        elif input_type == "multistage-hetero":
+            residue_featurizer = FingerprintFeaturizer("MACCS")
+            featurizer = PIGNetHeteroBigraphComplexFeaturizer(residue_featurizer)
+            test_dataset = PIGNetHeteroBigraphComplexDataset(
+                test_keys, data_dir, id_to_y, featurizer
+            )
+            if not test_only:
+                with open(
+                    os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                ) as f:
+                    train_keys = pickle.load(f)
+                n_train = int(0.8 * len(train_keys))
+                train_dataset = PIGNetHeteroBigraphComplexDataset(
+                    train_keys[:n_train], data_dir, id_to_y, featurizer
+                )
+                valid_dataset = PIGNetHeteroBigraphComplexDataset(
+                    train_keys[n_train:], data_dir, id_to_y, featurizer
+                )
+
+                return train_dataset, valid_dataset, test_dataset
+            else:
+                return test_dataset
+        elif input_type == "multistage-geometric":
+            featurizer = PIGNetAtomicBigraphGeometricComplexFeaturizer(residue_featurizer=None)
+            test_dataset = PIGNetAtomicBigraphComplexDataset(
+                test_keys, data_dir, id_to_y, featurizer
+            )
+            if not test_only:
+                with open(
+                    os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                ) as f:
+                    train_keys = pickle.load(f)
+                n_train = int(0.8 * len(train_keys))
+                train_dataset = PIGNetAtomicBigraphComplexDataset(
+                    train_keys[:n_train], data_dir, id_to_y, featurizer
+                )
+                valid_dataset = PIGNetAtomicBigraphComplexDataset(
+                    train_keys[n_train:], data_dir, id_to_y, featurizer
+                )
+
+                return train_dataset, valid_dataset, test_dataset
+            else:
+                return test_dataset
+        elif input_type == "multistage-physical":
+            featurizer = PIGNetAtomicBigraphPhysicalComplexFeaturizer(residue_featurizer=None)
+            test_dataset = PIGNetAtomicBigraphComplexDataset(
+                test_keys, data_dir, id_to_y, featurizer
+            )
+            if not test_only:
+                with open(
+                    os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                ) as f:
+                    train_keys = pickle.load(f)
+                n_train = int(0.8 * len(train_keys))
+                train_dataset = PIGNetAtomicBigraphComplexDataset(
+                    train_keys[:n_train], data_dir, id_to_y, featurizer
+                )
+                valid_dataset = PIGNetAtomicBigraphComplexDataset(
+                    train_keys[n_train:], data_dir, id_to_y, featurizer
+                )
+
+                return train_dataset, valid_dataset, test_dataset
+            else:
+                return test_dataset
         else:
-            return test_dataset
+            raise NotImplementedError
 
 
 def evaluate_node_classification(model, data_loader):
