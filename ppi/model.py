@@ -192,8 +192,8 @@ class LitGVPMultiStageModel(pl.LightningModule):
         loss = F.mse_loss(logits, targets)
         return loss
 
-    def forward(self, g):
-        return self.model(g)
+    def forward(self, protein_graph, ligand_graph, complex_graph):
+        return self.model(protein_graph, ligand_graph, complex_graph)
 
     def _step(self, batch, batch_idx, prefix="train"):
         """Used in train/validation loop, independent of `forward`
