@@ -39,7 +39,7 @@ class FingerprintFeaturizer(BaseResidueFeaturizer):
         if self.fingerprint_type == "MACCS":
             fps = MACCSkeys.GenMACCSKeys(mol)
         elif self.fingerprint_type == "Morgan":
-            fps = AllChem.GetMorganFingerprint(
+            fps = AllChem.GetMorganFingerprintAsBitVect(
                 mol, 2, useFeatures=True, nBits=1024
             )
         else:
