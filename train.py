@@ -1,7 +1,8 @@
-from rdkit import Chem
+from transformers import T5Tokenizer, T5EncoderModel
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
+from rdkit import Chem
 
 import os
 import json

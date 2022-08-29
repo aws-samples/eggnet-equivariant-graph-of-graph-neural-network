@@ -75,6 +75,10 @@ class MolT5Featurizer(BaseResidueFeaturizer):
     """
 
     def __init__(self, device="cpu", model_size="small", model_max_length=512):
+        """
+        Args:
+            model_size: one of ('small', 'base', 'large')
+        """
         self.tokenizer = T5Tokenizer.from_pretrained(
             "laituan245/molt5-%s" % model_size,
             model_max_length=model_max_length,
@@ -88,7 +92,8 @@ class MolT5Featurizer(BaseResidueFeaturizer):
     def _featurize(self, smiles: str) -> torch.tensor:
         input_ids = self.tokenizer(smiles, return_tensors="pt").input_ids
         input_ids = input_ids.to(self.device)
-        outputs = self.model(input_ids)
+        with torch.no_grad():
+            outputs = self.model(input_ids)
 
         # shape: [1, input_ids.shape[1], model_max_length]
         last_hidden_states = outputs.last_hidden_state
@@ -104,6 +109,9 @@ def get_residue_featurizer(name=""):
     fingerprint_names = ("MACCS", "Morgan")
     if name in fingerprint_names:
         residue_featurizer = FingerprintFeaturizer(name)
-    elif name == "MolT5":
-        residue_featurizer = MolT5Featurizer()
+    elif name.lower().startswith("molt5"):
+        model_size = "small"
+        if "-" in name:
+            model_size = name.split("-")[1]
+        residue_featurizer = MolT5Featurizer(model_size=model_size)
     return residue_featurizer
