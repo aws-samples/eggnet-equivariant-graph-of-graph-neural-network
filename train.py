@@ -253,6 +253,7 @@ def main(args):
         shuffle=True,
         num_workers=args.num_workers,
         collate_fn=train_dataset.collate_fn,
+        persistent_workers=True,
     )
 
     valid_loader = DataLoader(
@@ -261,6 +262,7 @@ def main(args):
         shuffle=False,
         num_workers=args.num_workers,
         collate_fn=train_dataset.collate_fn,
+        persistent_workers=True,
     )
 
     test_loader = DataLoader(
@@ -269,6 +271,7 @@ def main(args):
         shuffle=False,
         num_workers=args.num_workers,
         collate_fn=test_dataset.collate_fn,
+        persistent_workers=True,
     )
     # 3. Prepare model
     if args.dataset_name == "PDBBind":
