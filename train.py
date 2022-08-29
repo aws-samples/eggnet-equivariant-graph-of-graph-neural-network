@@ -99,6 +99,8 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
         print("ligand_node_h_dim:", kwargs["ligand_node_h_dim"])
         print("ligand_edge_h_dim:", kwargs["ligand_edge_h_dim"])
 
+        assert protein_node_h_dim == ligand_node_h_dim, "Hidden node dimension must match for multistage model."
+
         # Complex
         complex_node_in_dim = (
             complex_graph.ndata["node_s"].shape[1],
@@ -118,7 +120,7 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
             protein_edge_in_dim=protein_edge_in_dim,
             ligand_node_in_dim=ligand_node_in_dim,
             ligand_edge_in_dim=ligand_edge_in_dim,
-            complex_node_in_dim=complex_node_in_dim,
+            complex_node_in_dim=protein_node_h_dim,
             complex_edge_in_dim=complex_edge_in_dim,
             num_outputs=num_outputs,
             **kwargs
