@@ -330,7 +330,7 @@ def evaluate_node_classification(model, data_loader):
     return results
 
 
-def evaluate_graph_regression(model, data_loader):
+def evaluate_graph_regression(model, data_loader, model_name="gvp"):
     """Evaluate model on dataset and return metrics for graph-level regression."""
     # make predictions on test set
     device = torch.device("cuda:0")
@@ -343,7 +343,10 @@ def evaluate_graph_regression(model, data_loader):
     with torch.no_grad():
         for batch in data_loader:
             batch = {key: val.to(device) for key, val in batch.items()}
-            _, preds = model(batch["graph"])
+            if model_name == "gvp":
+                _, preds = model(batch["graph"])
+            elif model_name == "gvp-multistage":
+                _, preds = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
             preds = preds.to("cpu")
             targets = batch["g_targets"].to("cpu")
 
@@ -438,7 +441,7 @@ def main(args):
     if args.dataset_name == "PepBDB":
         scores = evaluate_node_classification(model, test_loader)
     elif args.dataset_name == "PDBBind":
-        scores = evaluate_graph_regression(model, test_loader)
+        scores = evaluate_graph_regression(model, test_loader, model_name=args.model_name)
     pprint(scores)
     # save scores to file
     json.dump(
