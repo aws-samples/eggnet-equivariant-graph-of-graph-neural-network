@@ -1,6 +1,7 @@
 """
 Pytorch dataset classes from PPI prediction.
 """
+from rdkit import Chem
 import os
 import pickle
 from typing import Any, Dict, List, Tuple, Union
@@ -181,6 +182,23 @@ class PepBDBComplexDataset(BasePPIDataset):
         return dgl.batch(graphs)
 
 
+class ComplexBatch(dict):
+    """
+    A custom batch enabling memory pinning.
+    ref: https://pytorch.org/docs/stable/data.html#memory-pinning
+    """
+
+    def __init__(self, graphs: dgl.DGLHeteroGraph, g_targets: torch.Tensor):
+        self["graph"] = graphs
+        self["g_targets"] = g_targets
+
+    # custom memory pinning method on custom type
+    def pin_memory(self):
+        self["graph"].pin_memory_()  # TODO: this doesn't pin yet
+        self["g_targets"] = self["g_targets"].pin_memory()
+        return self
+
+
 class PIGNetComplexDataset(data.Dataset):
     """
     To work with preprocessed pickles sourced from PDBBind dataset by the
@@ -195,11 +213,11 @@ class PIGNetComplexDataset(data.Dataset):
         id_to_y: Dict[str, float],
         featurizer: object,
     ):
-        self.keys = keys
+        self.keys = np.array(keys).astype(np.unicode_)
         self.data_dir = data_dir
-        self.id_to_y = id_to_y
+        self.id_to_y = pd.Series(id_to_y, dtype=np.float32)
         self.featurizer = featurizer
-        self.processed_data = [None] * len(self)
+        self.processed_data = pd.Series([None] * len(self))
 
     def __len__(self) -> int:
         return len(self.keys)
@@ -219,10 +237,12 @@ class PIGNetComplexDataset(data.Dataset):
         with open(os.path.join(self.data_dir, "data", key), "rb") as f:
             m1, _, m2, _ = pickle.load(f)
 
+        if type(m2) is Chem.rdchem.Mol:
+            m2 = mol_to_pdb_structure(m2)
         graph = self.featurizer.featurize(
             {
                 "ligand": m1,
-                "protein": mol_to_pdb_structure(m2),
+                "protein": m2,
             }
         )
         sample = {"graph": graph}
@@ -239,7 +259,9 @@ class PIGNetComplexDataset(data.Dataset):
             g_targets.append(rec["affinity"])
         return {
             "graph": dgl.batch(graphs),
-            "g_targets": torch.tensor(g_targets).unsqueeze(-1),
+            "g_targets": torch.tensor(g_targets)
+            .to(torch.float32)
+            .unsqueeze(-1),
         }
 
 

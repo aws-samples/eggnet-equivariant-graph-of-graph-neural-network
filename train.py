@@ -1,7 +1,8 @@
-from rdkit import Chem
+from transformers import T5Tokenizer, T5EncoderModel
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
+from rdkit import Chem
 
 import os
 import json
@@ -136,7 +137,11 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
 
 
 def get_datasets(
-    name="PepBDB", input_type="complex", data_dir="", test_only=False
+    name="PepBDB",
+    input_type="complex",
+    data_dir="",
+    test_only=False,
+    residue_featurizer_name="MACCS",
 ):
     if name == "PepBDB":
         # load parsed PepBDB structures
@@ -371,6 +376,7 @@ def main(args):
         name=args.dataset_name,
         input_type=args.input_type,
         data_dir=args.data_dir,
+        residue_featurizer_name=args.residue_featurizer_name,
     )
     print(
         "Data loaded:",
@@ -379,12 +385,14 @@ def main(args):
         len(test_dataset),
     )
     # 2. Prepare data loaders
+    persistent_workers = True if args.num_workers > 0 else False
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.bs,
         shuffle=True,
         num_workers=args.num_workers,
         collate_fn=train_dataset.collate_fn,
+        persistent_workers=persistent_workers,
     )
 
     valid_loader = DataLoader(
@@ -393,6 +401,7 @@ def main(args):
         shuffle=False,
         num_workers=args.num_workers,
         collate_fn=train_dataset.collate_fn,
+        persistent_workers=persistent_workers,
     )
 
     test_loader = DataLoader(
@@ -401,6 +410,7 @@ def main(args):
         shuffle=False,
         num_workers=args.num_workers,
         collate_fn=test_dataset.collate_fn,
+        persistent_workers=persistent_workers,
     )
     # 3. Prepare model
     if args.dataset_name == "PDBBind":
@@ -490,7 +500,13 @@ if __name__ == "__main__":
         type=str,
         default="",
     )
-
+    # featurizer params
+    parser.add_argument(
+        "--residue_featurizer_name",
+        help="name of the residue featurizer",
+        type=str,
+        default="MACCS",
+    )
     # training hparams
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
     parser.add_argument("--bs", type=int, default=32, help="batch size")
