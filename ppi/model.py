@@ -5,7 +5,6 @@ import torch.nn.functional as F
 
 from .modules import GVPModel
 
-
 class LitGVPModel(pl.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
@@ -93,3 +92,71 @@ class LitGVPModel(pl.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+
+from keras.models import load_model
+import tensorflow as tf
+
+from keras.preprocessing import sequence
+from keras import backend as K
+from keras.engine.topology import Layer
+
+class Self_Attention(Layer):
+
+    def __init__(self, output_dim, **kwargs):
+        self.output_dim = output_dim
+        super(Self_Attention, self).__init__()
+
+    def build(self, input_shape):
+        self.kernel = self.add_weight(name='kernel',
+                                      shape=(3,input_shape[2], self.output_dim),
+                                      initializer='uniform',
+                                      trainable=True)
+
+        super(Self_Attention, self).build(input_shape)  
+
+    def call(self, x):
+        WQ = K.dot(x, self.kernel[0])
+        WK = K.dot(x, self.kernel[1])
+        WV = K.dot(x, self.kernel[2])
+
+        QK = K.batch_dot(WQ,K.permute_dimensions(WK, [0, 2, 1]))
+
+        QK = QK / (self.output_dim**0.5)
+
+        QK = K.softmax(QK)
+
+        V = K.batch_dot(QK,WV)
+
+        return V
+
+    def compute_output_shape(self, input_shape):
+
+        return (input_shape[0],input_shape[1],self.output_dim)
+
+    def get_config(self):
+        config = {
+            'output_dim': self.output_dim
+        }
+        base_config = super(Self_Attention, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+class CAMPModel(tf.keras.Model):
+    """
+    CAMP model modified from https://github.com/twopin/CAMP 
+    
+    model_mode: 1 (to get affinity value), otherwise get affinity value + predicted binding sites
+    model_name: path to the CAMP model, options [efs/data/CAMP/models/CAMP.h5, efs/data/CAMP/models/CAMP_BS.h5]
+    """
+    def __init__(self, model_mode, model_name):
+        super().__init__()
+        # model_name='./model/CAMP.h5' # Update to point to model directory
+        print('Start loading model :', model_name)
+        model = load_model(model_name,custom_objects={'Self_Attention': Self_Attention})
+        
+    def call(self, inputs):
+        """
+        If model mode is 1, returns prediction label only
+        If model mode is not 1, returns prediction label and predicted binding sites
+        """
+        y = self.model.predict(inputs)
+        return y
