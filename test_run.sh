@@ -1,21 +1,29 @@
 #!/bin/bash
 source ~/anaconda3/etc/profile.d/conda.sh
 conda activate pytorch_p38
-
-python train.py --accelerator gpu \
-    --max_epochs 2 \
-    --precision 16 \
-    --num_layers 2 \
-    --seq_embedding
+    
+# # PDBBind dataset
+# python train.py --accelerator gpu \
+#     --max_epochs 1 \
+#     --precision 16 \
+#     --num_layers 2 \
+#     --dataset_name PDBBind \
+#     --model_name gvp \
+#     --input_type complex \
+#     --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+#     --num_workers 8 \
+#     --residual
     
 # PDBBind dataset
 python train.py --accelerator gpu \
-    --max_epochs 2 \
+    --max_epochs 10 \
     --precision 16 \
-    --num_layers 2 \
+    --protein_num_layers 2 \
+    --ligand_num_layers 2 \
+    --complex_num_layers 2 \
     --dataset_name PDBBind \
-    --input_type complex \
+    --model_name gvp-multistage \
+    --input_type multistage-hetero \
     --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
-    --residual \
-    --num_workers 8
-    
+    --num_workers 8 \
+    --residual
