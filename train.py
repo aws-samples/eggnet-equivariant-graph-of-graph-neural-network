@@ -1,8 +1,8 @@
+from rdkit import Chem
 from transformers import T5Tokenizer, T5EncoderModel
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
-from rdkit import Chem
 
 import os
 import json
@@ -247,14 +247,13 @@ def main(args):
         len(test_dataset),
     )
     # 2. Prepare data loaders
-    persistent_workers = True if args.num_workers > 0 else False
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.bs,
         shuffle=True,
         num_workers=args.num_workers,
         collate_fn=train_dataset.collate_fn,
-        persistent_workers=persistent_workers,
+        persistent_workers=args.persistent_workers,
     )
 
     valid_loader = DataLoader(
@@ -263,7 +262,7 @@ def main(args):
         shuffle=False,
         num_workers=args.num_workers,
         collate_fn=train_dataset.collate_fn,
-        persistent_workers=persistent_workers,
+        persistent_workers=args.persistent_workers,
     )
 
     test_loader = DataLoader(
@@ -272,7 +271,7 @@ def main(args):
         shuffle=False,
         num_workers=args.num_workers,
         collate_fn=test_dataset.collate_fn,
-        persistent_workers=persistent_workers,
+        persistent_workers=args.persistent_workers,
     )
     # 3. Prepare model
     if args.dataset_name == "PDBBind":
@@ -373,6 +372,12 @@ if __name__ == "__main__":
         type=int,
         default=0,
         help="num_workers used in DataLoader",
+    )
+    parser.add_argument(
+        "--persistent_workers",
+        type=bool,
+        default=False,
+        help="persistent_workers in DataLoader",
     )
 
     args = parser.parse_args()

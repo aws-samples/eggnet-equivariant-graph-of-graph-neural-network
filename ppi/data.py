@@ -215,7 +215,7 @@ class PIGNetComplexDataset(data.Dataset):
     ):
         self.keys = np.array(keys).astype(np.unicode_)
         self.data_dir = data_dir
-        self.id_to_y = pd.Series(id_to_y, dtype=np.float32)
+        self.id_to_y = pd.Series(id_to_y)
         self.featurizer = featurizer
         self.processed_data = pd.Series([None] * len(self))
 
