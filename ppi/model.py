@@ -19,9 +19,10 @@ class LitGVPModel(pl.LightningModule):
             "residual",
             "seq_embedding",
         ]
-        self.save_hyperparameters(*hparams)
+
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
         self.model = GVPModel(**model_kwargs)
+        self.save_hyperparameters(*hparams)
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -92,71 +93,73 @@ class LitGVPModel(pl.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+try:
+    from keras.models import load_model
+    import tensorflow as tf
 
-from keras.models import load_model
-import tensorflow as tf
+    from keras.preprocessing import sequence
+    from keras import backend as K
+    from keras.engine.topology import Layer
+except ModuleNotFoundError:
+    pass
+else:
+    class Self_Attention(Layer):
 
-from keras.preprocessing import sequence
-from keras import backend as K
-from keras.engine.topology import Layer
+        def __init__(self, output_dim, **kwargs):
+            self.output_dim = output_dim
+            super(Self_Attention, self).__init__()
 
-class Self_Attention(Layer):
+        def build(self, input_shape):
+            self.kernel = self.add_weight(name='kernel',
+                                          shape=(3,input_shape[2], self.output_dim),
+                                          initializer='uniform',
+                                          trainable=True)
 
-    def __init__(self, output_dim, **kwargs):
-        self.output_dim = output_dim
-        super(Self_Attention, self).__init__()
+            super(Self_Attention, self).build(input_shape)  
 
-    def build(self, input_shape):
-        self.kernel = self.add_weight(name='kernel',
-                                      shape=(3,input_shape[2], self.output_dim),
-                                      initializer='uniform',
-                                      trainable=True)
+        def call(self, x):
+            WQ = K.dot(x, self.kernel[0])
+            WK = K.dot(x, self.kernel[1])
+            WV = K.dot(x, self.kernel[2])
 
-        super(Self_Attention, self).build(input_shape)  
+            QK = K.batch_dot(WQ,K.permute_dimensions(WK, [0, 2, 1]))
 
-    def call(self, x):
-        WQ = K.dot(x, self.kernel[0])
-        WK = K.dot(x, self.kernel[1])
-        WV = K.dot(x, self.kernel[2])
+            QK = QK / (self.output_dim**0.5)
 
-        QK = K.batch_dot(WQ,K.permute_dimensions(WK, [0, 2, 1]))
+            QK = K.softmax(QK)
 
-        QK = QK / (self.output_dim**0.5)
+            V = K.batch_dot(QK,WV)
 
-        QK = K.softmax(QK)
+            return V
 
-        V = K.batch_dot(QK,WV)
+        def compute_output_shape(self, input_shape):
 
-        return V
+            return (input_shape[0],input_shape[1],self.output_dim)
 
-    def compute_output_shape(self, input_shape):
+        def get_config(self):
+            config = {
+                'output_dim': self.output_dim
+            }
+            base_config = super(Self_Attention, self).get_config()
+            return dict(list(base_config.items()) + list(config.items()))
 
-        return (input_shape[0],input_shape[1],self.output_dim)
-
-    def get_config(self):
-        config = {
-            'output_dim': self.output_dim
-        }
-        base_config = super(Self_Attention, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
-
-class CAMPModel(tf.keras.Model):
-    """
-    CAMP model modified from https://github.com/twopin/CAMP 
-    
-    model_mode: 1 (to get affinity value), otherwise get affinity value + predicted binding sites
-    model_name: path to the CAMP model, options [efs/data/CAMP/models/CAMP.h5, efs/data/CAMP/models/CAMP_BS.h5]
-    """
-    def __init__(self, model_mode, model_name):
-        super().__init__()
-        # model_name='./model/CAMP.h5' # Update to point to model directory
-        print('Start loading model :', model_name)
-        model = load_model(model_name,custom_objects={'Self_Attention': Self_Attention})
-        
-    def call(self, inputs):
+    class CAMPModel(tf.keras.Model):
         """
-        If model mode is 1, returns prediction label only
-        If model mode is not 1, returns prediction label and predicted binding sites
+        CAMP model modified from https://github.com/twopin/CAMP 
+
+        model_mode: 1 (to get affinity value), otherwise get affinity value + predicted binding sites
+        model_name: path to the CAMP model, options [efs/data/CAMP/models/CAMP.h5, efs/data/CAMP/models/CAMP_BS.h5]
         """
-        y = self.model.predict(inputs)
-        return y
+        def __init__(self, model_mode, model_name):
+            super().__init__()
+            # model_name='./model/CAMP.h5' # Update to point to model directory
+            print('Start loading model :', model_name)
+            model = load_model(model_name,custom_objects={'Self_Attention': Self_Attention})
+
+        def call(self, inputs):
+            """
+            If model mode is 1, returns prediction label only
+            If model mode is not 1, returns prediction label and predicted binding sites
+            """
+            y = self.model.predict(inputs)
+            return y
