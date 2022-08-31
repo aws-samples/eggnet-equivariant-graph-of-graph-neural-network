@@ -239,13 +239,17 @@ class PIGNetComplexDataset(data.Dataset):
 
         if type(m2) is Chem.rdchem.Mol:
             m2 = mol_to_pdb_structure(m2)
-        graph = self.featurizer.featurize(
-            {
-                "ligand": m1,
-                "protein": m2,
-            }
-        )
-        sample = {"graph": graph}
+        if self.featurizer:
+            graph = self.featurizer.featurize(
+                {
+                    "ligand": m1,
+                    "protein": m2,
+                }
+            )
+            sample = {"graph": graph}
+        else:
+            # featurizer not provided:
+            sample = {"ligand": m1, "protein": m2}
         sample["affinity"] = self.id_to_y[key] * -1.36
         sample["key"] = key
         return sample

@@ -74,7 +74,13 @@ class MolT5Featurizer(BaseResidueFeaturizer):
     Use MolT5 encodings as residue features.
     """
 
-    def __init__(self, device="cpu", model_size="small", model_max_length=512):
+    def __init__(
+        self,
+        device="cpu",
+        model_size="small",
+        model_max_length=512,
+        requires_grad=False,
+    ):
         """
         Args:
             model_size: one of ('small', 'base', 'large')
@@ -87,12 +93,16 @@ class MolT5Featurizer(BaseResidueFeaturizer):
             "laituan245/molt5-%s" % model_size
         ).to(device)
         self.device = device
+        self.requires_grad = requires_grad
         super(MolT5Featurizer, self).__init__()
 
     def _featurize(self, smiles: str) -> torch.tensor:
         input_ids = self.tokenizer(smiles, return_tensors="pt").input_ids
         input_ids = input_ids.to(self.device)
-        with torch.no_grad():
+        if not self.requires_grad:
+            with torch.no_grad():
+                outputs = self.model(input_ids)
+        else:
             outputs = self.model(input_ids)
 
         # shape: [1, input_ids.shape[1], model_max_length]
@@ -100,6 +110,12 @@ class MolT5Featurizer(BaseResidueFeaturizer):
 
         # average over positions:
         return last_hidden_states.mean(axis=1).squeeze(0)
+
+    def forward(self, smiles: str) -> torch.tensor:
+        """Expose this method when we want to unfreeze the network,
+        training jointly with higher level GNN"""
+        assert self.requires_grad
+        return self._featurize(smiles)
 
 
 def get_residue_featurizer(name=""):
