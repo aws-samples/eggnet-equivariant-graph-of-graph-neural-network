@@ -34,7 +34,7 @@ def choose_best_pose(id_to_pred: Dict[str, float]) -> Dict[str, float]:
     return retval
 
 
-def predict(model, data_loader):
+def predict(model, data_loader, model_name="gvp"):
     """Make predictions on data from the data_loader"""
     # make predictions on test set
     device = torch.device("cuda:0")
@@ -44,7 +44,14 @@ def predict(model, data_loader):
     all_preds = []
     with torch.no_grad():
         for batch in tqdm(data_loader):
-            _, preds = model(batch["graph"].to(device))
+            if model_name == "gvp":
+                _, preds = model(batch["graph"].to(device))
+            elif model_name == "gvp-multistage":
+                _, preds = model(
+                    batch["protein_graph"].to(device),
+                    batch["ligand_graph"].to(device),
+                    batch["complex_graph"].to(device),
+                )
             preds = preds.to("cpu")
             preds = list(preds.numpy().reshape(-1))
             all_preds.extend(preds)
@@ -176,7 +183,7 @@ def main(args):
     print("Performing scoring task...")
     scoring_dataset = get_datasets(
         name="PDBBind",
-        input_type="complex",
+        input_type=args.input_type,
         data_dir=os.path.join(args.data_dir, "scoring"),
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
@@ -192,7 +199,9 @@ def main(args):
         num_workers=args.num_workers,
         collate_fn=scoring_dataset.collate_fn,
     )
-    scores = evaluate_graph_regression(model, scoring_data_loader)
+    scores = evaluate_graph_regression(
+        model, scoring_data_loader, model_name=args.model_name
+    )
     pprint(scores)
     # save scores to file
     json.dump(
@@ -213,7 +222,7 @@ def main(args):
 
     docking_dataset = get_datasets(
         name="PDBBind",
-        input_type="complex",
+        input_type=args.input_type,
         data_dir=os.path.join(args.data_dir, "docking"),
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
@@ -229,7 +238,7 @@ def main(args):
         num_workers=args.num_workers,
         collate_fn=docking_dataset.collate_fn,
     )
-    all_preds = predict(model, docking_data_loader)
+    all_preds = predict(model, docking_data_loader, model_name=args.model_name)
     id_to_pred = dict(zip(docking_dataset.keys, all_preds))
 
     docking_scores = evaluate_docking(id_to_pred, id_to_rmsd)
@@ -249,7 +258,7 @@ def main(args):
 
     screening_dataset = get_datasets(
         name="PDBBind",
-        input_type="complex",
+        input_type=args.input_type,
         data_dir=os.path.join(args.data_dir, "screening"),
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
@@ -265,7 +274,9 @@ def main(args):
         num_workers=args.num_workers,
         collate_fn=screening_dataset.collate_fn,
     )
-    all_preds = predict(model, screening_data_loader)
+    all_preds = predict(
+        model, screening_data_loader, model_name=args.model_name
+    )
     id_to_pred = dict(zip(screening_dataset.keys, all_preds))
     screening_scores = evaluate_screening(id_to_pred, true_binder_list)
     # save scores to file
@@ -289,6 +300,12 @@ if __name__ == "__main__":
         type=str,
         default="gvp",
         help="Choose from %s" % ", ".join(list(MODEL_CONSTRUCTORS.keys())),
+    )
+    parser.add_argument(
+        "--input_type",
+        help="data input type",
+        type=str,
+        default="complex",
     )
     parser.add_argument(
         "--checkpoint_path",
