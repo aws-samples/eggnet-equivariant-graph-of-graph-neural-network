@@ -469,8 +469,8 @@ class GVPMultiStageModel(nn.Module):
 
         ## SECOND STAGE
 
-        protein_num_nodes = protein_graph.batch_num_nodes()
-        ligand_num_nodes = ligand_graph.batch_num_nodes()
+        protein_num_nodes = protein_graph.batch_num_nodes().tolist()
+        ligand_num_nodes = ligand_graph.batch_num_nodes().tolist()
 
         h_V_p_s = torch.split(h_V_p[0], protein_num_nodes)
         h_V_l_s = torch.split(h_V_l[0], ligand_num_nodes)
