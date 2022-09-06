@@ -906,8 +906,7 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
         interaction_indice_pad = np.pad(sample['interaction_indice'], 
                                 [(0, 0), (n_protein, 0), (0, n_ligand)])
         interaction_indice_symm = np.maximum(interaction_indice_pad, np.transpose(interaction_indice_pad, (0, 2, 1)))
-        adj_matrix = interaction_indice_symm.max(axis=0) + np.eye(n_protein+n_ligand)
-        src, dst = np.nonzero(adj_matrix)
+        src, dst = np.nonzero(interaction_indice_symm.max(axis=0) + np.eye(n_protein+n_ligand))
         complex_graph = dgl.graph((torch.from_numpy(src), torch.from_numpy(dst)))
         edge_index = complex_graph.edges()
 
@@ -925,7 +924,7 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
                             torch.from_numpy(sample['ligand_h'])], dim=0)).float()
         node_v = torch.cat([torch.from_numpy(sample['target_pos']), 
                             torch.from_numpy(sample['ligand_pos'])], dim=0).unsqueeze(-2).float()
-        edge_s = torch.from_numpy(interaction_indice_pad[:, src, dst]).T.float()
+        edge_s = torch.from_numpy(interaction_indice_symm[:, src, dst]).T.float()
         edge_v = _normalize(E_vectors).unsqueeze(-2).float()
 
         node_s, node_v, edge_s, edge_v = map(
