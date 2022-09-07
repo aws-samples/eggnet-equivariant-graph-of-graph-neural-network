@@ -984,9 +984,9 @@ class GVPMultiStageEnergyModel(nn.Module):
         assert sum(complex_num_nodes) == sum(protein_ligand_num_nodes)
 
         out_c_split = torch.split(out_c, protein_ligand_num_nodes)
-        out_c_protein = [x.permute(2, 1) for x in out_c_split[::2]]
+        out_c_protein = [x.permute(1, 0) for x in out_c_split[::2]]
         print(out_c_protein[0].shape)
-        out_c_ligand = [x.permute(2, 1) for x in out_c_split[1::2]]
+        out_c_ligand = [x.permute(1, 0) for x in out_c_split[1::2]]
         print(out_c_ligand[0].shape)
 
         target_h = padded_stack(out_c_protein).permute(0, 2, 1)
