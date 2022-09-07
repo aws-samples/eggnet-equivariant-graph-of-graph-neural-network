@@ -478,7 +478,7 @@ class PIGNetAtomicBigraphComplexEnergyDataset(data.Dataset):
             protein_graphs.append(rec["protein_graph"])
             ligand_graphs.append(rec["ligand_graph"])
             complex_graphs.append(rec["complex_graph"])
-            physics.append(rec["physics"])
+            physics.append(rec["sample"])
             g_targets.append(rec["affinity"])
         return {
             "protein_graph": dgl.batch(protein_graphs),
