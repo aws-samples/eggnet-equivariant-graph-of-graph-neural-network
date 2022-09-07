@@ -364,7 +364,7 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
             Loss
         """
         energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"])
-        g_preds = energies.sum(-1)
+        g_preds = energies.sum(-1).unsqueeze(-1)
         g_targets = batch["g_targets"]
         loss = self._compute_loss(g_preds, g_targets)
         self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])
