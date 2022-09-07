@@ -130,13 +130,12 @@ class GVPModel(nn.Module):
                 torch.cat([h_V[1] for h_V in h_V_out], dim=-2),
             )
             out = self.W_out(h_V_out)
-
-        out = self.dense(out) + 0.5  # [n_nodes, num_outputs]
+        # out.shape # [n_nodes, ns]
         # aggregate node vectors to graph
         g.ndata["out"] = out
-        graph_out = dgl.mean_nodes(g, "out")  # [n_graphs, num_outputs]
+        graph_out = dgl.mean_nodes(g, "out")  # [n_graphs, ns]
 
-        return out, graph_out
+        return self.dense(out) + 0.5, self.dense(graph_out) + 0.5
 
 
 class GATModel(nn.Module):
