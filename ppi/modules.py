@@ -943,10 +943,17 @@ class GVPMultiStageEnergyModel(nn.Module):
             out_c = self.W_out_c(h_V_out_c)
 
         complex_num_nodes = complex_graph.batch_num_nodes().tolist()
+        protein_ligand_num_nodes = [val for pair in zip(protein_num_nodes, ligand_num_nodes) for val in pair]
+        assert sum(complex_num_nodes) == sum(protein_ligand_num_nodes)
 
-        h_V_p_s = torch.split(h_V_p[0], protein_num_nodes)
+        out_c_split = torch.split(out_c, protein_ligand_num_nodes)
+        out_c_protein = out_c_split[::2]
+        out_c_ligand = out_c_split[1::2]
 
-        # concat features (MODIFY THIS TO USE out_c)
+        target_h = torch.stack(out_c_protein, dim=0)
+        ligand_h = torch.stack(out_c_ligand, dim=0)
+
+        # concat features
         h1_ = ligand_h.unsqueeze(2).repeat(1, 1, target_h.size(1), 1)
         h2_ = target_h.unsqueeze(1).repeat(1, ligand_h.size(1), 1, 1)
         h_cat = torch.cat([h1_, h2_], -1)

@@ -21,13 +21,14 @@ import torchmetrics
 
 # custom imports
 # from ppi.modules import GATModel, GVPModel
-from ppi.model import LitGVPModel, LitGVPMultiStageModel
+from ppi.model import LitGVPModel, LitGVPMultiStageModel, LitGVPMultiStageEnergyModel
 from ppi.data import (
     prepare_pepbdb_data_list,
     PepBDBComplexDataset,
     PIGNetComplexDataset,
     PIGNetAtomicBigraphComplexDataset,
     PIGNetHeteroBigraphComplexDataset,
+    PIGNetAtomicBigraphComplexEnergyDataset,
 )
 from ppi.data_utils import (
     BaseFeaturizer,
@@ -43,6 +44,7 @@ from ppi.data_utils import (
 MODEL_CONSTRUCTORS = {
     "gvp": LitGVPModel,
     "gvp-multistage": LitGVPMultiStageModel,
+    "gvp-multistage-energy": LitGVPMultiStageEnergyModel,
     # "gat": GATModel,
 }
 
@@ -72,6 +74,66 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
         protein_graph = datum["protein_graph"] 
         ligand_graph = datum["ligand_graph"] 
         complex_graph = datum["complex_graph"]
+
+        # Protein
+        protein_node_in_dim = (
+            protein_graph.ndata["node_s"].shape[1],
+            protein_graph.ndata["node_v"].shape[1],
+        )
+        kwargs["protein_node_h_dim"] = tuple(kwargs["protein_node_h_dim"])
+        protein_edge_in_dim = (
+            protein_graph.edata["edge_s"].shape[1],
+            protein_graph.edata["edge_v"].shape[1],
+        )
+        kwargs["protein_edge_h_dim"] = tuple(kwargs["protein_edge_h_dim"])
+        print("protein_node_h_dim:", kwargs["protein_node_h_dim"])
+        print("protein_edge_h_dim:", kwargs["protein_edge_h_dim"])
+
+        # Ligand
+        ligand_node_in_dim = (
+            ligand_graph.ndata["node_s"].shape[1],
+            ligand_graph.ndata["node_v"].shape[1],
+        )
+        kwargs["ligand_node_h_dim"] = tuple(kwargs["ligand_node_h_dim"])
+        ligand_edge_in_dim = (
+            ligand_graph.edata["edge_s"].shape[1],
+            ligand_graph.edata["edge_v"].shape[1],
+        )
+        kwargs["ligand_edge_h_dim"] = tuple(kwargs["ligand_edge_h_dim"])
+        print("ligand_node_h_dim:", kwargs["ligand_node_h_dim"])
+        print("ligand_edge_h_dim:", kwargs["ligand_edge_h_dim"])
+
+        assert kwargs["protein_node_h_dim"] == kwargs["ligand_node_h_dim"], "Hidden node dimension must match for multistage model."
+
+        # Complex
+        complex_node_in_dim = (
+            complex_graph.ndata["node_s"].shape[1],
+            complex_graph.ndata["node_v"].shape[1],
+        )
+        kwargs["complex_node_h_dim"] = tuple(kwargs["complex_node_h_dim"])
+        complex_edge_in_dim = (
+            complex_graph.edata["edge_s"].shape[1],
+            complex_graph.edata["edge_v"].shape[1],
+        )
+        kwargs["complex_edge_h_dim"] = tuple(kwargs["complex_edge_h_dim"])
+        print("complex_node_h_dim:", kwargs["complex_node_h_dim"])
+        print("complex_edge_h_dim:", kwargs["complex_edge_h_dim"])
+
+        model = MODEL_CONSTRUCTORS[model_name](
+            protein_node_in_dim=protein_node_in_dim,
+            protein_edge_in_dim=protein_edge_in_dim,
+            ligand_node_in_dim=ligand_node_in_dim,
+            ligand_edge_in_dim=ligand_edge_in_dim,
+            complex_node_in_dim=kwargs["protein_node_h_dim"],
+            complex_edge_in_dim=complex_edge_in_dim,
+            num_outputs=num_outputs,
+            **kwargs
+        )
+    elif model_name == "gvp-multistage-energy":
+        protein_graph = datum["protein_graph"] 
+        ligand_graph = datum["ligand_graph"] 
+        complex_graph = datum["complex_graph"]
+        sample = datum["sample"]
 
         # Protein
         protein_node_in_dim = (
@@ -301,6 +363,27 @@ def get_datasets(
                 return train_dataset, valid_dataset, test_dataset
             else:
                 return test_dataset
+        elif input_type == "multistage-physical-energy":
+            featurizer = PIGNetAtomicBigraphPhysicalComplexFeaturizer(residue_featurizer=None, return_physics=True)
+            test_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
+                test_keys, data_dir, id_to_y, featurizer
+            )
+            if not test_only:
+                with open(
+                    os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                ) as f:
+                    train_keys = pickle.load(f)
+                n_train = int(0.8 * len(train_keys))
+                train_dataset = PIGNetAtomicBigraphComplexDataset(
+                    train_keys[:n_train], data_dir, id_to_y, featurizer
+                )
+                valid_dataset = PIGNetAtomicBigraphComplexDataset(
+                    train_keys[n_train:], data_dir, id_to_y, featurizer
+                )
+
+                return train_dataset, valid_dataset, test_dataset
+            else:
+                return test_dataset
         else:
             raise NotImplementedError
 
@@ -353,6 +436,8 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp"):
                 _, preds = model(batch["graph"])
             elif model_name == "gvp-multistage":
                 _, preds = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
+            elif model_name == "gvp-multistage-energy":
+                _, preds = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"])
             else:
                 raise NotImplementedError
             preds = preds.to("cpu")
@@ -418,6 +503,8 @@ def main(args):
         if args.model_name == "gvp":
             datum = train_dataset[0]["graph"]
         elif args.model_name == "gvp-multistage":
+            datum = train_dataset[0]
+        elif args.model_name == "gvp-multistage-energy":
             datum = train_dataset[0]
         else:
             raise NotImplementedError

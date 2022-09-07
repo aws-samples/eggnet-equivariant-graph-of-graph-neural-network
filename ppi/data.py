@@ -19,6 +19,63 @@ from tqdm import tqdm
 from ppi.data_utils import remove_nan_residues, mol_to_pdb_structure
 
 
+def check_dimension(tensors: List[Any]) -> Any:
+    size = []
+    for tensor in tensors:
+        if isinstance(tensor, np.ndarray):
+            size.append(tensor.shape)
+        else:
+            size.append(0)
+    size = np.asarray(size)
+
+    return np.max(size, 0)
+
+
+def collate_tensor(tensor: Any, max_tensor: Any, batch_idx: int) -> Any:
+    if isinstance(tensor, np.ndarray):
+        dims = tensor.shape
+        max_dims = max_tensor.shape
+        slice_list = tuple([slice(0, dim) for dim in dims])
+        slice_list = [slice(batch_idx, batch_idx + 1), *slice_list]
+        max_tensor[tuple(slice_list)] = tensor
+    elif isinstance(tensor, str):
+        max_tensor[batch_idx] = tensor
+    else:
+        max_tensor[batch_idx] = tensor
+
+    return max_tensor
+
+
+def tensor_collate_fn(batch: List[Any]) -> Dict[str, Any]:
+    batch_items = [it for e in batch for it in e.items()]
+    dim_dict = dict()
+    total_key, total_value = list(zip(*batch_items))
+    batch_size = len(batch)
+    n_element = int(len(batch_items) / batch_size)
+    total_key = total_key[0:n_element]
+    for i, k in enumerate(total_key):
+        value_list = [v for j, v in enumerate(total_value) if j % n_element == i]
+        if isinstance(value_list[0], np.ndarray):
+            dim_dict[k] = np.zeros(np.array([batch_size, *check_dimension(value_list)]))
+        elif isinstance(value_list[0], str):
+            dim_dict[k] = ["" for _ in range(batch_size)]
+        else:
+            dim_dict[k] = np.zeros((batch_size,))
+
+    ret_dict = {}
+    for j in range(batch_size):
+        if batch[j] == None:
+            continue
+        keys = []
+        for key, value in dim_dict.items():
+            value = collate_tensor(batch[j][key], value, j)
+            if not isinstance(value, list):
+                value = torch.from_numpy(value).float()
+            ret_dict[key] = value
+
+    return ret_dict
+
+
 class BasePPIDataset(data.Dataset):
     """Dataset for the Base Protein Graph."""
 
@@ -371,5 +428,62 @@ class PIGNetAtomicBigraphComplexDataset(data.Dataset):
             "protein_graph": dgl.batch(protein_graphs),
             "ligand_graph": dgl.batch(ligand_graphs),
             "complex_graph": dgl.batch(complex_graphs),
+            "g_targets": torch.tensor(g_targets).unsqueeze(-1),
+        }
+
+
+class PIGNetAtomicBigraphComplexEnergyDataset(data.Dataset):
+    """
+    To work with preprocessed pickles sourced from PDBBind dataset by the
+    PIGNet paper.
+    Modified from https://github.com/ACE-KAIST/PIGNet/blob/main/dataset.py
+    """
+
+    def __init__(
+        self,
+        keys: List[str],
+        data_dir: str,
+        id_to_y: Dict[str, float],
+        featurizer: object,
+    ):
+        self.keys = keys
+        self.data_dir = data_dir
+        self.id_to_y = id_to_y
+        self.featurizer = featurizer
+
+    def __len__(self) -> int:
+        return len(self.keys)
+
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        key = self.keys[idx]
+        with open(os.path.join(self.data_dir, "data", key), "rb") as f:
+            m1, _, m2, _ = pickle.load(f)
+
+        protein_graph, ligand_graph, complex_graph, physics = self.featurizer.featurize(
+            {
+                "ligand": m1,
+                "protein": m2,
+            }
+        )
+        sample = {"protein_graph": protein_graph, "ligand_graph": ligand_graph, "complex_graph": complex_graph, "sample": physics}
+        sample["affinity"] = self.id_to_y[key] * -1.36
+        sample["key"] = key
+        return sample
+
+    def collate_fn(self, samples):
+        """Collating protein complex graphs and graph-level targets."""
+        protein_graphs, ligand_graphs, complex_graphs, physics = [], [], [], []
+        g_targets = []
+        for rec in samples:
+            protein_graphs.append(rec["protein_graph"])
+            ligand_graphs.append(rec["ligand_graph"])
+            complex_graphs.append(rec["complex_graph"])
+            physics.append(rec["physics"])
+            g_targets.append(rec["affinity"])
+        return {
+            "protein_graph": dgl.batch(protein_graphs),
+            "ligand_graph": dgl.batch(ligand_graphs),
+            "complex_graph": dgl.batch(complex_graphs),
+            "sample": tensor_collate_fn(physics),
             "g_targets": torch.tensor(g_targets).unsqueeze(-1),
         }

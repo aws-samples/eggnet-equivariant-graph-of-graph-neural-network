@@ -351,8 +351,8 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
         loss = F.mse_loss(logits, targets)
         return loss
 
-    def forward(self, protein_graph, ligand_graph, complex_graph):
-        return self.model(protein_graph, ligand_graph, complex_graph)
+    def forward(self, protein_graph, ligand_graph, complex_graph, sample):
+        return self.model(protein_graph, ligand_graph, complex_graph, sample)
 
     def _step(self, batch, batch_idx, prefix="train"):
         """Used in train/validation loop, independent of `forward`
@@ -363,14 +363,14 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
         Returns:
             Loss
         """
-        logits, g_logits = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
+        energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"])
         # node-level targets and mask
         # targets = batch.ndata["target"]
         # train_mask = batch.ndata["mask"]
         # loss = self._compute_loss(logits[train_mask], targets[train_mask])
         # graph-level targets
         g_targets = batch["g_targets"]
-        loss = self._compute_loss(g_logits, g_targets)
+        loss = self._compute_loss(energies, g_targets)
         self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])
         return loss
 
