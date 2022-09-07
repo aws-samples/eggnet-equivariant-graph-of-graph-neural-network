@@ -12,6 +12,41 @@ import dgl
 from dgl.nn import GATConv
 
 
+def padded_stack(
+    tensors: List[torch.Tensor], side: str = "right", mode: str = "constant", value: Union[int, float] = 0
+) -> torch.Tensor:
+    """
+    Stack tensors along first dimension and pad them along last dimension to ensure their size is equal.
+
+    Args:
+        tensors (List[torch.Tensor]): list of tensors to stack
+        side (str): side on which to pad - "left" or "right". Defaults to "right".
+        mode (str): 'constant', 'reflect', 'replicate' or 'circular'. Default: 'constant'
+        value (Union[int, float]): value to use for constant padding
+
+    Returns:
+        torch.Tensor: stacked tensor
+    """
+    full_size = max([x.size(-1) for x in tensors])
+
+    def make_padding(pad):
+        if side == "left":
+            return (pad, 0)
+        elif side == "right":
+            return (0, pad)
+        else:
+            raise ValueError(f"side for padding '{side}' is unknown")
+
+    out = torch.stack(
+        [
+            F.pad(x, make_padding(full_size - x.size(-1)), mode=mode, value=value) if full_size - x.size(-1) > 0 else x
+            for x in tensors
+        ],
+        dim=0,
+    )
+    return out
+
+
 class GVPModel(nn.Module):
     """GVP-GNN Model (structure-only) modified from `MQAModel`:
     https://github.com/drorlab/gvp-pytorch/blob/main/gvp/model.py
@@ -947,13 +982,13 @@ class GVPMultiStageEnergyModel(nn.Module):
         assert sum(complex_num_nodes) == sum(protein_ligand_num_nodes)
 
         out_c_split = torch.split(out_c, protein_ligand_num_nodes)
-        out_c_protein = out_c_split[::2]
+        out_c_protein = [x.permute(0, 2, 1) for x in out_c_split[::2]]
         print(out_c_protein[0].shape)
-        out_c_ligand = out_c_split[1::2]
+        out_c_ligand = [x.permute(0, 2, 1) for x in out_c_split[1::2]]
         print(out_c_ligand[0].shape)
 
-        target_h = torch.stack(out_c_protein, dim=0)
-        ligand_h = torch.stack(out_c_ligand, dim=0)
+        target_h = padded_stack(out_c_protein).permute(0, 2, 1)
+        ligand_h = padded_stack(out_c_ligand).permute(0, 2, 1)
 
         # concat features
         h1_ = ligand_h.unsqueeze(2).repeat(1, 1, target_h.size(1), 1)
