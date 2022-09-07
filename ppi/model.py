@@ -4,8 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .modules import GVPModel
-from ppi.data_utils import get_residue_featurizer
-from ppi.data import PDBBindComplexFeaturizer
+from ppi.data_utils import get_residue_featurizer, PDBBindComplexFeaturizer
 
 
 class LitGVPModel(pl.LightningModule):

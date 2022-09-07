@@ -457,10 +457,10 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
     def __init__(self, residue_featurizer, **kwargs):
         self.residue_featurizer = residue_featurizer
         if getattr(self.residue_featurizer, "requires_grad", False):
-            self.residue_featurize_func = self.residue_featurizer.featurize
-        else:
             # to support backprop gradient into residue_featurizer
             self.residue_featurize_func = self.residue_featurizer.forward
+        else:
+            self.residue_featurize_func = self.residue_featurizer.featurize
         super(PDBBindComplexFeaturizer, self).__init__(**kwargs)
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:

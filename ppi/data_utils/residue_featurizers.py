@@ -3,6 +3,7 @@ Utils for featurizing a small molecule (amino acid residue) from their structure
 """
 from transformers import T5Tokenizer, T5EncoderModel
 import torch
+import torch.nn as nn
 import numpy as np
 from dgllife.utils import mol_to_bigraph
 from rdkit import Chem
@@ -69,7 +70,7 @@ class GNNFeaturizer(BaseResidueFeaturizer):
         return self.gnn_model(g)
 
 
-class MolT5Featurizer(BaseResidueFeaturizer):
+class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
     """
     Use MolT5 encodings as residue features.
     """
@@ -85,6 +86,9 @@ class MolT5Featurizer(BaseResidueFeaturizer):
         Args:
             model_size: one of ('small', 'base', 'large')
         """
+        # super(MolT5Featurizer, self).__init__()
+        nn.Module.__init__(self)
+        BaseResidueFeaturizer.__init__(self)
         self.tokenizer = T5Tokenizer.from_pretrained(
             "laituan245/molt5-%s" % model_size,
             model_max_length=model_max_length,
@@ -94,7 +98,6 @@ class MolT5Featurizer(BaseResidueFeaturizer):
         ).to(device)
         self.device = device
         self.requires_grad = requires_grad
-        super(MolT5Featurizer, self).__init__()
 
     def _featurize(self, smiles: str) -> torch.tensor:
         input_ids = self.tokenizer(smiles, return_tensors="pt").input_ids
@@ -129,5 +132,8 @@ def get_residue_featurizer(name=""):
         model_size = "small"
         if "-" in name:
             model_size = name.split("-")[1]
-        residue_featurizer = MolT5Featurizer(model_size=model_size)
+        requires_grad = True if "grad" in name else False
+        residue_featurizer = MolT5Featurizer(
+            model_size=model_size, requires_grad=requires_grad
+        )
     return residue_featurizer

@@ -20,7 +20,7 @@ import torchmetrics
 
 # custom imports
 # from ppi.modules import GATModel, GVPModel
-from ppi.model import LitGVPModel
+from ppi.model import LitGVPModel, LitHGVPModel
 from ppi.data import (
     prepare_pepbdb_data_list,
     PepBDBComplexDataset,
@@ -35,6 +35,7 @@ from ppi.data_utils import (
 # mapping model names to constructors
 MODEL_CONSTRUCTORS = {
     "gvp": LitGVPModel,
+    "hgvp": LitHGVPModel,
     # "gat": GATModel,
 }
 
