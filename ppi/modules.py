@@ -132,12 +132,11 @@ class GVPModel(nn.Module):
             )
             out = self.W_out(h_V_out)
 
-        out = self.dense(out) + 0.5  # [n_nodes, num_outputs]
         # aggregate node vectors to graph
         g.ndata["out"] = out
-        graph_out = dgl.mean_nodes(g, "out")  # [n_graphs, num_outputs]
+        graph_out = dgl.mean_nodes(g, "out")  # [n_graphs, ns]
 
-        return out, graph_out
+        return self.dense(out) + 0.5, self.dense(graph_out) + 0.5
 
 
 class GATModel(nn.Module):
@@ -514,12 +513,18 @@ class GVPMultiStageModel(nn.Module):
             out_c = self.W_out_c(h_V_out_c)
 
         ## Decoder
-        out_c = self.dense(out_c) + 0.5  # [n_nodes, num_outputs]
+        # out_c = self.dense(out_c) + 0.5  # [n_nodes, num_outputs]
+        # # aggregate node vectors to graph
+        # complex_graph.ndata["out"] = out_c
+        # graph_out_c = dgl.mean_nodes(complex_graph, "out")  # [n_graphs, num_outputs]
+
+        # return out_c, graph_out_c
+
         # aggregate node vectors to graph
         complex_graph.ndata["out"] = out_c
-        graph_out_c = dgl.mean_nodes(complex_graph, "out")  # [n_graphs, num_outputs]
+        graph_out_c = dgl.mean_nodes(complex_graph, "out")  # [n_graphs, ns]
 
-        return out_c, graph_out_c
+        return self.dense(out_c) + 0.5, self.dense(graph_out_c) + 0.5
 
 
 class GVPMultiStageEnergyModel(nn.Module):
@@ -936,6 +941,10 @@ class GVPMultiStageEnergyModel(nn.Module):
                 torch.cat([h_V_c[1] for h_V_c in h_V_out_c], dim=-2),
             )
             out_c = self.W_out_c(h_V_out_c)
+
+        complex_num_nodes = complex_graph.batch_num_nodes().tolist()
+
+        h_V_p_s = torch.split(h_V_p[0], protein_num_nodes)
 
         # concat features (MODIFY THIS TO USE out_c)
         h1_ = ligand_h.unsqueeze(2).repeat(1, 1, target_h.size(1), 1)
