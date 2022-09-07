@@ -37,3 +37,4 @@ python train.py --accelerator gpu \
     --lr 1e-3 \
     --bs 128 \
     --early_stopping_patience 10 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/brandry/PDBBind_MSGVP_physical \

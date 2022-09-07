@@ -893,8 +893,18 @@ class GVPMultiStageEnergyModel(nn.Module):
 
         ## SECOND STAGE
 
-        complex_graph.ndata["node_s"] = torch.cat([h_V_p[0], h_V_l[0]], dim=0)
-        complex_graph.ndata["node_v"] = torch.cat([h_V_p[1], h_V_l[1]], dim=0)
+        protein_num_nodes = protein_graph.batch_num_nodes().tolist()
+        ligand_num_nodes = ligand_graph.batch_num_nodes().tolist()
+
+        h_V_p_s = torch.split(h_V_p[0], protein_num_nodes)
+        h_V_l_s = torch.split(h_V_l[0], ligand_num_nodes)
+        h_V_s = [val for pair in zip(h_V_p_s, h_V_l_s) for val in pair]
+        complex_graph.ndata["node_s"] = torch.cat(h_V_s, dim=0)
+
+        h_V_p_v = torch.split(h_V_p[1], protein_num_nodes)
+        h_V_l_v = torch.split(h_V_l[1], ligand_num_nodes)
+        h_V_v = [val for pair in zip(h_V_p_v, h_V_l_v) for val in pair]
+        complex_graph.ndata["node_v"] = torch.cat(h_V_v, dim=0)
 
         ## Complex branch
         h_V_c = (complex_graph.ndata["node_s"], complex_graph.ndata["node_v"])
