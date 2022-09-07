@@ -712,21 +712,21 @@ class GVPMultiStageEnergyModel(nn.Module):
 
         # Inductive components
         self.cal_vdw_interaction_A = nn.Sequential(
-            nn.Linear(complex_node_h_dim[-1], complex_node_h_dim[-1]),
+            nn.Linear(ns_c, ns_c),
             nn.ReLU(),
-            nn.Linear(complex_node_h_dim[-1], 1),
+            nn.Linear(ns_c, 1),
             nn.Sigmoid(),
         )
         self.cal_vdw_interaction_B = nn.Sequential(
-            nn.Linear(complex_node_h_dim[-1], complex_node_h_dim[-1]),
+            nn.Linear(ns_c, ns_c),
             nn.ReLU(),
-            nn.Linear(complex_node_h_dim[-1], 1),
+            nn.Linear(ns_c, 1),
             nn.Tanh(),
         )
         self.cal_vdw_interaction_N = nn.Sequential(
-            nn.Linear(complex_node_h_dim[-1], complex_node_h_dim[-1]),
+            nn.Linear(ns_c, ns_c),
             nn.ReLU(),
-            nn.Linear(complex_node_h_dim[-1], 1),
+            nn.Linear(ns_c, 1),
             nn.Sigmoid(),
         )
         self.hbond_coeff = nn.Parameter(torch.tensor([1.0]))
