@@ -824,8 +824,8 @@ class GVPMultiStageEnergyModel(nn.Module):
             target_valid,
             ligand_non_metal,
             target_non_metal,
-            _,
-            _,
+            # _,
+            # _,
         ) = sample.values()
 
         # distance matrix
