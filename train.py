@@ -374,10 +374,10 @@ def get_datasets(
                 ) as f:
                     train_keys = pickle.load(f)
                 n_train = int(0.8 * len(train_keys))
-                train_dataset = PIGNetAtomicBigraphComplexDataset(
+                train_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
                     train_keys[:n_train], data_dir, id_to_y, featurizer
                 )
-                valid_dataset = PIGNetAtomicBigraphComplexDataset(
+                valid_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
                     train_keys[n_train:], data_dir, id_to_y, featurizer
                 )
 
