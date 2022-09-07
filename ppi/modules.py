@@ -1000,6 +1000,8 @@ class GVPMultiStageEnergyModel(nn.Module):
         h2_ = target_h.unsqueeze(1).repeat(1, ligand_h.size(1), 1, 1)
         h_cat = torch.cat([h1_, h2_], -1)
 
+        print(h_cat.shape)
+
         # compute energy component
         energies = []
 
