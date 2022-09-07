@@ -992,6 +992,9 @@ class GVPMultiStageEnergyModel(nn.Module):
         target_h = padded_stack(out_c_protein).permute(0, 2, 1)
         ligand_h = padded_stack(out_c_ligand).permute(0, 2, 1)
 
+        print(target_h.shape)
+        print(ligand_h.shape)
+
         # concat features
         h1_ = ligand_h.unsqueeze(2).repeat(1, 1, target_h.size(1), 1)
         h2_ = target_h.unsqueeze(1).repeat(1, ligand_h.size(1), 1, 1)
