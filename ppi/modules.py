@@ -11,6 +11,8 @@ import dgl
 # from transformers import BertModel
 from dgl.nn import GATConv
 
+from typing import Any, Callable, Dict, List, Tuple, Union
+
 
 def padded_stack(
     tensors: List[torch.Tensor], side: str = "right", mode: str = "constant", value: Union[int, float] = 0
