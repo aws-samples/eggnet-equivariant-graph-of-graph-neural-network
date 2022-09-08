@@ -4,7 +4,6 @@ from transformers import T5Tokenizer, T5EncoderModel
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.utilities.distributed import rank_zero_only
 
 import os
 import json
@@ -419,7 +418,6 @@ def evaluate_node_classification(model, data_loader):
     }
     return results
 
-@rank_zero_only
 def evaluate_graph_regression(model, data_loader, model_name="gvp"):
     """Evaluate model on dataset and return metrics for graph-level regression."""
     # make predictions on test set
@@ -551,10 +549,11 @@ def main(args):
         scores = evaluate_graph_regression(model, test_loader, model_name=args.model_name)
     pprint(scores)
     # save scores to file
-    json.dump(
-        scores,
-        open(os.path.join(trainer.log_dir, "scores.json"), "w"),
-    )
+    if trainer.global_rank == 0:
+        json.dump(
+            scores,
+            open(os.path.join(trainer.log_dir, "scores.json"), "w"),
+        )
     return
 
 
