@@ -443,11 +443,14 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp"):
                     if key != "sample":
                         batch[key] = val.to(device)
                 energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"])
+                print(energies.shape)
                 preds = energies.sum(-1).unsqueeze(-1)
             else:
                 raise NotImplementedError
             preds = preds.to("cpu")
+            print(preds.shape)
             targets = batch["g_targets"].to("cpu")
+            print(targets.shape)
 
             r2 = R2Score(preds, targets)
             rho = SpearmanCorrCoef(preds, targets)
