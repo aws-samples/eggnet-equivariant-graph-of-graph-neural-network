@@ -248,6 +248,13 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
             "drop_rate",
             "residual",
             "seq_embedding",
+            "vdw_N",
+            "max_vdw_interaction",
+            "min_vdw_interaction",
+            "dev_vdw_radius",
+            "loss_der1_ratio",
+            "loss_der2_ratio",
+            "min_loss_der2",
         ]
         self.save_hyperparameters(*hparams)
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
@@ -333,6 +340,24 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
             type=float,
             default=0.2,
         )
+        parser.add_argument(
+            "--loss_der1_ratio",
+            help="loss der1 ratio",
+            type=float,
+            default=10.0,
+        )
+        parser.add_argument(
+            "--loss_der2_ratio",
+            help="loss der2 ratio",
+            type=float,
+            default=10.0,
+        )
+        parser.add_argument(
+            "--min_loss_der2",
+            help="min loss der2",
+            type=float,
+            default=-20.0,
+        )
 
         parser.add_argument("--protein_num_layers", type=int, default=3)
         parser.add_argument("--ligand_num_layers", type=int, default=3)
@@ -344,12 +369,17 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
         parser.set_defaults(residual=False, seq_embedding=False)
         return parent_parser
 
-    def _compute_loss(self, logits, targets):
+    def _compute_loss(self, logits, targets, loss_der1, loss_der2):
         # binary classification
         # loss = F.binary_cross_entropy_with_logits(logits, targets)
         # regression
+        loss_all = 0.0
         loss = F.mse_loss(logits, targets)
-        return loss
+        loss_der2 = loss_der2.clamp(min=self.hparams.min_loss_der2)
+        loss_all += loss
+        loss_all += loss_der1.sum() * self.hparams.loss_der1_ratio
+        loss_all += loss_der2.sum() * self.hparams.loss_der2_ratio
+        return loss_all
 
     def forward(self, protein_graph, ligand_graph, complex_graph, sample):
         return self.model(protein_graph, ligand_graph, complex_graph, sample)
@@ -363,10 +393,13 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
         Returns:
             Loss
         """
-        energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"])
+        cal_der_loss = False
+        if self.hparams.loss_der1_ratio > 0 or self.hparams.loss_der2_ratio > 0.0:
+            cal_der_loss = True
+        energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=cal_der_loss)
         g_preds = energies.sum(-1).unsqueeze(-1)
         g_targets = batch["g_targets"]
-        loss = self._compute_loss(g_preds, g_targets)
+        loss = self._compute_loss(g_preds, g_targets, der1, der2)
         self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])
         return loss
 
