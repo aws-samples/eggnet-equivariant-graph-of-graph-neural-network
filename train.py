@@ -447,9 +447,7 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp"):
             else:
                 raise NotImplementedError
             preds = preds.to("cpu")
-            print(preds)
             targets = batch["g_targets"].to("cpu")
-            print(targets)
 
             r2 = R2Score(preds, targets)
             rho = SpearmanCorrCoef(preds, targets)
