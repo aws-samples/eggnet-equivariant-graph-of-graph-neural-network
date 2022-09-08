@@ -443,7 +443,7 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp"):
                     if key != "sample":
                         batch[key] = val.to(device)
                 energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"])
-                preds = energies.sum(-1).unsqueeze(-1)
+                preds = energies.sum(-1)
             else:
                 raise NotImplementedError
             preds = preds.to("cpu")
