@@ -1047,6 +1047,7 @@ class GVPMultiStageEnergyModel(nn.Module):
             )
 
         # derivatives
+        energies.requires_grad = True
         if cal_der_loss:
             gradient = torch.autograd.grad(
                 energies.sum(), ligand_pos, retain_graph=True, create_graph=True
