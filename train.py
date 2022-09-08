@@ -549,11 +549,10 @@ def main(args):
         scores = evaluate_graph_regression(model, test_loader, model_name=args.model_name)
     pprint(scores)
     # save scores to file
-    if trainer.global_rank == 0:
-        json.dump(
-            scores,
-            open(os.path.join(trainer.log_dir, "scores.json"), "w"),
-        )
+    json.dump(
+        scores,
+        open(os.path.join(trainer.log_dir, "scores.json"), "w"),
+    )
     return
 
 
