@@ -530,6 +530,7 @@ def main(args):
         deterministic=True,
         callbacks=[early_stop_callback, checkpoint_callback],
     )
+    log_dir = trainer.log_dir
     # train
     trainer.fit(model, train_loader, valid_loader)
     print("Training finished")
@@ -551,7 +552,7 @@ def main(args):
     # save scores to file
     json.dump(
         scores,
-        open(os.path.join(trainer.log_dir, "scores.json"), "w"),
+        open(os.path.join(log_dir, "scores.json"), "w"),
     )
     return
 
