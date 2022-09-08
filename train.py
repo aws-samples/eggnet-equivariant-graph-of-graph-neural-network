@@ -439,7 +439,9 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp"):
                 _, preds = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
             elif model_name == "gvp-multistage-energy":
                 batch["sample"] = {key: val.to(device) for key, val in batch["sample"].items()}
-                batch = {key: val.to(device) if key != "sample" else key: val for key, val in batch.items()}
+                for key, val in batch.items():
+                    if key != "sample":
+                        batch[key] = val.to(device)
                 energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"])
                 preds = energies.sum(-1).unsqueeze(-1)
             else:
