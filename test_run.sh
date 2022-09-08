@@ -36,5 +36,8 @@ python train.py --accelerator gpu \
     --num_workers 8 \
     --lr 1e-3 \
     --bs 16 \
-    --early_stopping_patience 300 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=10.0 \
+    --loss_der2_ratio=10.0 \
+    --min_loss_der2=-20.0 \
     --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/brandry/PDBBind_MSGVPEnergy_geometric \
