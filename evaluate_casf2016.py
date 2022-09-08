@@ -52,6 +52,14 @@ def predict(model, data_loader, model_name="gvp"):
                     batch["ligand_graph"].to(device),
                     batch["complex_graph"].to(device),
                 )
+            elif model_name == "gvp-multistage-energy":
+                energies, _, _ = model(
+                    batch["protein_graph"].to(device),
+                    batch["ligand_graph"].to(device),
+                    batch["complex_graph"].to(device),
+                    {key: val.to(device) for key, val in batch["sample"].items()}
+                )
+                preds = energies.sum(-1).unsqueeze(-1)
             preds = preds.to("cpu")
             preds = list(preds.numpy().reshape(-1))
             all_preds.extend(preds)

@@ -17,7 +17,7 @@ conda activate pytorch_p38
 # PDBBind dataset
 python train.py --accelerator gpu \
     --devices 1 \
-    --max_epochs 500 \
+    --max_epochs 3000 \
     --precision 16 \
     --protein_num_layers 3 \
     --ligand_num_layers 3 \
@@ -29,12 +29,12 @@ python train.py --accelerator gpu \
     --complex_node_h_dim 200 32 \
     --complex_edge_h_dim 64 2 \
     --dataset_name PDBBind \
-    --input_type multistage-physical \
-    --model_name gvp-multistage \
+    --input_type multistage-geometric-energy \
+    --model_name gvp-multistage-energy \
     --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
     --residual \
     --num_workers 8 \
     --lr 1e-3 \
-    --bs 128 \
-    --early_stopping_patience 10 \
-    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/brandry/PDBBind_MSGVP_physical \
+    --bs 16 \
+    --early_stopping_patience 300 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/brandry/PDBBind_MSGVPEnergy_geometric \
