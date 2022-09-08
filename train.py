@@ -402,7 +402,7 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp"):
                 for key, val in batch.items():
                     if key != "sample":
                         batch[key] = val.to(device)
-                energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"])
+                energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=False)
                 preds = energies.sum(-1).unsqueeze(-1)
             else:
                 raise NotImplementedError
