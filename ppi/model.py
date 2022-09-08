@@ -381,8 +381,8 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
         loss_all += loss_der2.sum() * self.hparams.loss_der2_ratio
         return loss_all
 
-    def forward(self, protein_graph, ligand_graph, complex_graph, sample):
-        return self.model(protein_graph, ligand_graph, complex_graph, sample)
+    def forward(self, protein_graph, ligand_graph, complex_graph, sample, cal_der_loss):
+        return self.model(protein_graph, ligand_graph, complex_graph, sample, cal_der_loss=cal_der_loss)
 
     def _step(self, batch, batch_idx, prefix="train"):
         """Used in train/validation loop, independent of `forward`
@@ -396,7 +396,7 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
         cal_der_loss = False
         if self.hparams.loss_der1_ratio > 0 or self.hparams.loss_der2_ratio > 0.0:
             cal_der_loss = True
-        energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=cal_der_loss)
+        energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss)
         g_preds = energies.sum(-1).unsqueeze(-1)
         g_targets = batch["g_targets"]
         loss = self._compute_loss(g_preds, g_targets, der1, der2)

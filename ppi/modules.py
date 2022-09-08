@@ -836,7 +836,7 @@ class GVPMultiStageEnergyModel(nn.Module):
         Returns:
             (logits, g_logits)
         """
-        energies, der1, der2 = self._forward(protein_batch, ligand_batch, complex_batch, sample_batch, DM_min, cal_der_loss)
+        energies, der1, der2 = self._forward(protein_batch, ligand_batch, complex_batch, sample_batch, DM_min=DM_min, cal_der_loss=cal_der_loss)
         return energies, der1, der2
 
     def _forward(self, protein_graph, ligand_graph, complex_graph, sample, DM_min=0.5, cal_der_loss=False):
