@@ -70,70 +70,10 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
             num_outputs=num_outputs,
             **kwargs
         )
-    elif model_name == "gvp-multistage":
+    elif model_name in ["gvp-multistage", "gvp-multistage-energy"]:
         protein_graph = datum["protein_graph"] 
         ligand_graph = datum["ligand_graph"] 
         complex_graph = datum["complex_graph"]
-
-        # Protein
-        protein_node_in_dim = (
-            protein_graph.ndata["node_s"].shape[1],
-            protein_graph.ndata["node_v"].shape[1],
-        )
-        kwargs["protein_node_h_dim"] = tuple(kwargs["protein_node_h_dim"])
-        protein_edge_in_dim = (
-            protein_graph.edata["edge_s"].shape[1],
-            protein_graph.edata["edge_v"].shape[1],
-        )
-        kwargs["protein_edge_h_dim"] = tuple(kwargs["protein_edge_h_dim"])
-        print("protein_node_h_dim:", kwargs["protein_node_h_dim"])
-        print("protein_edge_h_dim:", kwargs["protein_edge_h_dim"])
-
-        # Ligand
-        ligand_node_in_dim = (
-            ligand_graph.ndata["node_s"].shape[1],
-            ligand_graph.ndata["node_v"].shape[1],
-        )
-        kwargs["ligand_node_h_dim"] = tuple(kwargs["ligand_node_h_dim"])
-        ligand_edge_in_dim = (
-            ligand_graph.edata["edge_s"].shape[1],
-            ligand_graph.edata["edge_v"].shape[1],
-        )
-        kwargs["ligand_edge_h_dim"] = tuple(kwargs["ligand_edge_h_dim"])
-        print("ligand_node_h_dim:", kwargs["ligand_node_h_dim"])
-        print("ligand_edge_h_dim:", kwargs["ligand_edge_h_dim"])
-
-        assert kwargs["protein_node_h_dim"] == kwargs["ligand_node_h_dim"], "Hidden node dimension must match for multistage model."
-
-        # Complex
-        complex_node_in_dim = (
-            complex_graph.ndata["node_s"].shape[1],
-            complex_graph.ndata["node_v"].shape[1],
-        )
-        kwargs["complex_node_h_dim"] = tuple(kwargs["complex_node_h_dim"])
-        complex_edge_in_dim = (
-            complex_graph.edata["edge_s"].shape[1],
-            complex_graph.edata["edge_v"].shape[1],
-        )
-        kwargs["complex_edge_h_dim"] = tuple(kwargs["complex_edge_h_dim"])
-        print("complex_node_h_dim:", kwargs["complex_node_h_dim"])
-        print("complex_edge_h_dim:", kwargs["complex_edge_h_dim"])
-
-        model = MODEL_CONSTRUCTORS[model_name](
-            protein_node_in_dim=protein_node_in_dim,
-            protein_edge_in_dim=protein_edge_in_dim,
-            ligand_node_in_dim=ligand_node_in_dim,
-            ligand_edge_in_dim=ligand_edge_in_dim,
-            complex_node_in_dim=kwargs["protein_node_h_dim"],
-            complex_edge_in_dim=complex_edge_in_dim,
-            num_outputs=num_outputs,
-            **kwargs
-        )
-    elif model_name == "gvp-multistage-energy":
-        protein_graph = datum["protein_graph"] 
-        ligand_graph = datum["ligand_graph"] 
-        complex_graph = datum["complex_graph"]
-        sample = datum["sample"]
 
         # Protein
         protein_node_in_dim = (
@@ -357,6 +297,27 @@ def get_datasets(
                     train_keys[:n_train], data_dir, id_to_y, featurizer
                 )
                 valid_dataset = PIGNetAtomicBigraphComplexDataset(
+                    train_keys[n_train:], data_dir, id_to_y, featurizer
+                )
+
+                return train_dataset, valid_dataset, test_dataset
+            else:
+                return test_dataset
+        elif input_type == "multistage-geometric-energy":
+            featurizer = PIGNetAtomicBigraphGeometricComplexFeaturizer(residue_featurizer=None, return_physics=True)
+            test_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
+                test_keys, data_dir, id_to_y, featurizer
+            )
+            if not test_only:
+                with open(
+                    os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                ) as f:
+                    train_keys = pickle.load(f)
+                n_train = int(0.8 * len(train_keys))
+                train_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
+                    train_keys[:n_train], data_dir, id_to_y, featurizer
+                )
+                valid_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
                     train_keys[n_train:], data_dir, id_to_y, featurizer
                 )
 

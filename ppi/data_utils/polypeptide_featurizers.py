@@ -720,8 +720,9 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
         (g_rec, g_lig): featurized receptor graph, featurized ligand graph
     """
 
-    def __init__(self, residue_featurizer, molecular_featurizers="canonical", **kwargs):
+    def __init__(self, residue_featurizer, molecular_featurizers="canonical", return_physics=False, **kwargs):
         self.residue_featurizer = residue_featurizer
+        self.return_physics = return_physics
         if molecular_featurizers == "canonical":
             self.node_featurizer = CanonicalAtomFeaturizer()
             self.edge_featurizer = CanonicalBondFeaturizer()
@@ -747,6 +748,9 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
             dgl.graph instance representing with the protein complex information
         """
         ligand, protein = protein_complex["ligand"], protein_complex["protein"]
+        if self.return_physics:
+            sample = mol_to_feature(ligand_mol=ligand, target_mol=protein)
+
         ligand = Chem.RemoveHs(ligand)
         ligand_graph = mol_to_bigraph(mol=ligand,
                                       node_featurizer=self.node_featurizer, 
@@ -815,7 +819,10 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
         # edge features
         complex_graph.edata["edge_s"] = edge_s
         complex_graph.edata["edge_v"] = edge_v
-        return protein_graph, ligand_graph, complex_graph
+        if self.return_physics:
+            return protein_graph, ligand_graph, complex_graph, sample
+        else:
+            return protein_graph, ligand_graph, complex_graph
 
 
 class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
