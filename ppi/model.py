@@ -394,8 +394,9 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
             Loss
         """
         cal_der_loss = False
-        if self.hparams.loss_der1_ratio > 0 or self.hparams.loss_der2_ratio > 0.0:
-            cal_der_loss = True
+        if prefix == "train":
+            if self.hparams.loss_der1_ratio > 0 or self.hparams.loss_der2_ratio > 0.0:
+                cal_der_loss = True
         energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss)
         g_preds = energies.sum(-1).unsqueeze(-1)
         g_targets = batch["g_targets"]
