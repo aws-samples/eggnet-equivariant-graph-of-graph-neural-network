@@ -34,7 +34,7 @@ def choose_best_pose(id_to_pred: Dict[str, float]) -> Dict[str, float]:
     return retval
 
 
-def predict(model, data_loader, model_name="gvp"):
+def predict(model, data_loader, model_name="gvp", use_energy_decoder=False):
     """Make predictions on data from the data_loader"""
     # make predictions on test set
     device = torch.device("cuda:0")
@@ -46,20 +46,21 @@ def predict(model, data_loader, model_name="gvp"):
         for batch in tqdm(data_loader):
             if model_name == "gvp":
                 _, preds = model(batch["graph"].to(device))
-            elif model_name == "gvp-multistage":
-                _, preds = model(
-                    batch["protein_graph"].to(device),
-                    batch["ligand_graph"].to(device),
-                    batch["complex_graph"].to(device),
-                )
-            elif model_name == "gvp-multistage-energy":
-                energies, _, _ = model(
-                    batch["protein_graph"].to(device),
-                    batch["ligand_graph"].to(device),
-                    batch["complex_graph"].to(device),
-                    {key: val.to(device) for key, val in batch["sample"].items()}
-                )
-                preds = energies.sum(-1).unsqueeze(-1)
+            elif model_name == "multistage-gvp":
+                if use_energy_decoder:
+                    energies, _, _ = model(
+                        batch["protein_graph"].to(device),
+                        batch["ligand_graph"].to(device),
+                        batch["complex_graph"].to(device),
+                        {key: val.to(device) for key, val in batch["sample"].items()}
+                    )
+                    preds = energies.sum(-1).unsqueeze(-1)
+                else:
+                    _, preds = model(
+                        batch["protein_graph"].to(device),
+                        batch["ligand_graph"].to(device),
+                        batch["complex_graph"].to(device),
+                    )
             preds = preds.to("cpu")
             preds = list(preds.numpy().reshape(-1))
             all_preds.extend(preds)
@@ -195,6 +196,7 @@ def main(args):
         data_dir=os.path.join(args.data_dir, "scoring"),
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
+        use_energy_decoder=args.use_energy_decoder
     )
     print(
         "Data loaded:",
@@ -208,7 +210,7 @@ def main(args):
         collate_fn=scoring_dataset.collate_fn,
     )
     scores = evaluate_graph_regression(
-        model, scoring_data_loader, model_name=args.model_name
+        model, scoring_data_loader, model_name=args.model_name, use_energy_decoder=args.use_energy_decoder
     )
     pprint(scores)
     # save scores to file
@@ -234,6 +236,7 @@ def main(args):
         data_dir=os.path.join(args.data_dir, "docking"),
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
+        use_energy_decoder=args.use_energy_decoder
     )
     print(
         "Data loaded:",
@@ -246,7 +249,7 @@ def main(args):
         num_workers=args.num_workers,
         collate_fn=docking_dataset.collate_fn,
     )
-    all_preds = predict(model, docking_data_loader, model_name=args.model_name)
+    all_preds = predict(model, docking_data_loader, model_name=args.model_name, use_energy_decoder=args.use_energy_decoder)
     id_to_pred = dict(zip(docking_dataset.keys, all_preds))
 
     docking_scores = evaluate_docking(id_to_pred, id_to_rmsd)
@@ -270,6 +273,7 @@ def main(args):
         data_dir=os.path.join(args.data_dir, "screening"),
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
+        use_energy_decoder=args.use_energy_decoder
     )
     print(
         "Data loaded:",
@@ -345,6 +349,9 @@ if __name__ == "__main__":
         type=str,
         default="MACCS",
     )
+    
+    parser.add_argument("--use_energy_decoder", action="store_true")
+    parser.set_defaults(use_energy_decoder=False)
 
     args = parser.parse_args()
 
