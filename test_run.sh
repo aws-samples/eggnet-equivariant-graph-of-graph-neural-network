@@ -20,7 +20,7 @@ python train.py --accelerator gpu \
     --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
     --residual \
     --num_workers 8 \
-    --lr 1e-3 \
+    --lr 1e-4 \
     --bs 16 \
     --early_stopping_patience 501 \
     --loss_der1_ratio=10.0 \
