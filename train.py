@@ -21,7 +21,7 @@ import torchmetrics
 
 # custom imports
 # from ppi.modules import GATModel, GVPModel
-from ppi.model import LitGVPModel, LitGVPMultiStageModel, LitGVPMultiStageEnergyModel
+from ppi.model import LitGVPModel, LitMultiStageGVPModel
 from ppi.data import (
     prepare_pepbdb_data_list,
     PepBDBComplexDataset,
@@ -43,8 +43,8 @@ from ppi.data_utils import (
 # mapping model names to constructors
 MODEL_CONSTRUCTORS = {
     "gvp": LitGVPModel,
-    "gvp-multistage": LitGVPMultiStageModel,
-    "gvp-multistage-energy": LitGVPMultiStageEnergyModel,
+    "multistage-gvp": LitMultiStageGVPModel,
+    # "gvp-multistage-energy": LitGVPMultiStageEnergyModel,
     # "gat": GATModel,
 }
 
@@ -70,7 +70,7 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
             num_outputs=num_outputs,
             **kwargs
         )
-    elif model_name in ["gvp-multistage", "gvp-multistage-energy"]:
+    elif model_name == "multistage-gvp":
         protein_graph = datum["protein_graph"] 
         ligand_graph = datum["ligand_graph"] 
         complex_graph = datum["complex_graph"]
@@ -145,6 +145,7 @@ def get_datasets(
     data_dir="",
     test_only=False,
     residue_featurizer_name="MACCS",
+    use_energy_decoder=False
 ):
     if name == "PepBDB":
         # load parsed PepBDB structures
@@ -240,111 +241,116 @@ def get_datasets(
             else:
                 return test_dataset
         elif input_type == "multistage-hetero":
-            residue_featurizer = FingerprintFeaturizer("MACCS")
-            featurizer = PIGNetHeteroBigraphComplexFeaturizer(residue_featurizer)
-            test_dataset = PIGNetHeteroBigraphComplexDataset(
-                test_keys, data_dir, id_to_y, featurizer
-            )
-            if not test_only:
-                with open(
-                    os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
-                ) as f:
-                    train_keys = pickle.load(f)
-                n_train = int(0.8 * len(train_keys))
-                train_dataset = PIGNetHeteroBigraphComplexDataset(
-                    train_keys[:n_train], data_dir, id_to_y, featurizer
-                )
-                valid_dataset = PIGNetHeteroBigraphComplexDataset(
-                    train_keys[n_train:], data_dir, id_to_y, featurizer
-                )
-
-                return train_dataset, valid_dataset, test_dataset
+            if use_energy_decoder:
+                raise NotImplementedError
             else:
-                return test_dataset
+                residue_featurizer = FingerprintFeaturizer("MACCS")
+                featurizer = PIGNetHeteroBigraphComplexFeaturizer(residue_featurizer)
+                test_dataset = PIGNetHeteroBigraphComplexDataset(
+                    test_keys, data_dir, id_to_y, featurizer
+                )
+                if not test_only:
+                    with open(
+                        os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                    ) as f:
+                        train_keys = pickle.load(f)
+                    n_train = int(0.8 * len(train_keys))
+                    train_dataset = PIGNetHeteroBigraphComplexDataset(
+                        train_keys[:n_train], data_dir, id_to_y, featurizer
+                    )
+                    valid_dataset = PIGNetHeteroBigraphComplexDataset(
+                        train_keys[n_train:], data_dir, id_to_y, featurizer
+                    )
+
+                    return train_dataset, valid_dataset, test_dataset
+                else:
+                    return test_dataset
         elif input_type == "multistage-geometric":
-            featurizer = PIGNetAtomicBigraphGeometricComplexFeaturizer(residue_featurizer=None)
-            test_dataset = PIGNetAtomicBigraphComplexDataset(
-                test_keys, data_dir, id_to_y, featurizer
-            )
-            if not test_only:
-                with open(
-                    os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
-                ) as f:
-                    train_keys = pickle.load(f)
-                n_train = int(0.8 * len(train_keys))
-                train_dataset = PIGNetAtomicBigraphComplexDataset(
-                    train_keys[:n_train], data_dir, id_to_y, featurizer
+            if use_energy_decoder:
+                featurizer = PIGNetAtomicBigraphGeometricComplexFeaturizer(residue_featurizer=None, return_physics=True)
+                test_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
+                    test_keys, data_dir, id_to_y, featurizer
                 )
-                valid_dataset = PIGNetAtomicBigraphComplexDataset(
-                    train_keys[n_train:], data_dir, id_to_y, featurizer
-                )
+                if not test_only:
+                    with open(
+                        os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                    ) as f:
+                        train_keys = pickle.load(f)
+                    n_train = int(0.8 * len(train_keys))
+                    train_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
+                        train_keys[:n_train], data_dir, id_to_y, featurizer
+                    )
+                    valid_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
+                        train_keys[n_train:], data_dir, id_to_y, featurizer
+                    )
 
-                return train_dataset, valid_dataset, test_dataset
+                    return train_dataset, valid_dataset, test_dataset
+                else:
+                    return test_dataset
             else:
-                return test_dataset
+                featurizer = PIGNetAtomicBigraphGeometricComplexFeaturizer(residue_featurizer=None)
+                test_dataset = PIGNetAtomicBigraphComplexDataset(
+                    test_keys, data_dir, id_to_y, featurizer
+                )
+                if not test_only:
+                    with open(
+                        os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                    ) as f:
+                        train_keys = pickle.load(f)
+                    n_train = int(0.8 * len(train_keys))
+                    train_dataset = PIGNetAtomicBigraphComplexDataset(
+                        train_keys[:n_train], data_dir, id_to_y, featurizer
+                    )
+                    valid_dataset = PIGNetAtomicBigraphComplexDataset(
+                        train_keys[n_train:], data_dir, id_to_y, featurizer
+                    )
+
+                    return train_dataset, valid_dataset, test_dataset
+                else:
+                    return test_dataset
         elif input_type == "multistage-physical":
-            featurizer = PIGNetAtomicBigraphPhysicalComplexFeaturizer(residue_featurizer=None)
-            test_dataset = PIGNetAtomicBigraphComplexDataset(
-                test_keys, data_dir, id_to_y, featurizer
-            )
-            if not test_only:
-                with open(
-                    os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
-                ) as f:
-                    train_keys = pickle.load(f)
-                n_train = int(0.8 * len(train_keys))
-                train_dataset = PIGNetAtomicBigraphComplexDataset(
-                    train_keys[:n_train], data_dir, id_to_y, featurizer
+            if use_energy_decoder:
+                featurizer = PIGNetAtomicBigraphPhysicalComplexFeaturizer(residue_featurizer=None, return_physics=True)
+                test_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
+                    test_keys, data_dir, id_to_y, featurizer
                 )
-                valid_dataset = PIGNetAtomicBigraphComplexDataset(
-                    train_keys[n_train:], data_dir, id_to_y, featurizer
-                )
+                if not test_only:
+                    with open(
+                        os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                    ) as f:
+                        train_keys = pickle.load(f)
+                    n_train = int(0.8 * len(train_keys))
+                    train_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
+                        train_keys[:n_train], data_dir, id_to_y, featurizer
+                    )
+                    valid_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
+                        train_keys[n_train:], data_dir, id_to_y, featurizer
+                    )
 
-                return train_dataset, valid_dataset, test_dataset
+                    return train_dataset, valid_dataset, test_dataset
+                else:
+                    return test_dataset
             else:
-                return test_dataset
-        elif input_type == "multistage-geometric-energy":
-            featurizer = PIGNetAtomicBigraphGeometricComplexFeaturizer(residue_featurizer=None, return_physics=True)
-            test_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                test_keys, data_dir, id_to_y, featurizer
-            )
-            if not test_only:
-                with open(
-                    os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
-                ) as f:
-                    train_keys = pickle.load(f)
-                n_train = int(0.8 * len(train_keys))
-                train_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                    train_keys[:n_train], data_dir, id_to_y, featurizer
+                featurizer = PIGNetAtomicBigraphPhysicalComplexFeaturizer(residue_featurizer=None)
+                test_dataset = PIGNetAtomicBigraphComplexDataset(
+                    test_keys, data_dir, id_to_y, featurizer
                 )
-                valid_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                    train_keys[n_train:], data_dir, id_to_y, featurizer
-                )
+                if not test_only:
+                    with open(
+                        os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                    ) as f:
+                        train_keys = pickle.load(f)
+                    n_train = int(0.8 * len(train_keys))
+                    train_dataset = PIGNetAtomicBigraphComplexDataset(
+                        train_keys[:n_train], data_dir, id_to_y, featurizer
+                    )
+                    valid_dataset = PIGNetAtomicBigraphComplexDataset(
+                        train_keys[n_train:], data_dir, id_to_y, featurizer
+                    )
 
-                return train_dataset, valid_dataset, test_dataset
-            else:
-                return test_dataset
-        elif input_type == "multistage-physical-energy":
-            featurizer = PIGNetAtomicBigraphPhysicalComplexFeaturizer(residue_featurizer=None, return_physics=True)
-            test_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                test_keys, data_dir, id_to_y, featurizer
-            )
-            if not test_only:
-                with open(
-                    os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
-                ) as f:
-                    train_keys = pickle.load(f)
-                n_train = int(0.8 * len(train_keys))
-                train_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                    train_keys[:n_train], data_dir, id_to_y, featurizer
-                )
-                valid_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                    train_keys[n_train:], data_dir, id_to_y, featurizer
-                )
-
-                return train_dataset, valid_dataset, test_dataset
-            else:
-                return test_dataset
+                    return train_dataset, valid_dataset, test_dataset
+                else:
+                    return test_dataset
         else:
             raise NotImplementedError
 
@@ -379,7 +385,7 @@ def evaluate_node_classification(model, data_loader):
     }
     return results
 
-def evaluate_graph_regression(model, data_loader, model_name="gvp"):
+def evaluate_graph_regression(model, data_loader, model_name="gvp", use_energy_decoder=False):
     """Evaluate model on dataset and return metrics for graph-level regression."""
     # make predictions on test set
     device = torch.device("cuda:0")
@@ -394,16 +400,17 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp"):
             if model_name == "gvp":
                 batch = {key: val.to(device) for key, val in batch.items()}
                 _, preds = model(batch["graph"])
-            elif model_name == "gvp-multistage":
-                batch = {key: val.to(device) for key, val in batch.items()}
-                _, preds = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
-            elif model_name == "gvp-multistage-energy":
-                batch["sample"] = {key: val.to(device) for key, val in batch["sample"].items()}
-                for key, val in batch.items():
-                    if key != "sample":
-                        batch[key] = val.to(device)
-                energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=False)
-                preds = energies.sum(-1).unsqueeze(-1)
+            elif model_name == "multistage-gvp":
+                if use_energy_decoder:
+                    batch["sample"] = {key: val.to(device) for key, val in batch["sample"].items()}
+                    for key, val in batch.items():
+                        if key != "sample":
+                            batch[key] = val.to(device)
+                    energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=False)
+                    preds = energies.sum(-1).unsqueeze(-1)
+                else:
+                    batch = {key: val.to(device) for key, val in batch.items()}
+                    _, preds = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
             else:
                 raise NotImplementedError
             preds = preds.to("cpu")
@@ -429,6 +436,7 @@ def main(args):
         input_type=args.input_type,
         data_dir=args.data_dir,
         residue_featurizer_name=args.residue_featurizer_name,
+        use_energy_decoder=args.use_energy_decoder
     )
     print(
         "Data loaded:",
@@ -468,9 +476,7 @@ def main(args):
     if args.dataset_name == "PDBBind":
         if args.model_name == "gvp":
             datum = train_dataset[0]["graph"]
-        elif args.model_name == "gvp-multistage":
-            datum = train_dataset[0]
-        elif args.model_name == "gvp-multistage-energy":
+        elif args.model_name == "multistage-gvp":
             datum = train_dataset[0]
         else:
             raise NotImplementedError
@@ -508,7 +514,7 @@ def main(args):
     if args.dataset_name == "PepBDB":
         scores = evaluate_node_classification(model, test_loader)
     elif args.dataset_name == "PDBBind":
-        scores = evaluate_graph_regression(model, test_loader, model_name=args.model_name)
+        scores = evaluate_graph_regression(model, test_loader, model_name=args.model_name, use_energy_decoder=args.use_energy_decoder)
     pprint(scores)
     # save scores to file
     json.dump(
@@ -572,6 +578,9 @@ if __name__ == "__main__":
         default=0,
         help="num_workers used in DataLoader",
     )
+
+    parser.add_argument("--use_energy_decoder", action="store_true")
+    parser.set_defaults(use_energy_decoder=False)
 
     args = parser.parse_args()
 
