@@ -1,8 +1,8 @@
+from rdkit import Chem
 from transformers import T5Tokenizer, T5EncoderModel
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
-from rdkit import Chem
 
 import os
 import json
@@ -46,7 +46,8 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
         kwargs["edge_h_dim"] = tuple(kwargs["edge_h_dim"])
         print("node_h_dim:", kwargs["node_h_dim"])
         print("edge_h_dim:", kwargs["edge_h_dim"])
-
+        if model_name != "hgvp":
+            datum = datum["graph"]
         model = MODEL_CONSTRUCTORS[model_name](
             datum, num_outputs=num_outputs, **kwargs
         )
@@ -275,7 +276,7 @@ def main(args):
     )
     # 3. Prepare model
     if args.dataset_name == "PDBBind":
-        datum = train_dataset[0]["graph"]
+        datum = train_dataset[0]
     else:
         datum = train_dataset[0][0]
     dict_args = vars(args)
