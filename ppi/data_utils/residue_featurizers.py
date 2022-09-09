@@ -120,6 +120,10 @@ class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
         assert self.requires_grad
         return self._featurize(smiles)
 
+    @property
+    def output_size(self) -> int:
+        return self.model.config.d_model
+
 
 def get_residue_featurizer(name=""):
     """

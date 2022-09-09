@@ -463,6 +463,13 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
             self.residue_featurize_func = self.residue_featurizer.featurize
         super(PDBBindComplexFeaturizer, self).__init__(**kwargs)
 
+    def featurize_batch(self, batch: list):
+        bg = []
+        for protein_complex in batch:
+            g = self.featurize(protein_complex)
+            bg.append(g)
+        return dgl.batch(bg)
+
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
         """Featurizes the protein complex information as a graph for the GNN
 

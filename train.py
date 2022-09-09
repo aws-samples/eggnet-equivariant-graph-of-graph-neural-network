@@ -42,24 +42,13 @@ MODEL_CONSTRUCTORS = {
 
 def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
     if "gvp" in model_name:
-        node_in_dim = (
-            datum.ndata["node_s"].shape[1],
-            datum.ndata["node_v"].shape[1],
-        )
         kwargs["node_h_dim"] = tuple(kwargs["node_h_dim"])
-        edge_in_dim = (
-            datum.edata["edge_s"].shape[1],
-            datum.edata["edge_v"].shape[1],
-        )
         kwargs["edge_h_dim"] = tuple(kwargs["edge_h_dim"])
         print("node_h_dim:", kwargs["node_h_dim"])
         print("edge_h_dim:", kwargs["edge_h_dim"])
 
         model = MODEL_CONSTRUCTORS[model_name](
-            node_in_dim=node_in_dim,
-            edge_in_dim=edge_in_dim,
-            num_outputs=num_outputs,
-            **kwargs
+            datum, num_outputs=num_outputs, **kwargs
         )
     else:
         model = MODEL_CONSTRUCTORS[model_name](
