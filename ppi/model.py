@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .modules import GVPModel, GVPMultiStageModel, GVPMultiStageEnergyModel
+from .modules import GVPModel, GVPMultiStageModel
 
 
 class LitGVPModel(pl.LightningModule):
