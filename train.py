@@ -75,56 +75,47 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
         ligand_graph = datum["ligand_graph"] 
         complex_graph = datum["complex_graph"]
 
-        # Protein
+        kwargs["stage1_node_h_dim"] = tuple(kwargs["stage1_node_h_dim"])
+        kwargs["stage1_edge_h_dim"] = tuple(kwargs["stage1_edge_h_dim"])
+        print("stage1_node_h_dim:", kwargs["stage1_node_h_dim"])
+        print("stage1_edge_h_dim:", kwargs["stage1_edge_h_dim"])
+
+        kwargs["stage2_node_h_dim"] = tuple(kwargs["stage2_node_h_dim"])
+        kwargs["stage2_edge_h_dim"] = tuple(kwargs["stage2_edge_h_dim"])
+        print("stage2_node_h_dim:", kwargs["stage2_node_h_dim"])
+        print("stage2_edge_h_dim:", kwargs["stage2_edge_h_dim"])
+
+        # Protein inputs
         protein_node_in_dim = (
             protein_graph.ndata["node_s"].shape[1],
             protein_graph.ndata["node_v"].shape[1],
         )
-        kwargs["protein_node_h_dim"] = tuple(kwargs["protein_node_h_dim"])
         protein_edge_in_dim = (
             protein_graph.edata["edge_s"].shape[1],
             protein_graph.edata["edge_v"].shape[1],
         )
-        kwargs["protein_edge_h_dim"] = tuple(kwargs["protein_edge_h_dim"])
-        print("protein_node_h_dim:", kwargs["protein_node_h_dim"])
-        print("protein_edge_h_dim:", kwargs["protein_edge_h_dim"])
 
-        # Ligand
+        # Ligand inputs
         ligand_node_in_dim = (
             ligand_graph.ndata["node_s"].shape[1],
             ligand_graph.ndata["node_v"].shape[1],
         )
-        kwargs["ligand_node_h_dim"] = tuple(kwargs["ligand_node_h_dim"])
         ligand_edge_in_dim = (
             ligand_graph.edata["edge_s"].shape[1],
             ligand_graph.edata["edge_v"].shape[1],
         )
-        kwargs["ligand_edge_h_dim"] = tuple(kwargs["ligand_edge_h_dim"])
-        print("ligand_node_h_dim:", kwargs["ligand_node_h_dim"])
-        print("ligand_edge_h_dim:", kwargs["ligand_edge_h_dim"])
 
-        assert kwargs["protein_node_h_dim"] == kwargs["ligand_node_h_dim"], "Hidden node dimension must match for multistage model."
-
-        # Complex
-        complex_node_in_dim = (
-            complex_graph.ndata["node_s"].shape[1],
-            complex_graph.ndata["node_v"].shape[1],
-        )
-        kwargs["complex_node_h_dim"] = tuple(kwargs["complex_node_h_dim"])
+        # Complex inputs 
         complex_edge_in_dim = (
             complex_graph.edata["edge_s"].shape[1],
             complex_graph.edata["edge_v"].shape[1],
         )
-        kwargs["complex_edge_h_dim"] = tuple(kwargs["complex_edge_h_dim"])
-        print("complex_node_h_dim:", kwargs["complex_node_h_dim"])
-        print("complex_edge_h_dim:", kwargs["complex_edge_h_dim"])
 
         model = MODEL_CONSTRUCTORS[model_name](
             protein_node_in_dim=protein_node_in_dim,
             protein_edge_in_dim=protein_edge_in_dim,
             ligand_node_in_dim=ligand_node_in_dim,
             ligand_edge_in_dim=ligand_edge_in_dim,
-            complex_node_in_dim=kwargs["protein_node_h_dim"],
             complex_edge_in_dim=complex_edge_in_dim,
             num_outputs=num_outputs,
             **kwargs
