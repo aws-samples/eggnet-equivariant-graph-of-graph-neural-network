@@ -221,7 +221,7 @@ class LitMultiStageGVPModel(pl.LightningModule):
         parser.set_defaults(residual=False, seq_embedding=False)
         return parent_parser
 
-    def _compute_loss(self, logits, targets, loss_der1, loss_der2):
+    def _compute_loss(self, logits, targets, loss_der1=0, loss_der2=0):
         # binary classification
         # loss = F.binary_cross_entropy_with_logits(logits, targets)
         # regression
