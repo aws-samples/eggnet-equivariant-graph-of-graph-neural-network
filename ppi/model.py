@@ -114,6 +114,7 @@ class LitMultiStageGVPModel(pl.LightningModule):
             "drop_rate",
             "residual",
             "seq_embedding",
+            "use_energy_decoder",
             "vdw_N",
             "max_vdw_interaction",
             "min_vdw_interaction",
@@ -134,7 +135,7 @@ class LitMultiStageGVPModel(pl.LightningModule):
         Returns:
             parent parser with additional model-specific args
         """
-        parser = parent_parser.add_argument_group("GVPMultiStageEnergyModel")
+        parser = parent_parser.add_argument_group("MultiStageGVPModel")
         parser.add_argument(
             "--stage1_node_h_dim",
             type=int,
