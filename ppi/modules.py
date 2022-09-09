@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Any, Callable, Dict, List, Tuple, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,8 +10,6 @@ import dgl
 
 # from transformers import BertModel
 from dgl.nn import GATConv
-
-from typing import Any, Callable, Dict, List, Tuple, Union
 
 
 def padded_stack(
@@ -550,13 +548,6 @@ class GVPMultiStageModel(nn.Module):
             out_c = self.W_out_c(h_V_out_c)
 
         ## Decoder
-        # out_c = self.dense(out_c) + 0.5  # [n_nodes, num_outputs]
-        # # aggregate node vectors to graph
-        # complex_graph.ndata["out"] = out_c
-        # graph_out_c = dgl.mean_nodes(complex_graph, "out")  # [n_graphs, num_outputs]
-
-        # return out_c, graph_out_c
-
         # aggregate node vectors to graph
         complex_graph.ndata["out"] = out_c
         graph_out_c = dgl.mean_nodes(complex_graph, "out")  # [n_graphs, ns]
@@ -861,8 +852,6 @@ class GVPMultiStageEnergyModel(nn.Module):
             target_valid,
             ligand_non_metal,
             target_non_metal,
-            # _,
-            # _,
         ) = sample.values()
 
         # distance matrix
