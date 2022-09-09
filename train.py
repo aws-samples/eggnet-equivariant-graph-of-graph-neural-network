@@ -138,8 +138,17 @@ def get_datasets(
             test_keys = pickle.load(f)
 
         # featurizer for PDBBind
-        residue_featurizer = get_residue_featurizer(residue_featurizer_name)
-        featurizer = PDBBindComplexFeaturizer(residue_featurizer)
+        if "grad" in residue_featurizer_name:
+            # Do not init any featurizers if residue_featurizer involes grad
+            # This will allow joint training of residue_featurizer with the
+            # model
+            residue_featurizer = None
+            featurizer = None
+        else:
+            residue_featurizer = get_residue_featurizer(
+                residue_featurizer_name
+            )
+            featurizer = PDBBindComplexFeaturizer(residue_featurizer)
         test_dataset = PIGNetComplexDataset(
             test_keys, data_dir, id_to_y, featurizer
         )

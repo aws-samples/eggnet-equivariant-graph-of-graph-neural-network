@@ -255,6 +255,12 @@ class PIGNetComplexDataset(data.Dataset):
         return sample
 
     def collate_fn(self, samples):
+        if self.featurizer is not None:
+            return self.collate_fn_with_featurizer(samples)
+        else:
+            return self.collate_fn_without_featurizer(samples)
+
+    def collate_fn_with_featurizer(self, samples):
         """Collating protein complex graphs and graph-level targets."""
         graphs = []
         g_targets = []
@@ -263,6 +269,22 @@ class PIGNetComplexDataset(data.Dataset):
             g_targets.append(rec["affinity"])
         return {
             "graph": dgl.batch(graphs),
+            "g_targets": torch.tensor(g_targets)
+            .to(torch.float32)
+            .unsqueeze(-1),
+        }
+
+    def collate_fn_without_featurizer(self, samples):
+        """Collating protein complexes without featuring them to graphs."""
+        complexes = []
+        g_targets = []
+        for rec in samples:
+            complexes.append(
+                {"protein": rec["protein"], "ligand": rec["ligand"]}
+            )
+            g_targets.append(rec["affinity"])
+        return {
+            "complexes": complexes,
             "g_targets": torch.tensor(g_targets)
             .to(torch.float32)
             .unsqueeze(-1),
