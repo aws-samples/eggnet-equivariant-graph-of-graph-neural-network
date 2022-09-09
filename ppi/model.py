@@ -204,3 +204,12 @@ class LitHGVPModel(pl.LightningModule):
         loss = self._compute_loss(g_logits, g_targets)
         self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])
         return loss
+
+    def training_step(self, batch, batch_idx):
+        return self._step(batch, batch_idx, prefix="train")
+
+    def validation_step(self, batch, batch_idx):
+        return self._step(batch, batch_idx, prefix="val")
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
