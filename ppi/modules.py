@@ -456,7 +456,7 @@ class GVPMultiStageModel(nn.Module):
         if not self.residual:
             for protein_layer in self.protein_layers:
                 h_V_p = protein_layer(protein_graph)
-            out_p = self.W_out_p(h_V_p)
+            # out_p = self.W_out_p(h_V_p)
         else:
             h_V_out_p = []  # collect outputs from all GVP Conv layers
             for protein_layer in self.protein_layers:
@@ -468,7 +468,7 @@ class GVPMultiStageModel(nn.Module):
                 torch.cat([h_V_p[0] for h_V_p in h_V_out_p], dim=-1),
                 torch.cat([h_V_p[1] for h_V_p in h_V_out_p], dim=-2),
             )
-            out_p = self.W_out_p(h_V_out_p)
+            # out_p = self.W_out_p(h_V_out_p)
 
         ## Ligand branch
         h_V_l = (ligand_graph.ndata["node_s"], ligand_graph.ndata["node_v"])
@@ -487,7 +487,7 @@ class GVPMultiStageModel(nn.Module):
         if not self.residual:
             for ligand_layer in self.ligand_layers:
                 h_V_l = ligand_layer(ligand_graph)
-            out_l = self.W_out_l(h_V_l)
+            # out_l = self.W_out_l(h_V_l)
         else:
             h_V_out_l = []  # collect outputs from all GVP Conv layers
             for ligand_layer in self.ligand_layers:
@@ -499,20 +499,20 @@ class GVPMultiStageModel(nn.Module):
                 torch.cat([h_V_l[0] for h_V_l in h_V_out_l], dim=-1),
                 torch.cat([h_V_l[1] for h_V_l in h_V_out_l], dim=-2),
             )
-            out_l = self.W_out_l(h_V_out_l)
+            # out_l = self.W_out_l(h_V_out_l)
 
         ## SECOND STAGE
 
         protein_num_nodes = protein_graph.batch_num_nodes().tolist()
         ligand_num_nodes = ligand_graph.batch_num_nodes().tolist()
 
-        h_V_p_s = torch.split(h_V_p[0], protein_num_nodes)
-        h_V_l_s = torch.split(h_V_l[0], ligand_num_nodes)
+        h_V_p_s = torch.split(h_V_out_p[0] if self.residual else h_V_p[0], protein_num_nodes)
+        h_V_l_s = torch.split(h_V_out_l[0] if self.residual else h_V_l[0], ligand_num_nodes)
         h_V_s = [val for pair in zip(h_V_p_s, h_V_l_s) for val in pair]
         complex_graph.ndata["node_s"] = torch.cat(h_V_s, dim=0)
 
-        h_V_p_v = torch.split(h_V_p[1], protein_num_nodes)
-        h_V_l_v = torch.split(h_V_l[1], ligand_num_nodes)
+        h_V_p_v = torch.split(h_V_out_p[1] if self.residual else h_V_p[1], protein_num_nodes)
+        h_V_l_v = torch.split(h_V_out_l[1] if self.residual else h_V_l[1], ligand_num_nodes)
         h_V_v = [val for pair in zip(h_V_p_v, h_V_l_v) for val in pair]
         complex_graph.ndata["node_v"] = torch.cat(h_V_v, dim=0)
 
@@ -877,7 +877,7 @@ class GVPMultiStageEnergyModel(nn.Module):
         if not self.residual:
             for protein_layer in self.protein_layers:
                 h_V_p = protein_layer(protein_graph)
-            out_p = self.W_out_p(h_V_p)
+            # out_p = self.W_out_p(h_V_p)
         else:
             h_V_out_p = []  # collect outputs from all GVP Conv layers
             for protein_layer in self.protein_layers:
@@ -889,7 +889,7 @@ class GVPMultiStageEnergyModel(nn.Module):
                 torch.cat([h_V_p[0] for h_V_p in h_V_out_p], dim=-1),
                 torch.cat([h_V_p[1] for h_V_p in h_V_out_p], dim=-2),
             )
-            out_p = self.W_out_p(h_V_out_p)
+            # out_p = self.W_out_p(h_V_out_p)
 
         ## Ligand branch
         h_V_l = (ligand_graph.ndata["node_s"], ligand_graph.ndata["node_v"])
@@ -908,7 +908,7 @@ class GVPMultiStageEnergyModel(nn.Module):
         if not self.residual:
             for ligand_layer in self.ligand_layers:
                 h_V_l = ligand_layer(ligand_graph)
-            out_l = self.W_out_l(h_V_l)
+            # out_l = self.W_out_l(h_V_l)
         else:
             h_V_out_l = []  # collect outputs from all GVP Conv layers
             for ligand_layer in self.ligand_layers:
@@ -920,20 +920,20 @@ class GVPMultiStageEnergyModel(nn.Module):
                 torch.cat([h_V_l[0] for h_V_l in h_V_out_l], dim=-1),
                 torch.cat([h_V_l[1] for h_V_l in h_V_out_l], dim=-2),
             )
-            out_l = self.W_out_l(h_V_out_l)
+            # out_l = self.W_out_l(h_V_out_l)
 
         ## SECOND STAGE
 
         protein_num_nodes = protein_graph.batch_num_nodes().tolist()
         ligand_num_nodes = ligand_graph.batch_num_nodes().tolist()
 
-        h_V_p_s = torch.split(h_V_p[0], protein_num_nodes)
-        h_V_l_s = torch.split(h_V_l[0], ligand_num_nodes)
+        h_V_p_s = torch.split(h_V_out_p[0] if self.residual else h_V_p[0], protein_num_nodes)
+        h_V_l_s = torch.split(h_V_out_l[0] if self.residual else h_V_l[0], ligand_num_nodes)
         h_V_s = [val for pair in zip(h_V_p_s, h_V_l_s) for val in pair]
         complex_graph.ndata["node_s"] = torch.cat(h_V_s, dim=0)
 
-        h_V_p_v = torch.split(h_V_p[1], protein_num_nodes)
-        h_V_l_v = torch.split(h_V_l[1], ligand_num_nodes)
+        h_V_p_v = torch.split(h_V_out_p[1] if self.residual else h_V_p[1], protein_num_nodes)
+        h_V_l_v = torch.split(h_V_out_l[1] if self.residual else h_V_l[1], ligand_num_nodes)
         h_V_v = [val for pair in zip(h_V_p_v, h_V_l_v) for val in pair]
         complex_graph.ndata["node_v"] = torch.cat(h_V_v, dim=0)
 
@@ -976,13 +976,13 @@ class GVPMultiStageEnergyModel(nn.Module):
         out_c_protein = [x.permute(1, 0) for x in out_c_split[::2]]
         out_c_ligand = [x.permute(1, 0) for x in out_c_split[1::2]]
 
-        target_h = padded_stack(out_c_protein).permute(0, 2, 1)
-        ligand_h = padded_stack(out_c_ligand).permute(0, 2, 1)
+        target_h = padded_stack(out_c_protein).permute(0, 2, 1) # dim: [batch_size, max_atoms_protein, ns_protein]
+        ligand_h = padded_stack(out_c_ligand).permute(0, 2, 1) # dim: [batch_size, max_atoms_ligand, ns_ligand]
 
         # concat features
-        h1_ = ligand_h.unsqueeze(2).repeat(1, 1, target_h.size(1), 1)
-        h2_ = target_h.unsqueeze(1).repeat(1, ligand_h.size(1), 1, 1)
-        h_cat = torch.cat([h1_, h2_], -1)
+        h1_ = ligand_h.unsqueeze(2).repeat(1, 1, target_h.size(1), 1) # dim: [batch_size, max_atoms_ligand, max_atoms_protein, ns_ligand]
+        h2_ = target_h.unsqueeze(1).repeat(1, ligand_h.size(1), 1, 1) # dim: [batch_size, max_atoms_ligand, max_atoms_protein, ns_protein]
+        h_cat = torch.cat([h1_, h2_], -1) # dim: [batch_size, max_atoms_ligand, max_atoms_protein, ns_ligand+ns_protein]
 
         # compute energy component
         energies = []

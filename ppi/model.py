@@ -268,7 +268,7 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
         Returns:
             parent parser with additional model-specific args
         """
-        parser = parent_parser.add_argument_group("GVPMultiStageModel")
+        parser = parent_parser.add_argument_group("GVPMultiStageEnergyModel")
         parser.add_argument(
             "--protein_node_h_dim",
             type=int,
