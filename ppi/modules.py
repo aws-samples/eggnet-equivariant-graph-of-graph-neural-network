@@ -388,11 +388,9 @@ class GVPMultiStageModel(nn.Module):
         if self.residual:
             # concat outputs from GVPConvLayer(s)
             complex_node_in_dim = (
-                protein_node_h_dim[0] * protein_num_layers,
-                protein_node_h_dim[1] * protein_num_layers,
+                complex_node_in_dim[0] * protein_num_layers,
+                complex_node_in_dim[1] * protein_num_layers,
             )
-        else:
-            complex_node_in_dim = protein_node_h_dim
 
         ## Complex branch
         self.W_v_c = nn.Sequential(
