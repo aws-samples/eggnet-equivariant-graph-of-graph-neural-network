@@ -276,25 +276,13 @@ class GATModel(nn.Module):
         return out, graph_out
 
 
-class GVPMultiStageModel(nn.Module):
+class MultiStageGVPModel(nn.Module):
     """GVP-GNN Model (structure-only) modified from `MQAModel`:
     https://github.com/drorlab/gvp-pytorch/blob/main/gvp/model.py
     """
 
     def __init__(
         self,
-        # protein_node_in_dim: Tuple[int, int],
-        # protein_node_h_dim: Tuple[int, int],
-        # protein_edge_in_dim: Tuple[int, int],
-        # protein_edge_h_dim: Tuple[int, int],
-        # ligand_node_in_dim: Tuple[int, int],
-        # ligand_node_h_dim: Tuple[int, int],
-        # ligand_edge_in_dim: Tuple[int, int],
-        # ligand_edge_h_dim: Tuple[int, int],
-        # complex_node_in_dim: Tuple[int, int],
-        # complex_node_h_dim: Tuple[int, int],
-        # complex_edge_in_dim: Tuple[int, int],
-        # complex_edge_h_dim: Tuple[int, int],
         protein_node_in_dim: Tuple[int, int],
         protein_edge_in_dim: Tuple[int, int],
         ligand_node_in_dim: Tuple[int, int],
@@ -306,9 +294,6 @@ class GVPMultiStageModel(nn.Module):
         stage2_edge_h_dim: Tuple[int, int],
         stage1_num_layers=3,
         stage2_num_layers=3,
-        # protein_num_layers=3,
-        # ligand_num_layers=3,
-        # complex_num_layers=3,
         drop_rate=0.1,
         residual=True,
         num_outputs=1,
@@ -335,7 +320,7 @@ class GVPMultiStageModel(nn.Module):
         Returns:
             None
         """
-        super(GVPMultiStageModel, self).__init__()
+        super(MultiStageGVPModel, self).__init__()
         self.residual = residual
         self.num_outputs = num_outputs
         self.seq_embedding = seq_embedding

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .modules import GVPModel, GVPMultiStageModel
+from .modules import GVPModel, MultiStageGVPModel
 
 
 class LitGVPModel(pl.LightningModule):
@@ -95,156 +95,152 @@ class LitGVPModel(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
 
 
-class LitGVPMultiStageModel(pl.LightningModule):
+# class LitGVPMultiStageModel(pl.LightningModule):
+#     def __init__(self, **kwargs):
+#         super().__init__()
+#         hparams = [
+#             "lr",
+#             "protein_node_in_dim",
+#             "protein_node_h_dim",
+#             "protein_edge_in_dim",
+#             "protein_edge_h_dim",
+#             "protein_num_layers",
+#             "ligand_node_in_dim",
+#             "ligand_node_h_dim",
+#             "ligand_edge_in_dim",
+#             "ligand_edge_h_dim",
+#             "ligand_num_layers",
+#             "complex_node_in_dim",
+#             "complex_node_h_dim",
+#             "complex_edge_in_dim",
+#             "complex_edge_h_dim",
+#             "complex_num_layers",
+#             "drop_rate",
+#             "residual",
+#             "seq_embedding",
+#         ]
+#         self.save_hyperparameters(*hparams)
+#         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
+#         self.model = GVPMultiStageModel(**model_kwargs)
+
+#     @staticmethod
+#     def add_model_specific_args(parent_parser):
+#         """Adds model specific args to the base/parent parser.
+#         Args:
+#             parent_parser: Base/parent parser
+#         Returns:
+#             parent parser with additional model-specific args
+#         """
+#         parser = parent_parser.add_argument_group("GVPMultiStageModel")
+#         parser.add_argument(
+#             "--protein_node_h_dim",
+#             type=int,
+#             nargs="+",
+#             default=(100, 16),
+#             help="protein_node_h_dim in GVP",
+#         )
+#         parser.add_argument(
+#             "--protein_edge_h_dim",
+#             type=int,
+#             nargs="+",
+#             default=(32, 1),
+#             help="protein_edge_h_dim in GVP",
+#         )
+#         parser.add_argument(
+#             "--ligand_node_h_dim",
+#             type=int,
+#             nargs="+",
+#             default=(100, 16),
+#             help="ligand_node_h_dim in GVP",
+#         )
+#         parser.add_argument(
+#             "--ligand_edge_h_dim",
+#             type=int,
+#             nargs="+",
+#             default=(32, 1),
+#             help="ligand_edge_h_dim in GVP",
+#         )
+#         parser.add_argument(
+#             "--complex_node_h_dim",
+#             type=int,
+#             nargs="+",
+#             default=(100, 16),
+#             help="complex_node_h_dim in GVP",
+#         )
+#         parser.add_argument(
+#             "--complex_edge_h_dim",
+#             type=int,
+#             nargs="+",
+#             default=(32, 1),
+#             help="complex_edge_h_dim in GVP",
+#         )
+
+#         parser.add_argument("--protein_num_layers", type=int, default=3)
+#         parser.add_argument("--ligand_num_layers", type=int, default=3)
+#         parser.add_argument("--complex_num_layers", type=int, default=3)
+
+#         parser.add_argument("--drop_rate", type=float, default=0.1)
+#         parser.add_argument("--residual", action="store_true")
+#         parser.add_argument("--seq_embedding", action="store_true")
+#         parser.set_defaults(residual=False, seq_embedding=False)
+#         return parent_parser
+
+#     def _compute_loss(self, logits, targets):
+#         # binary classification
+#         # loss = F.binary_cross_entropy_with_logits(logits, targets)
+#         # regression
+#         loss = F.mse_loss(logits, targets)
+#         return loss
+
+#     def forward(self, protein_graph, ligand_graph, complex_graph):
+#         return self.model(protein_graph, ligand_graph, complex_graph)
+
+#     def _step(self, batch, batch_idx, prefix="train"):
+#         """Used in train/validation loop, independent of `forward`
+#         Args:
+#             batch: dgl batched graphs
+#             batch_idx: index of current batch
+#             prefix: Prefix for the loss: XXX_loss (train, validation, test)
+#         Returns:
+#             Loss
+#         """
+#         logits, g_logits = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
+#         # node-level targets and mask
+#         # targets = batch.ndata["target"]
+#         # train_mask = batch.ndata["mask"]
+#         # loss = self._compute_loss(logits[train_mask], targets[train_mask])
+#         # graph-level targets
+#         g_targets = batch["g_targets"]
+#         loss = self._compute_loss(g_logits, g_targets)
+#         self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])
+#         return loss
+
+#     def training_step(self, batch, batch_idx):
+#         return self._step(batch, batch_idx, prefix="train")
+
+#     def validation_step(self, batch, batch_idx):
+#         return self._step(batch, batch_idx, prefix="val")
+
+#     def configure_optimizers(self):
+#         return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+
+
+class LitMultiStageGVPModel(pl.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
         hparams = [
             "lr",
             "protein_node_in_dim",
-            "protein_node_h_dim",
             "protein_edge_in_dim",
-            "protein_edge_h_dim",
-            "protein_num_layers",
             "ligand_node_in_dim",
-            "ligand_node_h_dim",
             "ligand_edge_in_dim",
-            "ligand_edge_h_dim",
-            "ligand_num_layers",
-            "complex_node_in_dim",
-            "complex_node_h_dim",
             "complex_edge_in_dim",
-            "complex_edge_h_dim",
-            "complex_num_layers",
-            "drop_rate",
-            "residual",
-            "seq_embedding",
-        ]
-        self.save_hyperparameters(*hparams)
-        model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
-        self.model = GVPMultiStageModel(**model_kwargs)
-
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        """Adds model specific args to the base/parent parser.
-        Args:
-            parent_parser: Base/parent parser
-        Returns:
-            parent parser with additional model-specific args
-        """
-        parser = parent_parser.add_argument_group("GVPMultiStageModel")
-        parser.add_argument(
-            "--protein_node_h_dim",
-            type=int,
-            nargs="+",
-            default=(100, 16),
-            help="protein_node_h_dim in GVP",
-        )
-        parser.add_argument(
-            "--protein_edge_h_dim",
-            type=int,
-            nargs="+",
-            default=(32, 1),
-            help="protein_edge_h_dim in GVP",
-        )
-        parser.add_argument(
-            "--ligand_node_h_dim",
-            type=int,
-            nargs="+",
-            default=(100, 16),
-            help="ligand_node_h_dim in GVP",
-        )
-        parser.add_argument(
-            "--ligand_edge_h_dim",
-            type=int,
-            nargs="+",
-            default=(32, 1),
-            help="ligand_edge_h_dim in GVP",
-        )
-        parser.add_argument(
-            "--complex_node_h_dim",
-            type=int,
-            nargs="+",
-            default=(100, 16),
-            help="complex_node_h_dim in GVP",
-        )
-        parser.add_argument(
-            "--complex_edge_h_dim",
-            type=int,
-            nargs="+",
-            default=(32, 1),
-            help="complex_edge_h_dim in GVP",
-        )
-
-        parser.add_argument("--protein_num_layers", type=int, default=3)
-        parser.add_argument("--ligand_num_layers", type=int, default=3)
-        parser.add_argument("--complex_num_layers", type=int, default=3)
-
-        parser.add_argument("--drop_rate", type=float, default=0.1)
-        parser.add_argument("--residual", action="store_true")
-        parser.add_argument("--seq_embedding", action="store_true")
-        parser.set_defaults(residual=False, seq_embedding=False)
-        return parent_parser
-
-    def _compute_loss(self, logits, targets):
-        # binary classification
-        # loss = F.binary_cross_entropy_with_logits(logits, targets)
-        # regression
-        loss = F.mse_loss(logits, targets)
-        return loss
-
-    def forward(self, protein_graph, ligand_graph, complex_graph):
-        return self.model(protein_graph, ligand_graph, complex_graph)
-
-    def _step(self, batch, batch_idx, prefix="train"):
-        """Used in train/validation loop, independent of `forward`
-        Args:
-            batch: dgl batched graphs
-            batch_idx: index of current batch
-            prefix: Prefix for the loss: XXX_loss (train, validation, test)
-        Returns:
-            Loss
-        """
-        logits, g_logits = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
-        # node-level targets and mask
-        # targets = batch.ndata["target"]
-        # train_mask = batch.ndata["mask"]
-        # loss = self._compute_loss(logits[train_mask], targets[train_mask])
-        # graph-level targets
-        g_targets = batch["g_targets"]
-        loss = self._compute_loss(g_logits, g_targets)
-        self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])
-        return loss
-
-    def training_step(self, batch, batch_idx):
-        return self._step(batch, batch_idx, prefix="train")
-
-    def validation_step(self, batch, batch_idx):
-        return self._step(batch, batch_idx, prefix="val")
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
-
-
-class LitGVPMultiStageEnergyModel(pl.LightningModule):
-    def __init__(self, **kwargs):
-        super().__init__()
-        hparams = [
-            "lr",
-            "protein_node_in_dim",
-            "protein_node_h_dim",
-            "protein_edge_in_dim",
-            "protein_edge_h_dim",
-            "protein_num_layers",
-            "ligand_node_in_dim",
-            "ligand_node_h_dim",
-            "ligand_edge_in_dim",
-            "ligand_edge_h_dim",
-            "ligand_num_layers",
-            "complex_node_in_dim",
-            "complex_node_h_dim",
-            "complex_edge_in_dim",
-            "complex_edge_h_dim",
-            "complex_num_layers",
+            "stage1_node_h_dim",
+            "stage1_edge_h_dim",
+            "stage2_node_h_dim",
+            "stage2_edge_h_dim",
+            "stage1_num_layers",
+            "stage2_num_layers",
             "drop_rate",
             "residual",
             "seq_embedding",
@@ -258,7 +254,7 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
         ]
         self.save_hyperparameters(*hparams)
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
-        self.model = GVPMultiStageEnergyModel(**model_kwargs)
+        self.model = MultiStageGVPModel(**model_kwargs)
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -270,42 +266,28 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
         """
         parser = parent_parser.add_argument_group("GVPMultiStageEnergyModel")
         parser.add_argument(
-            "--protein_node_h_dim",
+            "--stage1_node_h_dim",
             type=int,
             nargs="+",
             default=(100, 16),
             help="protein_node_h_dim in GVP",
         )
         parser.add_argument(
-            "--protein_edge_h_dim",
+            "--stage1_edge_h_dim",
             type=int,
             nargs="+",
             default=(32, 1),
             help="protein_edge_h_dim in GVP",
         )
         parser.add_argument(
-            "--ligand_node_h_dim",
-            type=int,
-            nargs="+",
-            default=(100, 16),
-            help="ligand_node_h_dim in GVP",
-        )
-        parser.add_argument(
-            "--ligand_edge_h_dim",
-            type=int,
-            nargs="+",
-            default=(32, 1),
-            help="ligand_edge_h_dim in GVP",
-        )
-        parser.add_argument(
-            "--complex_node_h_dim",
+            "--stage2_node_h_dim",
             type=int,
             nargs="+",
             default=(100, 16),
             help="complex_node_h_dim in GVP",
         )
         parser.add_argument(
-            "--complex_edge_h_dim",
+            "--stage2_edge_h_dim",
             type=int,
             nargs="+",
             default=(32, 1),
@@ -359,30 +341,34 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
             default=-20.0,
         )
 
-        parser.add_argument("--protein_num_layers", type=int, default=3)
-        parser.add_argument("--ligand_num_layers", type=int, default=3)
-        parser.add_argument("--complex_num_layers", type=int, default=3)
+        parser.add_argument("--stage1_num_layers", type=int, default=3)
+        parser.add_argument("--stage2_num_layers", type=int, default=3)
 
         parser.add_argument("--drop_rate", type=float, default=0.1)
         parser.add_argument("--residual", action="store_true")
         parser.add_argument("--seq_embedding", action="store_true")
-        parser.set_defaults(residual=False, seq_embedding=False)
+        parser.add_argument("--use_energy_decoder", action="store_true")
+        parser.set_defaults(residual=False, seq_embedding=False, use_energy_decoder=False)
         return parent_parser
 
     def _compute_loss(self, logits, targets, loss_der1, loss_der2):
         # binary classification
         # loss = F.binary_cross_entropy_with_logits(logits, targets)
         # regression
-        loss_all = 0.0
-        loss = F.mse_loss(logits, targets)
-        loss_der2 = loss_der2.clamp(min=self.hparams.min_loss_der2)
-        loss_all += loss
-        loss_all += loss_der1.sum() * self.hparams.loss_der1_ratio
-        loss_all += loss_der2.sum() * self.hparams.loss_der2_ratio
-        return loss_all
+        if self.hparams.use_energy_decoder:
+            loss_all = 0.0
+            loss = F.mse_loss(logits, targets)
+            loss_der2 = loss_der2.clamp(min=self.hparams.min_loss_der2)
+            loss_all += loss
+            loss_all += loss_der1.sum() * self.hparams.loss_der1_ratio
+            loss_all += loss_der2.sum() * self.hparams.loss_der2_ratio
+            return loss_all
+        else:
+            loss = F.mse_loss(logits, targets)
+            return loss
 
-    def forward(self, protein_graph, ligand_graph, complex_graph, sample, cal_der_loss):
-        return self.model(protein_graph, ligand_graph, complex_graph, sample, cal_der_loss=cal_der_loss)
+    def forward(self, protein_graph, ligand_graph, complex_graph, sample=None, cal_der_loss=False):
+        return self.model(protein_graph, ligand_graph, complex_graph, sample=sample, cal_der_loss=cal_der_loss)
 
     def _step(self, batch, batch_idx, prefix="train"):
         """Used in train/validation loop, independent of `forward`
@@ -393,14 +379,19 @@ class LitGVPMultiStageEnergyModel(pl.LightningModule):
         Returns:
             Loss
         """
-        cal_der_loss = False
-        if prefix == "train":
-            if self.hparams.loss_der1_ratio > 0 or self.hparams.loss_der2_ratio > 0.0:
-                cal_der_loss = True
-        energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss)
-        g_preds = energies.sum(-1).unsqueeze(-1)
-        g_targets = batch["g_targets"]
-        loss = self._compute_loss(g_preds, g_targets, der1, der2)
+        if self.hparams.use_energy_decoder:
+            cal_der_loss = False
+            if prefix == "train":
+                if self.hparams.loss_der1_ratio > 0 or self.hparams.loss_der2_ratio > 0.0:
+                    cal_der_loss = True
+            energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss)
+            g_preds = energies.sum(-1).unsqueeze(-1)
+            g_targets = batch["g_targets"]
+            loss = self._compute_loss(g_preds, g_targets, der1, der2)
+        else:
+            logits, g_logits = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
+            g_targets = batch["g_targets"]
+            loss = self._compute_loss(g_logits, g_targets)
         self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])
         return loss
 
