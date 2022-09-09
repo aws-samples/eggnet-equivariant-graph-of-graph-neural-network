@@ -8,9 +8,9 @@ python train.py --accelerator gpu \
     --max_epochs 500 \
     --precision 16 \
     --stage1_num_layers 3 \
-    --stage2_num_layers 3 \
     --stage1_node_h_dim 200 32 \
     --stage1_edge_h_dim 64 2 \
+    --stage2_num_layers 3 \
     --stage2_node_h_dim 200 32 \
     --stage2_edge_h_dim 64 2 \
     --dataset_name PDBBind \
