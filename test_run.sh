@@ -26,4 +26,4 @@ python train.py --accelerator gpu \
     --loss_der1_ratio=10.0 \
     --loss_der2_ratio=10.0 \
     --min_loss_der2=-20.0 \
-    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/brandry/PDBBind_MSGVP_geometric \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/brandry/PDBBind_MSGVP_geometric_energy \
