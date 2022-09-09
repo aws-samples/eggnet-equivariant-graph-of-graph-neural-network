@@ -446,7 +446,7 @@ class MultiStageGVPModel(nn.Module):
                 nn.Linear(2 * ns_c, self.num_outputs),
             )
 
-    def forward(self, protein_batch, ligand_batch, complex_batch, sample=None):
+    def forward(self, protein_batch, ligand_batch, complex_batch, sample=None, DM_min=0.5, cal_der_loss=False):
         """Perform the forward pass.
         Args:
             batch: dgl.DGLGraph
@@ -454,10 +454,10 @@ class MultiStageGVPModel(nn.Module):
             (logits, g_logits)
         """
         if self.use_energy_decoder:
-            energies, der1, der2 = self._forward(protein_batch, ligand_batch, complex_batch, sample)
+            energies, der1, der2 = self._forward(protein_batch, ligand_batch, complex_batch, sample, DM_min, cal_der_loss)
             return energies, der1, der2
         else:
-            logits, g_logits = self._forward(protein_batch, ligand_batch, complex_batch, sample)
+            logits, g_logits = self._forward(protein_batch, ligand_batch, complex_batch)
             return logits, g_logits
 
     def _forward(self, protein_graph, ligand_graph, complex_graph, sample=None, DM_min=0.5, cal_der_loss=False):
