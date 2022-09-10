@@ -287,7 +287,7 @@ def main(args):
         collate_fn=screening_dataset.collate_fn,
     )
     all_preds = predict(
-        model, screening_data_loader, model_name=args.model_name
+        model, screening_data_loader, model_name=args.model_name, use_energy_decoder=args.use_energy_decoder
     )
     id_to_pred = dict(zip(screening_dataset.keys, all_preds))
     screening_scores = evaluate_screening(id_to_pred, true_binder_list)
