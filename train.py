@@ -20,7 +20,7 @@ import torchmetrics
 
 # custom imports
 # from ppi.modules import GATModel, GVPModel
-from ppi.model import LitGVPModel
+from ppi.model import LitGVPModel, LitHGVPModel
 from ppi.data import (
     prepare_pepbdb_data_list,
     PepBDBComplexDataset,
@@ -35,30 +35,19 @@ from ppi.data_utils import (
 # mapping model names to constructors
 MODEL_CONSTRUCTORS = {
     "gvp": LitGVPModel,
+    "hgvp": LitHGVPModel,
     # "gat": GATModel,
 }
 
 
 def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
     if "gvp" in model_name:
-        node_in_dim = (
-            datum.ndata["node_s"].shape[1],
-            datum.ndata["node_v"].shape[1],
-        )
         kwargs["node_h_dim"] = tuple(kwargs["node_h_dim"])
-        edge_in_dim = (
-            datum.edata["edge_s"].shape[1],
-            datum.edata["edge_v"].shape[1],
-        )
         kwargs["edge_h_dim"] = tuple(kwargs["edge_h_dim"])
         print("node_h_dim:", kwargs["node_h_dim"])
         print("edge_h_dim:", kwargs["edge_h_dim"])
-
         model = MODEL_CONSTRUCTORS[model_name](
-            node_in_dim=node_in_dim,
-            edge_in_dim=edge_in_dim,
-            num_outputs=num_outputs,
-            **kwargs
+            g=datum, num_outputs=num_outputs, **kwargs
         )
     else:
         model = MODEL_CONSTRUCTORS[model_name](
@@ -148,7 +137,15 @@ def get_datasets(
             test_keys = pickle.load(f)
 
         # featurizer for PDBBind
-        residue_featurizer = get_residue_featurizer(residue_featurizer_name)
+        if "grad" in residue_featurizer_name:
+            # Do not init residue_featurizer if it involes grad
+            # This will allow joint training of residue_featurizer with the
+            # model
+            residue_featurizer = None
+        else:
+            residue_featurizer = get_residue_featurizer(
+                residue_featurizer_name
+            )
         featurizer = PDBBindComplexFeaturizer(residue_featurizer)
         test_dataset = PIGNetComplexDataset(
             test_keys, data_dir, id_to_y, featurizer
@@ -214,8 +211,9 @@ def evaluate_graph_regression(model, data_loader):
     MSE = torchmetrics.MeanSquaredError()
     with torch.no_grad():
         for batch in data_loader:
-            batch = {key: val.to(device) for key, val in batch.items()}
-            _, preds = model(batch["graph"])
+            batch["graph"] = batch["graph"].to(device)
+            batch["g_targets"] = batch["g_targets"].to(device)
+            _, preds = model(batch)
             preds = preds.to("cpu")
             targets = batch["g_targets"].to("cpu")
 

@@ -242,13 +242,13 @@ class PIGNetComplexDataset(data.Dataset):
 
         if type(m2) is Chem.rdchem.Mol:
             m2 = mol_to_pdb_structure(m2)
-        graph = self.featurizer.featurize(
+
+        sample = self.featurizer.featurize(
             {
                 "ligand": m1,
                 "protein": m2,
             }
         )
-        sample = {"graph": graph}
         sample["affinity"] = self.id_to_y[key] * -1.36
         sample["key"] = key
         return sample
@@ -256,15 +256,19 @@ class PIGNetComplexDataset(data.Dataset):
     def collate_fn(self, samples):
         """Collating protein complex graphs and graph-level targets."""
         graphs = []
+        smiles_strings = []
         g_targets = []
         for rec in samples:
             graphs.append(rec["graph"])
             g_targets.append(rec["affinity"])
+            if "smiles_strings" in rec:
+                smiles_strings.extend(rec["smiles_strings"])
         return {
             "graph": dgl.batch(graphs),
             "g_targets": torch.tensor(g_targets)
             .to(torch.float32)
             .unsqueeze(-1),
+            "smiles_strings": smiles_strings,
         }
 
 def get_mask(protein_seq,pad_seq_len):

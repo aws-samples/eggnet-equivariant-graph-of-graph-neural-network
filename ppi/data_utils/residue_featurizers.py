@@ -1,8 +1,10 @@
 """
 Utils for featurizing a small molecule (amino acid residue) from their structures.
 """
+from typing import Union, List
 from transformers import T5Tokenizer, T5EncoderModel
 import torch
+import torch.nn as nn
 import numpy as np
 from dgllife.utils import mol_to_bigraph
 from rdkit import Chem
@@ -69,37 +71,59 @@ class GNNFeaturizer(BaseResidueFeaturizer):
         return self.gnn_model(g)
 
 
-class MolT5Featurizer(BaseResidueFeaturizer):
+class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
     """
     Use MolT5 encodings as residue features.
     """
 
-    def __init__(self, device="cpu", model_size="small", model_max_length=512):
+    def __init__(
+        self,
+        model_size="small",
+        model_max_length=512,
+        requires_grad=False,
+    ):
         """
         Args:
             model_size: one of ('small', 'base', 'large')
         """
+        nn.Module.__init__(self)
+        BaseResidueFeaturizer.__init__(self)
         self.tokenizer = T5Tokenizer.from_pretrained(
             "laituan245/molt5-%s" % model_size,
             model_max_length=model_max_length,
         )
         self.model = T5EncoderModel.from_pretrained(
             "laituan245/molt5-%s" % model_size
-        ).to(device)
-        self.device = device
-        super(MolT5Featurizer, self).__init__()
+        )
+        self.requires_grad = requires_grad
 
-    def _featurize(self, smiles: str) -> torch.tensor:
-        input_ids = self.tokenizer(smiles, return_tensors="pt").input_ids
-        input_ids = input_ids.to(self.device)
-        with torch.no_grad():
+    def _featurize(self, smiles: Union[str, List[str]]) -> torch.tensor:
+        input_ids = self.tokenizer(
+            smiles, return_tensors="pt", padding=True
+        ).input_ids
+        input_ids = input_ids.to(self.model.device)
+        if not self.requires_grad:
+            with torch.no_grad():
+                outputs = self.model(input_ids)
+        else:
             outputs = self.model(input_ids)
 
-        # shape: [1, input_ids.shape[1], model_max_length]
+        # n_smiles_strings = 1 if type(smiles) is str else len(smiles)
+        # shape: [n_smiles_strings, input_ids.shape[1], model_max_length]
         last_hidden_states = outputs.last_hidden_state
 
         # average over positions:
         return last_hidden_states.mean(axis=1).squeeze(0)
+
+    def forward(self, smiles: str) -> torch.tensor:
+        """Expose this method when we want to unfreeze the network,
+        training jointly with higher level GNN"""
+        assert self.requires_grad
+        return self._featurize(smiles)
+
+    @property
+    def output_size(self) -> int:
+        return self.model.config.d_model
 
 
 def get_residue_featurizer(name=""):
@@ -113,5 +137,8 @@ def get_residue_featurizer(name=""):
         model_size = "small"
         if "-" in name:
             model_size = name.split("-")[1]
-        residue_featurizer = MolT5Featurizer(model_size=model_size)
+        requires_grad = True if "grad" in name else False
+        residue_featurizer = MolT5Featurizer(
+            model_size=model_size, requires_grad=requires_grad
+        )
     return residue_featurizer

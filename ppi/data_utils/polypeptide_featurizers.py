@@ -458,7 +458,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         self.residue_featurizer = residue_featurizer
         super(PDBBindComplexFeaturizer, self).__init__(**kwargs)
 
-    def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
+    def featurize(self, protein_complex: dict) -> dict:
         """Featurizes the protein complex information as a graph for the GNN
 
         Args:
@@ -468,7 +468,10 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
                 'protein': PDB.Structure object of the protein,
             }
         Returns:
-            dgl.graph instance representing with the protein complex information
+            if residue_featurizer is provided:
+                dgl.graph instance representing with the protein complex information
+            else:
+                (dgl.graph, list_of_node_smiles_strings)
         """
         ligand, protein = protein_complex["ligand"], protein_complex["protein"]
         ligand = Chem.RemoveHs(ligand)
@@ -497,17 +500,21 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         # combine protein and ligand coordinates
         X_ca = torch.cat((protein_coords[:, 1], ligand_coords), axis=0)
 
-        residues = (
-            torch.stack(
-                [
-                    self.residue_featurizer.featurize(smiles)
-                    for smiles in residue_smiles + [Chem.MolToSmiles(ligand)]
-                ],
+        # SMILES strings of AA residues and ligand
+        # in the same order with the nodes in the graph
+        smiles_strings = residue_smiles + [Chem.MolToSmiles(ligand)]
+        if self.residue_featurizer:
+            residues = (
+                torch.stack(
+                    [
+                        self.residue_featurizer.featurize(smiles)
+                        for smiles in smiles_strings
+                    ]
+                )
+                .to(self.device)
+                .to(torch.long)
             )
-            .to(self.device)
-            .to(torch.long)
-        )
-        # shape: [seq_len + 1, d_embed]
+            # shape: [seq_len + 1, d_embed]
 
         # construct knn graph from C-alpha coordinates
         g = dgl.knn_graph(X_ca, k=min(self.top_k, X_ca.shape[0]))
@@ -529,7 +536,10 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         dihedrals = torch.cat([dihedrals, torch.zeros(1, 6)])
         sidechains = torch.cat([sidechains, torch.zeros(1, 3)])
 
-        node_s = torch.cat([dihedrals, residues], dim=-1)
+        if self.residue_featurizer:
+            node_s = torch.cat([dihedrals, residues], dim=-1)
+        else:
+            node_s = dihedrals
         node_v = torch.cat([orientations, sidechains.unsqueeze(-2)], dim=-2)
         edge_s = torch.cat([rbf, pos_embeddings], dim=-1)
         edge_v = _normalize(E_vectors).unsqueeze(-2)
@@ -544,4 +554,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         # edge features
         g.edata["edge_s"] = edge_s.contiguous()
         g.edata["edge_v"] = edge_v.contiguous()
-        return g
+        if self.residue_featurizer:
+            return {"graph": g}
+        else:
+            return {"graph": g, "smiles_strings": smiles_strings}

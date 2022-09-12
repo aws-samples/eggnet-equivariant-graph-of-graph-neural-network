@@ -44,7 +44,8 @@ def predict(model, data_loader):
     all_preds = []
     with torch.no_grad():
         for batch in tqdm(data_loader):
-            _, preds = model(batch["graph"].to(device))
+            batch["graph"] = batch["graph"].to(device)
+            _, preds = model(batch)
             preds = preds.to("cpu")
             preds = list(preds.numpy().reshape(-1))
             all_preds.extend(preds)
