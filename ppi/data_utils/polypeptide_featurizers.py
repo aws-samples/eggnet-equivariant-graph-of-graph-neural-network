@@ -458,7 +458,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         self.residue_featurizer = residue_featurizer
         super(PDBBindComplexFeaturizer, self).__init__(**kwargs)
 
-    def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
+    def featurize(self, protein_complex: dict) -> dict:
         """Featurizes the protein complex information as a graph for the GNN
 
         Args:
@@ -507,7 +507,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
             residues = (
                 torch.stack(
                     [
-                        self.residue_featurizer(smiles)
+                        self.residue_featurizer.featurize(smiles)
                         for smiles in smiles_strings
                     ]
                 )
@@ -555,6 +555,6 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         g.edata["edge_s"] = edge_s.contiguous()
         g.edata["edge_v"] = edge_v.contiguous()
         if self.residue_featurizer:
-            return g
+            return {"graph": g}
         else:
-            return g, smiles_strings
+            return {"graph": g, "smiles_strings": smiles_strings}

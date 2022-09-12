@@ -240,13 +240,12 @@ class PIGNetComplexDataset(data.Dataset):
         if type(m2) is Chem.rdchem.Mol:
             m2 = mol_to_pdb_structure(m2)
 
-        graph, smiles_strings = self.featurizer.featurize(
+        sample = self.featurizer.featurize(
             {
                 "ligand": m1,
                 "protein": m2,
             }
         )
-        sample = {"graph": graph, "smiles_strings": smiles_strings}
         sample["affinity"] = self.id_to_y[key] * -1.36
         sample["key"] = key
         return sample
@@ -259,7 +258,8 @@ class PIGNetComplexDataset(data.Dataset):
         for rec in samples:
             graphs.append(rec["graph"])
             g_targets.append(rec["affinity"])
-            smiles_strings.extend(rec["smiles_strings"])
+            if "smiles_strings" in rec:
+                smiles_strings.extend(rec["smiles_strings"])
         return {
             "graph": dgl.batch(graphs),
             "g_targets": torch.tensor(g_targets)
