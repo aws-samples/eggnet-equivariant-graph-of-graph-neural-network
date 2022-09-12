@@ -239,53 +239,31 @@ class PIGNetComplexDataset(data.Dataset):
 
         if type(m2) is Chem.rdchem.Mol:
             m2 = mol_to_pdb_structure(m2)
-        if self.featurizer:
-            graph = self.featurizer.featurize(
-                {
-                    "ligand": m1,
-                    "protein": m2,
-                }
-            )
-            sample = {"graph": graph}
-        else:
-            # featurizer not provided:
-            sample = {"ligand": m1, "protein": m2}
+
+        graph, smiles_strings = self.featurizer.featurize(
+            {
+                "ligand": m1,
+                "protein": m2,
+            }
+        )
+        sample = {"graph": graph, "smiles_strings": smiles_strings}
         sample["affinity"] = self.id_to_y[key] * -1.36
         sample["key"] = key
         return sample
 
     def collate_fn(self, samples):
-        if self.featurizer is not None:
-            return self.collate_fn_with_featurizer(samples)
-        else:
-            return self.collate_fn_without_featurizer(samples)
-
-    def collate_fn_with_featurizer(self, samples):
         """Collating protein complex graphs and graph-level targets."""
         graphs = []
+        smiles_strings = []
         g_targets = []
         for rec in samples:
             graphs.append(rec["graph"])
             g_targets.append(rec["affinity"])
+            smiles_strings.extend(rec["smiles_strings"])
         return {
             "graph": dgl.batch(graphs),
             "g_targets": torch.tensor(g_targets)
             .to(torch.float32)
             .unsqueeze(-1),
-        }
-
-    def collate_fn_without_featurizer(self, samples):
-        """Collating protein complexes without featuring them to graphs."""
-        complexes = []
-        g_targets = []
-        for rec in samples:
-            complexes.append(
-                {"protein": rec["protein"], "ligand": rec["ligand"]}
-            )
-            g_targets.append(rec["affinity"])
-        return {
-            "complexes": complexes,
-            "g_targets": torch.tensor(g_targets)
-            .to(torch.float32)
-            .unsqueeze(-1),
+            "smiles_strings": smiles_strings,
         }

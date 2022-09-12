@@ -1,6 +1,7 @@
 """
 Utils for featurizing a small molecule (amino acid residue) from their structures.
 """
+from typing import Union, List
 from transformers import T5Tokenizer, T5EncoderModel
 import torch
 import torch.nn as nn
@@ -77,7 +78,6 @@ class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
 
     def __init__(
         self,
-        device="cpu",
         model_size="small",
         model_max_length=512,
         requires_grad=False,
@@ -86,7 +86,6 @@ class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
         Args:
             model_size: one of ('small', 'base', 'large')
         """
-        # super(MolT5Featurizer, self).__init__()
         nn.Module.__init__(self)
         BaseResidueFeaturizer.__init__(self)
         self.tokenizer = T5Tokenizer.from_pretrained(
@@ -95,20 +94,22 @@ class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
         )
         self.model = T5EncoderModel.from_pretrained(
             "laituan245/molt5-%s" % model_size
-        ).to(device)
-        self.device = device
+        )
         self.requires_grad = requires_grad
 
-    def _featurize(self, smiles: str) -> torch.tensor:
-        input_ids = self.tokenizer(smiles, return_tensors="pt").input_ids
-        input_ids = input_ids.to(self.device)
+    def _featurize(self, smiles: Union[str, List[str]]) -> torch.tensor:
+        input_ids = self.tokenizer(
+            smiles, return_tensors="pt", padding=True
+        ).input_ids
+        input_ids = input_ids.to(self.model.device)
         if not self.requires_grad:
             with torch.no_grad():
                 outputs = self.model(input_ids)
         else:
             outputs = self.model(input_ids)
 
-        # shape: [1, input_ids.shape[1], model_max_length]
+        # n_smiles_strings = 1 if type(smiles) is str else len(smiles)
+        # shape: [n_smiles_strings, input_ids.shape[1], model_max_length]
         last_hidden_states = outputs.last_hidden_state
 
         # average over positions:

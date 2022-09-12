@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import dgl
 
 from .modules import GVPModel
-from ppi.data_utils import get_residue_featurizer, PDBBindComplexFeaturizer
+from ppi.data_utils import get_residue_featurizer
 
 
 def infer_input_dim(g: dgl.DGLGraph) -> tuple:
@@ -22,11 +22,12 @@ def infer_input_dim(g: dgl.DGLGraph) -> tuple:
 
 
 class LitGVPModel(pl.LightningModule):
-    def __init__(self, g: dgl.DGLGraph, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__()
-        node_in_dim, edge_in_dim = infer_input_dim(g)
-        kwargs["node_in_dim"] = node_in_dim
-        kwargs["edge_in_dim"] = edge_in_dim
+        if kwargs.get("g", None):
+            node_in_dim, edge_in_dim = infer_input_dim(kwargs["g"])
+            kwargs["node_in_dim"] = node_in_dim
+            kwargs["edge_in_dim"] = edge_in_dim
 
         hparams = [
             "lr",
@@ -81,8 +82,8 @@ class LitGVPModel(pl.LightningModule):
         loss = F.mse_loss(logits, targets)
         return loss
 
-    def forward(self, g):
-        return self.model(g)
+    def forward(self, batch):
+        return self.model(batch["graph"])
 
     def _step(self, batch, batch_idx, prefix="train"):
         """Used in train/validation loop, independent of `forward`
@@ -93,7 +94,7 @@ class LitGVPModel(pl.LightningModule):
         Returns:
             Loss
         """
-        logits, g_logits = self.forward(batch["graph"])
+        logits, g_logits = self.forward(batch)
         # node-level targets and mask
         # targets = batch.ndata["target"]
         # train_mask = batch.ndata["mask"]
@@ -121,17 +122,20 @@ class LitHGVPModel(pl.LightningModule):
     Output: a scalar
     """
 
-    def __init__(self, datum: dict, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__()
         self.residue_featurizer = get_residue_featurizer(
             kwargs["residue_featurizer_name"]
         )
-        self.featurizer = PDBBindComplexFeaturizer(self.residue_featurizer)
         # lazy init for model that requires an input datum
-        g = self.featurizer.featurize(datum)
-        node_in_dim, edge_in_dim = infer_input_dim(g)
-        kwargs["node_in_dim"] = node_in_dim
-        kwargs["edge_in_dim"] = edge_in_dim
+        if kwargs.get("g", None):
+            node_in_dim, edge_in_dim = infer_input_dim(kwargs["g"])
+            node_in_dim = (
+                node_in_dim[0] + self.residue_featurizer.output_size,
+                node_in_dim[1],
+            )
+            kwargs["node_in_dim"] = node_in_dim
+            kwargs["edge_in_dim"] = edge_in_dim
 
         hparams = [
             "lr",
@@ -185,8 +189,11 @@ class LitHGVPModel(pl.LightningModule):
         loss = F.mse_loss(logits, targets)
         return loss
 
-    def forward(self, protein_complexes: list):
-        bg = self.featurizer.featurize_batch(protein_complexes)
+    def forward(self, batch):
+        bg, smiles_strings = batch["graph"], batch["smiles_strings"]
+        node_s = bg.ndata["node_s"]
+        residue_embeddings = self.residue_featurizer(smiles_strings)
+        bg.ndata["node_s"] = torch.cat((node_s, residue_embeddings), axis=1)
         return self.model(bg)
 
     def _step(self, batch, batch_idx, prefix="train"):
@@ -198,7 +205,7 @@ class LitHGVPModel(pl.LightningModule):
         Returns:
             Loss
         """
-        logits, g_logits = self.forward(batch["complexes"])
+        logits, g_logits = self.forward(batch)
         # graph-level targets
         g_targets = batch["g_targets"]
         loss = self._compute_loss(g_logits, g_targets)

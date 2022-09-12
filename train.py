@@ -46,10 +46,8 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
         kwargs["edge_h_dim"] = tuple(kwargs["edge_h_dim"])
         print("node_h_dim:", kwargs["node_h_dim"])
         print("edge_h_dim:", kwargs["edge_h_dim"])
-        if model_name != "hgvp":
-            datum = datum["graph"]
         model = MODEL_CONSTRUCTORS[model_name](
-            datum, num_outputs=num_outputs, **kwargs
+            g=datum, num_outputs=num_outputs, **kwargs
         )
     else:
         model = MODEL_CONSTRUCTORS[model_name](
@@ -140,16 +138,15 @@ def get_datasets(
 
         # featurizer for PDBBind
         if "grad" in residue_featurizer_name:
-            # Do not init any featurizers if residue_featurizer involes grad
+            # Do not init residue_featurizer if it involes grad
             # This will allow joint training of residue_featurizer with the
             # model
             residue_featurizer = None
-            featurizer = None
         else:
             residue_featurizer = get_residue_featurizer(
                 residue_featurizer_name
             )
-            featurizer = PDBBindComplexFeaturizer(residue_featurizer)
+        featurizer = PDBBindComplexFeaturizer(residue_featurizer)
         test_dataset = PIGNetComplexDataset(
             test_keys, data_dir, id_to_y, featurizer
         )
@@ -214,8 +211,9 @@ def evaluate_graph_regression(model, data_loader):
     MSE = torchmetrics.MeanSquaredError()
     with torch.no_grad():
         for batch in data_loader:
-            batch = {key: val.to(device) for key, val in batch.items()}
-            _, preds = model(batch["graph"])
+            batch["graph"] = batch["graph"].to(device)
+            batch["g_targets"] = batch["g_targets"].to(device)
+            _, preds = model(batch)
             preds = preds.to("cpu")
             targets = batch["g_targets"].to("cpu")
 
@@ -276,7 +274,7 @@ def main(args):
     )
     # 3. Prepare model
     if args.dataset_name == "PDBBind":
-        datum = train_dataset[0]
+        datum = train_dataset[0]["graph"]
     else:
         datum = train_dataset[0][0]
     dict_args = vars(args)
