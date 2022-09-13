@@ -363,9 +363,36 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
         - residue_featurizer: a function mapping a smile string to a vector
     """
 
-    def __init__(self, residue_featurizer, **kwargs):
+    def __init__(self, residue_featurizer=None, **kwargs):
         self.residue_featurizer = residue_featurizer
         super(NoncanonicalComplexFeaturizer, self).__init__(**kwargs)
+
+    def extract_coords_and_smiles(self, chain):
+        """Extract atom coordinates and smiles strings of residues from a PDB.chain.
+        If the chain contains non-canonical residues:
+            extract the centroid coordinate repeated 4 times
+        """
+        coords = []
+        residue_smiles = []  # SMILES strings of residues in the protein
+        for res in chain.get_residues():
+            res_mol = utils.residue_to_mol(res)
+            residue_smiles.append(Chem.MolToSmiles(res_mol))
+
+            if is_aa(res):
+                atom_coords = utils.get_atom_coords(res)
+            else:
+                # get the coords of all atoms
+                atom_coords = (
+                    res_mol.GetConformers()[0]
+                    .GetPositions()
+                    .astype(np.float32)
+                )
+                # take the centoid of all atoms, and repeat to the same shape
+                atom_coords = np.tile(atom_coords.mean(axis=0), (4, 1))
+
+            coords.append(atom_coords)
+        coords = torch.as_tensor(np.asarray(coords), dtype=torch.float32)
+        return coords, residue_smiles
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
         """Featurizes the protein complex information as a graph for the GNN
@@ -373,74 +400,79 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
         Args:
             protein_complex: dict
             {
-                'pdb_id': str,
-                'chain_id1': str,
-                'chain_id2': str,
-                'protein1': {'residues': list[str], 'coords': list[list[int]], 'name': str},
-                'protein2': {'residues': list[str], 'coords': list[list[int]], 'name': str}
+                'protein': Bio.PDB.Chain,
+                'ligand': Bio.PDB.Chain,
             }
         Returns:
             dgl.graph instance representing with the protein complex information
         """
-        protein1 = protein_complex["protein1"]
-        protein2 = protein_complex["protein2"]
-        with torch.no_grad():
-            coords = torch.as_tensor(
-                protein1["coords"] + protein2["coords"],
-                device=self.device,
-                dtype=torch.float32,
-            )  # shape: [seq_len1 + seq_len2, 4, 3]
+        ligand, protein = protein_complex["ligand"], protein_complex["protein"]
+        (
+            protein_coords,
+            protein_residue_smiles,
+        ) = self.extract_coords_and_smiles(protein)
+        ligand_coords, ligand_residue_smiles = self.extract_coords_and_smiles(
+            ligand
+        )
+        # SMILES strings of AA residues and ligand
+        # in the same order with the nodes in the graph
+        smiles_strings = protein_residue_smiles + ligand_residue_smiles
 
-            residues = torch.as_tensor(
-                [
-                    self.residue_featurizer(smiles)
-                    for smiles in protein1["residues"] + protein2["residues"]
-                ],
-                device=self.device,
-                dtype=torch.long,
-            )  # shape: [seq_len1 + seq_len2, d_embed]
-
-            mask = torch.isfinite(coords.sum(dim=(1, 2)))
-            coords[~mask] = np.inf
-
-            X_ca = coords[:, 1]
-            # construct knn graph from C-alpha coordinates
-            g = dgl.knn_graph(X_ca, k=min(self.top_k, X_ca.shape[0]))
-            edge_index = g.edges()
-
-            pos_embeddings = self._positional_embeddings(edge_index)
-            E_vectors = X_ca[edge_index[0]] - X_ca[edge_index[1]]
-            rbf = _rbf(
-                E_vectors.norm(dim=-1),
-                D_count=self.num_rbf,
-                device=self.device,
+        # combine protein and ligand coordinates
+        coords = torch.cat((protein_coords, ligand_coords))
+        X_ca = coords[:, 1]
+        if self.residue_featurizer:
+            residues = (
+                torch.stack(
+                    [
+                        self.residue_featurizer.featurize(smiles)
+                        for smiles in smiles_strings
+                    ]
+                )
+                .to(self.device)
+                .to(torch.long)
             )
+            # shape: [seq_len1 + seq_len2, d_embed]
 
-            dihedrals = self._dihedrals(coords)
-            orientations = self._orientations(X_ca)
-            sidechains = self._sidechains(coords)
+        # construct knn graph from C-alpha coordinates
+        g = dgl.knn_graph(X_ca, k=min(self.top_k, X_ca.shape[0]))
+        edge_index = g.edges()
 
+        pos_embeddings = self._positional_embeddings(edge_index)
+        E_vectors = X_ca[edge_index[0]] - X_ca[edge_index[1]]
+        rbf = _rbf(
+            E_vectors.norm(dim=-1),
+            D_count=self.num_rbf,
+            device=self.device,
+        )
+
+        dihedrals = self._dihedrals(coords)
+        orientations = self._orientations(X_ca)
+        sidechains = self._sidechains(coords)
+        if self.residue_featurizer:
             node_s = torch.cat([dihedrals, residues], dim=-1)
-            node_v = torch.cat(
-                [orientations, sidechains.unsqueeze(-2)], dim=-2
-            )
-            edge_s = torch.cat([rbf, pos_embeddings], dim=-1)
-            edge_v = _normalize(E_vectors).unsqueeze(-2)
+        else:
+            node_s = dihedrals
+        node_v = torch.cat([orientations, sidechains.unsqueeze(-2)], dim=-2)
+        edge_s = torch.cat([rbf, pos_embeddings], dim=-1)
+        edge_v = _normalize(E_vectors).unsqueeze(-2)
 
-            node_s, node_v, edge_s, edge_v = map(
-                torch.nan_to_num, (node_s, node_v, edge_s, edge_v)
-            )
+        node_s, node_v, edge_s, edge_v = map(
+            torch.nan_to_num, (node_s, node_v, edge_s, edge_v)
+        )
 
         # node features
         g.ndata["node_s"] = node_s
         g.ndata["node_v"] = node_v
-        g.ndata["mask"] = mask
         # edge features
         g.edata["edge_s"] = edge_s
         g.edata["edge_v"] = edge_v
         # graph attrs
         # setattr(g, "name", protein_complex["name"])
-        return g
+        if self.residue_featurizer:
+            return {"graph": g}
+        else:
+            return {"graph": g, "smiles_strings": smiles_strings}
 
 
 class PDBBindComplexFeaturizer(BaseFeaturizer):

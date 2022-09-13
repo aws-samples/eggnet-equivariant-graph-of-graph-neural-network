@@ -17,38 +17,38 @@ from tqdm import tqdm
 
 import numpy as np
 import pickle
+from Bio.PDB import PDBParser, MMCIFParser
 
 # custom modules
-from ppi.data_utils import remove_nan_residues, mol_to_pdb_structure
+from ppi.data_utils import (
+    remove_nan_residues,
+    mol_to_pdb_structure,
+    parse_structure,
+)
 
 
 class BasePPIDataset(data.Dataset):
     """Dataset for the Base Protein Graph."""
 
-    def __init__(self, data_list, preprocess=False):
-        super(BasePPIDataset, self).__init__()
-
-        self.data_list = data_list
+    def __init__(self, preprocess=False):
+        self.processed_data = pd.Series([None] * len(self))
         if preprocess:
             print("Preprocessing data...")
             self._preprocess_all()
 
-    def __len__(self):
-        return len(self.data_list)
-
     def __getitem__(self, i):
-        if isinstance(self.data_list[i], dict):
+        if self.processed_data[i] is None:
             # if not processed, process this instance and update
-            self.data_list[i] = self._preprocess(self.data_list[i])
-        return self.data_list[i]
+            self.processed_data[i] = self._preprocess(i)
+        return self.processed_data[i]
 
     def _preprocess(self, complex):
         raise NotImplementedError
 
     def _preprocess_all(self):
         """Preprocess all the records in `data_list` with `_preprocess"""
-        for i in tqdm(range(len(self.data_list))):
-            self.data_list[i] = self._preprocess(self.data_list[i])
+        for i in tqdm(range(len(self.processed_data))):
+            self.processed_data[i] = self._preprocess(i)
 
 
 def prepare_pepbdb_data_list(parsed_structs: dict, df: pd.DataFrame) -> list:
@@ -202,6 +202,64 @@ class ComplexBatch(dict):
         return self
 
 
+class PDBComplexDataset(BasePPIDataset):
+    """
+    To work with Propedia and ProtCID data, where each individual sample is a
+    PDB complex file.
+    """
+
+    def __init__(self, path_to_meta_file: str, featurizer: object, **kwargs):
+        self.meta_df = pd.read_csv(path_to_meta_file)
+        self.path = os.path.dirname(path_to_meta_file)
+        self.pdb_parser = PDBParser(
+            QUIET=True,
+            PERMISSIVE=True,
+        )
+        self.cif_parser = MMCIFParser(QUIET=True)
+        self.featurizer = featurizer
+        super(PDBComplexDataset, self).__init__(**kwargs)
+
+    def __len__(self) -> int:
+        return self.meta_df.shape[0]
+
+    def _preprocess(self, idx: int) -> Dict[str, Any]:
+        row = self.meta_df.iloc[idx]
+        structure = parse_structure(
+            self.pdb_parser,
+            self.cif_parser,
+            name=str(idx),
+            file_path=os.path.join(self.path, row["pdb_file"]),
+        )
+        for chain in structure.get_chains():
+            if chain.id == row["receptor_chain_id"]:
+                protein = chain
+            elif chain.id == row["ligand_chain_id"]:
+                ligand = chain
+        sample = self.featurizer.featurize(
+            {"ligand": ligand, "protein": protein}
+        )
+        sample["target"] = row["label"]
+        return sample
+
+    def collate_fn(self, samples):
+        """Collating protein complex graphs and graph-level targets."""
+        graphs = []
+        smiles_strings = []
+        g_targets = []
+        for rec in samples:
+            graphs.append(rec["graph"])
+            g_targets.append(rec["target"])
+            if "smiles_strings" in rec:
+                smiles_strings.extend(rec["smiles_strings"])
+        return {
+            "graph": dgl.batch(graphs),
+            "g_targets": torch.tensor(g_targets)
+            .to(torch.float32)
+            .unsqueeze(-1),
+            "smiles_strings": smiles_strings,
+        }
+
+
 class PIGNetComplexDataset(data.Dataset):
     """
     To work with preprocessed pickles sourced from PDBBind dataset by the
@@ -271,65 +329,86 @@ class PIGNetComplexDataset(data.Dataset):
             "smiles_strings": smiles_strings,
         }
 
-def get_mask(protein_seq,pad_seq_len):
+
+def get_mask(protein_seq, pad_seq_len):
     """
     Used by CAMP dataset
     """
-    if len(protein_seq)<=pad_seq_len:
+    if len(protein_seq) <= pad_seq_len:
         a = np.zeros(pad_seq_len)
-        a[:len(protein_seq)] = 1
+        a[: len(protein_seq)] = 1
     else:
         cut_protein_seq = protein_seq[:pad_seq_len]
         a = np.zeros(pad_seq_len)
-        a[:len(cut_protein_seq)] = 1
+        a[: len(cut_protein_seq)] = 1
     return a
 
-def boost_mask_BCE_loss(input_mask,flag):
+
+def boost_mask_BCE_loss(input_mask, flag):
     """
     Used by CAMP dataset ; flag is an indicator for checking whether this record has binding sites information
     """
+
     def conditional_BCE(y_true, y_pred):
-                loss = flag * K.binary_crossentropy(y_true, y_pred) * input_mask
-                return K.sum(loss) / K.sum(input_mask)
+        loss = flag * K.binary_crossentropy(y_true, y_pred) * input_mask
+        return K.sum(loss) / K.sum(input_mask)
+
     return conditional_BCE
+
 
 def prepare_camp_data_arrays(datafile, data_dir):
     """
-    Input: 
-        datafile: peptide and protein sequence file with columns protein_seq, peptide_seq, protein_ss, peptide_ss 
+    Input:
+        datafile: peptide and protein sequence file with columns protein_seq, peptide_seq, protein_ss, peptide_ss
            (generated by Step 4 script as test_data.tsv).
-        data_dir: Directory with subfolder dense_feature dict, that contains dictionaries of necessary features. 
+        data_dir: Directory with subfolder dense_feature dict, that contains dictionaries of necessary features.
             You must have run Steps 1-5 to generate the feature dictionaries for the protein and peptides in subfolder dense_feature_dict
-    Output: 
-        
+    Output:
+
     """
-    print('loading features:')
-    with open(data_dir + '/dense_feature_dict/protein_feature_dict', 'rb') as f: 
-        protein_feature_dict = pickle.load(f, encoding='latin1')
-    with open(data_dir + '/dense_feature_dict/peptide_feature_dict', 'rb') as f:
-        peptide_feature_dict = pickle.load(f, encoding='latin1')
-    with open(data_dir + '/dense_feature_dict/protein_ss_feature_dict', 'rb') as f: 
-        protein_ss_feature_dict = pickle.load(f, encoding='latin1')
-    with open(data_dir + '/dense_feature_dict/peptide_ss_feature_dict', 'rb') as f:
-        peptide_ss_feature_dict = pickle.load(f, encoding='latin1')
-    with open(data_dir + '/dense_feature_dict/protein_2_feature_dict', 'rb') as f: 
-        protein_2_feature_dict = pickle.load(f, encoding='latin1')
-    with open(data_dir + '/dense_feature_dict/peptide_2_feature_dict', 'rb') as f:
-        peptide_2_feature_dict = pickle.load(f, encoding='latin1')
-    with open(data_dir + '/dense_feature_dict/protein_dense_feature_dict', 'rb') as f: 
-        protein_dense_feature_dict = pickle.load(f, encoding='latin1')
-    with open(data_dir + '/dense_feature_dict/peptide_dense_feature_dict', 'rb') as f:
-        peptide_dense_feature_dict = pickle.load(f, encoding='latin1')
+    print("loading features:")
+    with open(
+        data_dir + "/dense_feature_dict/protein_feature_dict", "rb"
+    ) as f:
+        protein_feature_dict = pickle.load(f, encoding="latin1")
+    with open(
+        data_dir + "/dense_feature_dict/peptide_feature_dict", "rb"
+    ) as f:
+        peptide_feature_dict = pickle.load(f, encoding="latin1")
+    with open(
+        data_dir + "/dense_feature_dict/protein_ss_feature_dict", "rb"
+    ) as f:
+        protein_ss_feature_dict = pickle.load(f, encoding="latin1")
+    with open(
+        data_dir + "/dense_feature_dict/peptide_ss_feature_dict", "rb"
+    ) as f:
+        peptide_ss_feature_dict = pickle.load(f, encoding="latin1")
+    with open(
+        data_dir + "/dense_feature_dict/protein_2_feature_dict", "rb"
+    ) as f:
+        protein_2_feature_dict = pickle.load(f, encoding="latin1")
+    with open(
+        data_dir + "/dense_feature_dict/peptide_2_feature_dict", "rb"
+    ) as f:
+        peptide_2_feature_dict = pickle.load(f, encoding="latin1")
+    with open(
+        data_dir + "/dense_feature_dict/protein_dense_feature_dict", "rb"
+    ) as f:
+        protein_dense_feature_dict = pickle.load(f, encoding="latin1")
+    with open(
+        data_dir + "/dense_feature_dict/peptide_dense_feature_dict", "rb"
+    ) as f:
+        peptide_dense_feature_dict = pickle.load(f, encoding="latin1")
     X_pep, X_p, X_SS_pep, X_SS_p, X_2_pep, X_2_p = [], [], [], [], [], []
-    X_dense_pep,X_dense_p = [],[]
+    X_dense_pep, X_dense_p = [], []
     pep_sequence, prot_sequence, Y = [], [], []
     X_pep_mask, X_bs_flag = [], []
 
     with open(datafile) as f:
         for line in f.readlines()[1:]:
-            seq, peptide, peptide_ss, seq_ss  = line.strip().split('\t')
-            flag =1.0 # For prediction, set flag==1 to generate binding sites
-            X_pep_mask.append(get_mask(peptide,pad_pep_len))
+            seq, peptide, peptide_ss, seq_ss = line.strip().split("\t")
+            flag = 1.0  # For prediction, set flag==1 to generate binding sites
+            X_pep_mask.append(get_mask(peptide, pad_pep_len))
             X_bs_flag.append(flag)
 
             pep_sequence.append(peptide)
@@ -342,7 +421,7 @@ def prepare_camp_data_arrays(datafile, data_dir):
             X_2_p.append(protein_2_feature_dict[seq])
             X_dense_pep.append(peptide_dense_feature_dict[peptide])
             X_dense_p.append(protein_dense_feature_dict[seq])
-            
+
     X_pep = np.array(X_pep)
     X_p = np.array(X_p)
     X_SS_pep = np.array(X_SS_pep)
@@ -357,18 +436,33 @@ def prepare_camp_data_arrays(datafile, data_dir):
 
     pep_sequence = np.array(pep_sequence)
     prot_sequence = np.array(prot_sequence)
-    return X_pep, X_p, X_SS_pep, X_SS_p, X_2_pep, X_2_p, X_dense_pep, X_dense_p, pep_sequence, prot_sequence, X_pep_mask, X_bs_flag
+    return (
+        X_pep,
+        X_p,
+        X_SS_pep,
+        X_SS_p,
+        X_2_pep,
+        X_2_p,
+        X_dense_pep,
+        X_dense_p,
+        pep_sequence,
+        prot_sequence,
+        X_pep_mask,
+        X_bs_flag,
+    )
+
 
 class CAMPDataset(data.Dataset):
     """
-    Dataset required for CAMP predictor.  
-    Input: 
-        datafile: peptide and protein sequence file with columns protein_seq, peptide_seq, protein_ss, peptide_ss 
+    Dataset required for CAMP predictor.
+    Input:
+        datafile: peptide and protein sequence file with columns protein_seq, peptide_seq, protein_ss, peptide_ss
            (generated by Step 4 script as test_data.tsv).
-        data_dir: Directory with subfolder dense_feature dict, that contains dictionaries of necessary features. 
+        data_dir: Directory with subfolder dense_feature dict, that contains dictionaries of necessary features.
             You must have run Steps 1-5 to generate the feature dictionaries for the protein and peptides in subfolder dense_feature_dict
-    
+
     """
+
     def __init__(self, datafile, data_dir, model_mode=1):
         self.datafile = datafile
         self.data_dir = data_dir
@@ -376,7 +470,22 @@ class CAMPDataset(data.Dataset):
         self.FlagFeatures = False
 
     def load_features(self):
-        X_pep, X_p, X_SS_pep, X_SS_p, X_2_pep, X_2_p, X_dense_pep, X_dense_p, pep_sequence, prot_sequence, X_pep_mask, X_bs_flag = prepare_camp_data_arrays(datafile=self.datafile, data_dir=self.data_dir)
+        (
+            X_pep,
+            X_p,
+            X_SS_pep,
+            X_SS_p,
+            X_2_pep,
+            X_2_p,
+            X_dense_pep,
+            X_dense_p,
+            pep_sequence,
+            prot_sequence,
+            X_pep_mask,
+            X_bs_flag,
+        ) = prepare_camp_data_arrays(
+            datafile=self.datafile, data_dir=self.data_dir
+        )
         self.X_pep = X_pep
         self.X_p = X_p
         self.X_SS_pep = X_SS_pep
@@ -389,28 +498,50 @@ class CAMPDataset(data.Dataset):
         self.prot_sequence = prot_sequence
         self.X_pep_mask = X_pep_mask
         self.X_bs_flag = X_bs_flag
-        
+
         self.FlagFeatures = True
-    
-    def __len__(self) -> int: 
+
+    def __len__(self) -> int:
         if self.FlagFeatures is False:
             self.load_features()
         return len(self.X_pep)
-    
+
     def _preprocess(self, ix: int):
-        # Return arrays may need to be re-specified as np.array(x) 
+        # Return arrays may need to be re-specified as np.array(x)
         if self.FlagFeatures is False:
             self.load_features()
-        if self.model_mode==1:
-            return self.X_pep[ix], self.X_p[ix], self.X_SS_pep[ix], self.X_SS_p[ix], self.X_2_pep[ix], self.X_2_p[ix], self.X_dense_pep[ix], self.pep_sequence[ix], self.prot_sequence[ix]
+        if self.model_mode == 1:
+            return (
+                self.X_pep[ix],
+                self.X_p[ix],
+                self.X_SS_pep[ix],
+                self.X_SS_p[ix],
+                self.X_2_pep[ix],
+                self.X_2_p[ix],
+                self.X_dense_pep[ix],
+                self.pep_sequence[ix],
+                self.prot_sequence[ix],
+            )
         else:
-            return self.X_pep[ix], self.X_p[ix], self.X_SS_pep[ix], self.X_SS_p[ix], self.X_2_pep[ix], self.X_2_p[ix], self.X_dense_pep[ix], self.pep_sequence[ix], self.prot_sequence[ix], self.X_pep_mask[ix], self.X_bs_flag[ix]
-        
+            return (
+                self.X_pep[ix],
+                self.X_p[ix],
+                self.X_SS_pep[ix],
+                self.X_SS_p[ix],
+                self.X_2_pep[ix],
+                self.X_2_p[ix],
+                self.X_dense_pep[ix],
+                self.pep_sequence[ix],
+                self.prot_sequence[ix],
+                self.X_pep_mask[ix],
+                self.X_bs_flag[ix],
+            )
+
     def __getitem__(self, idx: int):
         if self.processed_data[idx] is None:
             self.processed_data[idx] = self._preprocess(idx)
         return self.processed_data[idx]
-        
+
     def collate_fn(self, samples):
         """
         Write this after testing out predict_CAMP.py with batch inference

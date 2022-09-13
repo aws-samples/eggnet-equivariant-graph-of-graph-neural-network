@@ -13,7 +13,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 import dgl
 
 import torchmetrics
@@ -22,12 +22,11 @@ import torchmetrics
 # from ppi.modules import GATModel, GVPModel
 from ppi.model import LitGVPModel, LitHGVPModel
 from ppi.data import (
-    prepare_pepbdb_data_list,
-    PepBDBComplexDataset,
+    PDBComplexDataset,
     PIGNetComplexDataset,
 )
 from ppi.data_utils import (
-    NaturalComplexFeaturizer,
+    NoncanonicalComplexFeaturizer,
     PDBBindComplexFeaturizer,
     get_residue_featurizer,
 )
@@ -60,69 +59,39 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
 
 
 def get_datasets(
-    name="PepBDB",
+    name="PDBBind",
     input_type="complex",
     data_dir="",
     test_only=False,
     residue_featurizer_name="MACCS",
 ):
-    if name == "PepBDB":
-        # load parsed PepBDB structures
-        train_structs = pickle.load(
-            open(
-                "/home/ec2-user/SageMaker/efs/data/CAMP/structures_train.pkl",
-                "rb",
-            )
-        )
-        len(train_structs)
-        test_structs = pickle.load(
-            open(
-                "/home/ec2-user/SageMaker/efs/data/CAMP/structures_test.pkl",
-                "rb",
-            )
-        )
-        len(test_structs)
-        column_names = [
-            "PDB ID",
-            "peptide chain ID",
-            "peptide length",
-            "number of atoms in peptide",
-            "protein chain ID",
-            "number of atoms in protein",
-            "number of atom contacts between peptide and protein",
-            "?",
-            "peptide with nonstandard amino acid?",
-            "resolution",
-            "molecular type",
-        ]
-        # load metadata
-        DATA_DIR = "/home/ec2-user/SageMaker/efs/data/PepBDB"
-        metadata = os.path.join(DATA_DIR, "peptidelist.txt")
-        df = pd.read_csv(
-            metadata, header=None, delim_whitespace=True, names=column_names
-        )
-        data_list_train = prepare_pepbdb_data_list(train_structs, df)
-        data_list_test = prepare_pepbdb_data_list(test_structs, df)
-
-        # split train/val
-        n_train = int(0.8 * len(data_list_train))
-
+    # initialize residue featurizer
+    if "grad" in residue_featurizer_name:
+        # Do not init residue_featurizer if it involes grad
+        # This will allow joint training of residue_featurizer with the
+        # model
+        residue_featurizer = None
+    else:
+        residue_featurizer = get_residue_featurizer(residue_featurizer_name)
+    # initialize complex featurizer based on dataset type
+    if name == "Propedia":
+        featurizer = NoncanonicalComplexFeaturizer(residue_featurizer)
+        # load Propedia metadata
         if input_type == "complex":
-            # Protein complex as input
-            complex_featurizer = NaturalComplexFeaturizer()
-            train_dataset = PepBDBComplexDataset(
-                data_list_train[:n_train],
-                featurizer=complex_featurizer,
-                preprocess=True,
+            test_dataset = PDBComplexDataset(
+                os.path.join(data_dir, "test_09132022.csv"),
+                featurizer=featurizer,
             )
-            valid_dataset = PepBDBComplexDataset(
-                data_list_train[n_train:],
-                featurizer=complex_featurizer,
-                preprocess=True,
-            )
-            test_dataset = PepBDBComplexDataset(
-                data_list_test, featurizer=complex_featurizer, preprocess=True
-            )
+            if not test_only:
+                train_dataset = PDBComplexDataset(
+                    os.path.join(data_dir, "train_09132022.csv"),
+                    featurizer=featurizer,
+                )
+                # split train/val
+                n_train = int(0.8 * len(train_dataset))
+                train_dataset, valid_dataset = random_split(
+                    train_dataset, [n_train, len(train_dataset) - n_train]
+                )
         elif input_type == "polypeptides":
             raise NotImplementedError
     elif name == "PDBBind":
@@ -137,15 +106,6 @@ def get_datasets(
             test_keys = pickle.load(f)
 
         # featurizer for PDBBind
-        if "grad" in residue_featurizer_name:
-            # Do not init residue_featurizer if it involes grad
-            # This will allow joint training of residue_featurizer with the
-            # model
-            residue_featurizer = None
-        else:
-            residue_featurizer = get_residue_featurizer(
-                residue_featurizer_name
-            )
         featurizer = PDBBindComplexFeaturizer(residue_featurizer)
         test_dataset = PIGNetComplexDataset(
             test_keys, data_dir, id_to_y, featurizer
@@ -163,9 +123,10 @@ def get_datasets(
                 train_keys[n_train:], data_dir, id_to_y, featurizer
             )
 
-            return train_dataset, valid_dataset, test_dataset
-        else:
-            return test_dataset
+    if not test_only:
+        return train_dataset, valid_dataset, test_dataset
+    else:
+        return test_dataset
 
 
 def evaluate_node_classification(model, data_loader):
