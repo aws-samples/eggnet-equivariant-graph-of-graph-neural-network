@@ -241,6 +241,15 @@ class PDBComplexDataset(BasePPIDataset):
         sample["target"] = row["label"]
         return sample
 
+    @property
+    def pos_weight(self) -> torch.Tensor:
+        """To compute the weight of the positive class, assuming binary
+        classification"""
+        class_sizes = self.meta_df["label"].value_counts()
+        pos_weights = np.mean(class_sizes) / class_sizes
+        pos_weights = torch.from_numpy(pos_weights.values.astype(np.float32))
+        return pos_weights[1] / pos_weights[0]
+
     def collate_fn(self, samples):
         """Collating protein complex graphs and graph-level targets."""
         graphs = []

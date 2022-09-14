@@ -38,20 +38,39 @@ MODEL_CONSTRUCTORS = {
     # "gat": GATModel,
 }
 
+# to determine problem type based on task
+IS_CLASSIFY = {
+    "PDBBind": False,
+    "Propedia": True,
+}
 
-def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
+
+def init_model(
+    datum=None,
+    model_name="gvp",
+    num_outputs=1,
+    classify=False,
+    pos_weight=None,
+    **kwargs
+):
     if "gvp" in model_name:
         kwargs["node_h_dim"] = tuple(kwargs["node_h_dim"])
         kwargs["edge_h_dim"] = tuple(kwargs["edge_h_dim"])
         print("node_h_dim:", kwargs["node_h_dim"])
         print("edge_h_dim:", kwargs["edge_h_dim"])
         model = MODEL_CONSTRUCTORS[model_name](
-            g=datum, num_outputs=num_outputs, **kwargs
+            g=datum,
+            num_outputs=num_outputs,
+            classify=classify,
+            pos_weight=pos_weight,
+            **kwargs
         )
     else:
         model = MODEL_CONSTRUCTORS[model_name](
             in_feats=datum.ndata["node_s"].shape[1],
             num_outputs=num_outputs,
+            classify=classify,
+            pos_weight=pos_weight,
             **kwargs
         )
 
@@ -87,11 +106,13 @@ def get_datasets(
                     os.path.join(data_dir, "train_09132022.csv"),
                     featurizer=featurizer,
                 )
+                pos_weight = train_dataset.pos_weight
                 # split train/val
                 n_train = int(0.8 * len(train_dataset))
                 train_dataset, valid_dataset = random_split(
                     train_dataset, [n_train, len(train_dataset) - n_train]
                 )
+                train_dataset.pos_weight = pos_weight
         elif input_type == "polypeptides":
             raise NotImplementedError
     elif name == "PDBBind":
@@ -190,6 +211,37 @@ def evaluate_graph_regression(model, data_loader):
     return results
 
 
+def evaluate_graph_classification(model, data_loader):
+    """Evaluate model on datasets and return metrics for graph-level
+    binary classification."""
+    # make predictions on test set
+    device = torch.device("cuda:0")
+    model = model.to(device)
+    model.eval()
+
+    AUROC = torchmetrics.AUROC()
+    AP = torchmetrics.AveragePrecision()
+    MCC = torchmetrics.MatthewsCorrCoef(num_classes=2)
+    with torch.no_grad():
+        for batch in data_loader:
+            batch["graph"] = batch["graph"].to(device)
+            batch["g_targets"] = batch["g_targets"].to(device)
+            _, preds = model(batch)
+            preds = preds.to("cpu")
+            targets = batch["g_targets"].to("cpu").to(torch.int8)
+
+            auroc = AUROC(preds, targets)
+            ap = AP(preds, targets)
+            mcc = MCC(preds.sigmoid(), targets)
+
+    results = {
+        "AUROC": AUROC.compute().item(),
+        "AP": AP.compute().item(),
+        "MCC": MCC.compute().item(),
+    }
+    return results
+
+
 def main(args):
     pl.seed_everything(42, workers=True)
     # 1. Load data
@@ -211,7 +263,7 @@ def main(args):
         batch_size=args.bs,
         shuffle=True,
         num_workers=args.num_workers,
-        collate_fn=train_dataset.collate_fn,
+        collate_fn=test_dataset.collate_fn,
         persistent_workers=args.persistent_workers,
     )
 
@@ -220,7 +272,7 @@ def main(args):
         batch_size=args.bs,
         shuffle=False,
         num_workers=args.num_workers,
-        collate_fn=train_dataset.collate_fn,
+        collate_fn=test_dataset.collate_fn,
         persistent_workers=args.persistent_workers,
     )
 
@@ -238,7 +290,14 @@ def main(args):
     else:
         datum = train_dataset[0][0]
     dict_args = vars(args)
-    model = init_model(datum=datum, num_outputs=1, **dict_args)
+    pos_weight = getattr(train_dataset, "pos_weight", None)
+    model = init_model(
+        datum=datum,
+        num_outputs=1,
+        classify=IS_CLASSIFY[args.dataset_name],
+        pos_weight=pos_weight,
+        **dict_args
+    )
     # 4. Training model
     # callbacks
     early_stop_callback = EarlyStopping(
@@ -265,9 +324,9 @@ def main(args):
         checkpoint_path=checkpoint_callback.best_model_path,
     )
     print("Testing performance on test set")
-    if args.dataset_name == "PepBDB":
-        scores = evaluate_node_classification(model, test_loader)
-    elif args.dataset_name == "PDBBind":
+    if IS_CLASSIFY[args.dataset_name]:
+        scores = evaluate_graph_classification(model, test_loader)
+    else:
         scores = evaluate_graph_regression(model, test_loader)
     pprint(scores)
     # save scores to file

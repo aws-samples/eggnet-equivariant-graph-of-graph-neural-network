@@ -39,11 +39,15 @@ class LitGVPModel(pl.LightningModule):
             "drop_rate",
             "residual",
             "seq_embedding",
+            "classify",
         ]
 
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
         self.model = GVPModel(**model_kwargs)
         self.save_hyperparameters(*hparams)
+        self.classify = kwargs["classify"]
+        if self.classify:
+            self.register_buffer("pos_weight", kwargs["pos_weight"])
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -77,10 +81,14 @@ class LitGVPModel(pl.LightningModule):
         return parent_parser
 
     def _compute_loss(self, logits, targets):
-        # binary classification
-        # loss = F.binary_cross_entropy_with_logits(logits, targets)
-        # regression
-        loss = F.mse_loss(logits, targets)
+        if self.classify:
+            # binary classification
+            loss = F.binary_cross_entropy_with_logits(
+                logits, targets, pos_weight=self.pos_weight
+            )
+        else:
+            # regression
+            loss = F.mse_loss(logits, targets)
         return loss
 
     def forward(self, batch):
@@ -149,10 +157,14 @@ class LitHGVPModel(pl.LightningModule):
             "residual",
             "seq_embedding",
             "residue_featurizer_name",
+            "classify",
         ]
         self.save_hyperparameters(*hparams)
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
         self.model = GVPModel(**model_kwargs)
+        self.classify = kwargs["classify"]
+        if self.classify:
+            self.register_buffer("pos_weight", kwargs["pos_weight"])
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -186,8 +198,14 @@ class LitHGVPModel(pl.LightningModule):
         return parent_parser
 
     def _compute_loss(self, logits, targets):
-        # regression
-        loss = F.mse_loss(logits, targets)
+        if self.classify:
+            # binary classification
+            loss = F.binary_cross_entropy_with_logits(
+                logits, targets, pos_weight=self.pos_weight
+            )
+        else:
+            # regression
+            loss = F.mse_loss(logits, targets)
         return loss
 
     def forward(self, batch):
