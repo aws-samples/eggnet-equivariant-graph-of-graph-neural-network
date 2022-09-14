@@ -337,9 +337,12 @@ def main(args):
         scores = evaluate_graph_regression(model, test_loader)
     pprint(scores)
     # save scores to file
+    log_dir = os.path.join(
+        os.path.dirname(checkpoint_callback.best_model_path), "../"
+    )
     json.dump(
         scores,
-        open(os.path.join(trainer.log_dir, "scores.json"), "w"),
+        open(os.path.join(log_dir, "scores.json"), "w"),
     )
     return
 
