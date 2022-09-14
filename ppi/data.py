@@ -208,9 +208,15 @@ class PDBComplexDataset(BasePPIDataset):
     PDB complex file.
     """
 
-    def __init__(self, path_to_meta_file: str, featurizer: object, **kwargs):
-        self.meta_df = pd.read_csv(path_to_meta_file)
-        self.path = os.path.dirname(path_to_meta_file)
+    def __init__(
+        self,
+        meta_df: pd.DataFrame,
+        path_to_data_files: str,
+        featurizer: object,
+        **kwargs
+    ):
+        self.meta_df = meta_df
+        self.path = path_to_data_files
         self.pdb_parser = PDBParser(
             QUIET=True,
             PERMISSIVE=True,

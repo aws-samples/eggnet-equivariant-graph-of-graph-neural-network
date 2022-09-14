@@ -97,22 +97,28 @@ def get_datasets(
         featurizer = NoncanonicalComplexFeaturizer(residue_featurizer)
         # load Propedia metadata
         if input_type == "complex":
+            test_df = pd.read_csv(os.path.join(data_dir, "test_09132022.csv"))
             test_dataset = PDBComplexDataset(
-                os.path.join(data_dir, "test_09132022.csv"),
+                test_df,
+                data_dir,
                 featurizer=featurizer,
             )
             if not test_only:
+                train_df = pd.read_csv(
+                    os.path.join(data_dir, "train_09132022.csv")
+                )
+                n_train = int(0.8 * train_df.shape[0])
+
                 train_dataset = PDBComplexDataset(
-                    os.path.join(data_dir, "train_09132022.csv"),
+                    train_df.iloc[:n_train],
+                    data_dir,
                     featurizer=featurizer,
                 )
-                pos_weight = train_dataset.pos_weight
-                # split train/val
-                n_train = int(0.8 * len(train_dataset))
-                train_dataset, valid_dataset = random_split(
-                    train_dataset, [n_train, len(train_dataset) - n_train]
+                valid_dataset = PDBComplexDataset(
+                    train_df.iloc[n_train:],
+                    data_dir,
+                    featurizer=featurizer,
                 )
-                train_dataset.pos_weight = pos_weight
         elif input_type == "polypeptides":
             raise NotImplementedError
     elif name == "PDBBind":
@@ -285,10 +291,7 @@ def main(args):
         persistent_workers=args.persistent_workers,
     )
     # 3. Prepare model
-    if args.dataset_name == "PDBBind":
-        datum = train_dataset[0]["graph"]
-    else:
-        datum = train_dataset[0][0]
+    datum = train_dataset[0]["graph"]
     dict_args = vars(args)
     pos_weight = getattr(train_dataset, "pos_weight", None)
     model = init_model(
