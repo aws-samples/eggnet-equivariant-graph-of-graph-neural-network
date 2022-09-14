@@ -45,9 +45,11 @@ class LitGVPModel(pl.LightningModule):
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
         self.model = GVPModel(**model_kwargs)
         self.save_hyperparameters(*hparams)
-        self.classify = kwargs["classify"]
+        self.classify = kwargs.get("classify", False)
         if self.classify:
-            self.register_buffer("pos_weight", kwargs["pos_weight"])
+            self.register_buffer(
+                "pos_weight", kwargs.get("pos_weight", torch.tensor(1.0))
+            )
 
     @staticmethod
     def add_model_specific_args(parent_parser):

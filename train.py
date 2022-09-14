@@ -51,7 +51,7 @@ def init_model(
     num_outputs=1,
     classify=False,
     pos_weight=None,
-    **kwargs
+    **kwargs,
 ):
     if "gvp" in model_name:
         kwargs["node_h_dim"] = tuple(kwargs["node_h_dim"])
@@ -63,7 +63,7 @@ def init_model(
             num_outputs=num_outputs,
             classify=classify,
             pos_weight=pos_weight,
-            **kwargs
+            **kwargs,
         )
     else:
         model = MODEL_CONSTRUCTORS[model_name](
@@ -71,7 +71,7 @@ def init_model(
             num_outputs=num_outputs,
             classify=classify,
             pos_weight=pos_weight,
-            **kwargs
+            **kwargs,
         )
 
     return model
@@ -83,6 +83,7 @@ def get_datasets(
     data_dir="",
     test_only=False,
     residue_featurizer_name="MACCS",
+    data_suffix="full",
 ):
     # initialize residue featurizer
     if "grad" in residue_featurizer_name:
@@ -97,7 +98,9 @@ def get_datasets(
         featurizer = NoncanonicalComplexFeaturizer(residue_featurizer)
         # load Propedia metadata
         if input_type == "complex":
-            test_df = pd.read_csv(os.path.join(data_dir, "test_09132022.csv"))
+            test_df = pd.read_csv(
+                os.path.join(data_dir, f"test_{data_suffix}.csv")
+            )
             test_dataset = PDBComplexDataset(
                 test_df,
                 data_dir,
@@ -105,7 +108,7 @@ def get_datasets(
             )
             if not test_only:
                 train_df = pd.read_csv(
-                    os.path.join(data_dir, "train_09132022.csv")
+                    os.path.join(data_dir, f"train_{data_suffix}.csv")
                 )
                 n_train = int(0.8 * train_df.shape[0])
 
@@ -256,6 +259,7 @@ def main(args):
         input_type=args.input_type,
         data_dir=args.data_dir,
         residue_featurizer_name=args.residue_featurizer_name,
+        data_suffix=args.dataset_suffix,
     )
     print(
         "Data loaded:",
@@ -299,7 +303,7 @@ def main(args):
         num_outputs=1,
         classify=IS_CLASSIFY[args.dataset_name],
         pos_weight=pos_weight,
-        **dict_args
+        **dict_args,
     )
     # 4. Training model
     # callbacks
@@ -376,6 +380,12 @@ if __name__ == "__main__":
         help="directory to dataset",
         type=str,
         default="",
+    )
+    parser.add_argument(
+        "--data_suffix",
+        help="used to distinguish different verions of the same dataset",
+        type=str,
+        default="full",
     )
     # featurizer params
     parser.add_argument(
