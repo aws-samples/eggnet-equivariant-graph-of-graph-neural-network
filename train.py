@@ -259,7 +259,7 @@ def main(args):
         input_type=args.input_type,
         data_dir=args.data_dir,
         residue_featurizer_name=args.residue_featurizer_name,
-        data_suffix=args.dataset_suffix,
+        data_suffix=args.data_suffix,
     )
     print(
         "Data loaded:",
