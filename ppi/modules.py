@@ -598,7 +598,8 @@ class MultiStageGVPModel(nn.Module):
         if self.use_energy_decoder:
             complex_num_nodes = complex_graph.batch_num_nodes().tolist()
             protein_ligand_num_nodes = [val for pair in zip(protein_num_nodes, ligand_num_nodes) for val in pair]
-            assert sum(complex_num_nodes) == sum(protein_ligand_num_nodes)
+            if not self.hetero:
+                assert sum(complex_num_nodes) == sum(protein_ligand_num_nodes)
 
             out_c_split = torch.split(out_c, protein_ligand_num_nodes)
             out_c_protein = [x.permute(1, 0) for x in out_c_split[::2]]
