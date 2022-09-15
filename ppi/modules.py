@@ -298,7 +298,7 @@ class MultiStageGVPModel(nn.Module):
         residual=True,
         num_outputs=1,
         seq_embedding=True,
-        is_hetero=True,
+        is_hetero=False,
         use_energy_decoder=False,
         vdw_N=6.0,
         max_vdw_interaction=0.0356,
