@@ -965,9 +965,8 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         (g_rec, g_lig): featurized receptor graph, featurized ligand graph
     """
 
-    def __init__(self, residue_featurizer, molecular_featurizers="canonical", return_physics=True, **kwargs):
+    def __init__(self, residue_featurizer, molecular_featurizers="canonical", **kwargs):
         self.residue_featurizer = residue_featurizer
-        self.return_physics = return_physics
         if molecular_featurizers == "canonical":
             self.node_featurizer = CanonicalAtomFeaturizer()
             self.edge_featurizer = CanonicalBondFeaturizer()
@@ -1003,15 +1002,14 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
 
         protein_residue_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
-        sample["atom_to_residue"] = {}
+        atom_to_residue = {}
         residue_counter = 0
         for res in protein_residues.get_residues():
             if is_aa(res):
                 protein_residue_coords.append(utils.get_atom_coords(res))
                 res_mol = utils.residue_to_mol(res)
                 residue_smiles.append(Chem.MolToSmiles(res_mol))
-                for atom in res:
-                    sample["atom_to_residue"][tuple([round(x, 5) for x in atom.coord.tolist()])] = residue_counter
+                atom_to_residue[tuple([round(x, 5) for x in atom.coord.tolist()])] = residue_counter
                 residue_counter += 1
 
 
@@ -1122,7 +1120,4 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         # edge features
         complex_graph.edata["edge_s"] = edge_s
         complex_graph.edata["edge_v"] = edge_v
-        if self.return_physics:
-            return protein_graph, ligand_graph, complex_graph, sample
-        else:
-            return protein_graph, ligand_graph, complex_graph
+        return protein_graph, ligand_graph, complex_graph, sample, atom_to_residue
