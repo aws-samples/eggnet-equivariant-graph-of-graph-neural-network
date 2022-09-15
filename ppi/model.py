@@ -115,6 +115,7 @@ class LitMultiStageGVPModel(pl.LightningModule):
             "residual",
             "seq_embedding",
             "use_energy_decoder",
+            "is_hetero",
             "vdw_N",
             "max_vdw_interaction",
             "min_vdw_interaction",
