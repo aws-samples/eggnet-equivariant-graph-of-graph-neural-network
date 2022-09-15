@@ -537,6 +537,7 @@ class MultiStageGVPModel(nn.Module):
         h_V_l_v = torch.split(h_V_out_l[1] if self.residual else h_V_l[1], ligand_num_nodes)
 
         if self.is_hetero and self.use_energy_decoder:
+            protein_num_nodes_temp = []
             complex_v = torch.split(complex_graph.ndata["node_v"], complex_num_nodes)
             h_V_p_s_temp,  h_V_p_v_temp = [], []
             for i, (cv, nl) in enumerate(zip(complex_v, ligand_num_nodes)):
@@ -545,16 +546,20 @@ class MultiStageGVPModel(nn.Module):
                 residue_lookup = atom_to_residue[i]
                 protein_atom_coords = cv.squeeze(1)[:-nl]
                 protein_atom_s_list, protein_atom_v_list = [], []
+                num_atoms = 0
                 for coords in protein_atom_coords:
                     k = tuple([round(j, 2) for j in coords.tolist()])
                     protein_atom_s = protein_s[residue_lookup[k], :]
                     protein_atom_v = protein_v[residue_lookup[k], :]
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v)
+                    num_atoms += 1
                 h_V_p_s_temp.append(torch.Tensor(torch.stack(protein_atom_s_list)))
                 h_V_p_v_temp.append(torch.Tensor(torch.stack(protein_atom_v_list)))
+                protein_num_nodes_temp.append(num_atoms)
             h_V_p_s = h_V_p_s_temp
             h_V_p_v = h_V_p_v_temp
+            protein_num_nodes = protein_num_nodes_temp
 
         h_V_s = [val for pair in zip(h_V_p_s, h_V_l_s) for val in pair]
         h_V_v = [val for pair in zip(h_V_p_v, h_V_l_v) for val in pair]
@@ -595,10 +600,8 @@ class MultiStageGVPModel(nn.Module):
 
         ## Decoder
         if self.use_energy_decoder:
-            complex_num_nodes = complex_graph.batch_num_nodes().tolist()
             protein_ligand_num_nodes = [val for pair in zip(protein_num_nodes, ligand_num_nodes) for val in pair]
-            if not self.is_hetero:
-                assert sum(complex_num_nodes) == sum(protein_ligand_num_nodes)
+            assert sum(complex_num_nodes) == sum(protein_ligand_num_nodes)
 
             out_c_split = torch.split(out_c, protein_ligand_num_nodes)
             out_c_protein = [x.permute(1, 0) for x in out_c_split[::2]]
