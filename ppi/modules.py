@@ -448,7 +448,7 @@ class MultiStageGVPModel(nn.Module):
                 nn.Linear(2 * ns_c, self.num_outputs),
             )
 
-    def forward(self, protein_batch, ligand_batch, complex_batch, sample=None, DM_min=0.5, cal_der_loss=False):
+    def forward(self, protein_batch, ligand_batch, complex_batch, sample=None, DM_min=0.5, cal_der_loss=False, atom_to_residue=None):
         """Perform the forward pass.
         Args:
             batch: dgl.DGLGraph
@@ -456,13 +456,13 @@ class MultiStageGVPModel(nn.Module):
             (logits, g_logits)
         """
         if self.use_energy_decoder:
-            energies, der1, der2 = self._forward(protein_batch, ligand_batch, complex_batch, sample, DM_min, cal_der_loss)
+            energies, der1, der2 = self._forward(protein_batch, ligand_batch, complex_batch, sample, DM_min, cal_der_loss, atom_to_residue)
             return energies, der1, der2
         else:
             logits, g_logits = self._forward(protein_batch, ligand_batch, complex_batch)
             return logits, g_logits
 
-    def _forward(self, protein_graph, ligand_graph, complex_graph, sample=None, DM_min=0.5, cal_der_loss=False):
+    def _forward(self, protein_graph, ligand_graph, complex_graph, sample=None, DM_min=0.5, cal_der_loss=False, atom_to_residue=None):
         """Helper function to perform GVP network forward pass.
         Args:
             g: dgl.graph
@@ -529,15 +529,37 @@ class MultiStageGVPModel(nn.Module):
 
         protein_num_nodes = protein_graph.batch_num_nodes().tolist()
         ligand_num_nodes = ligand_graph.batch_num_nodes().tolist()
+        complex_num_nodes = complex_graph.batch_num_nodes().tolist()
 
         h_V_p_s = torch.split(h_V_out_p[0] if self.residual else h_V_p[0], protein_num_nodes)
+        h_V_p_v = torch.split(h_V_out_p[1] if self.residual else h_V_p[1], protein_num_nodes)        
         h_V_l_s = torch.split(h_V_out_l[0] if self.residual else h_V_l[0], ligand_num_nodes)
-        h_V_s = [val for pair in zip(h_V_p_s, h_V_l_s) for val in pair]
-        complex_graph.ndata["node_s"] = torch.cat(h_V_s, dim=0)
-
-        h_V_p_v = torch.split(h_V_out_p[1] if self.residual else h_V_p[1], protein_num_nodes)
         h_V_l_v = torch.split(h_V_out_l[1] if self.residual else h_V_l[1], ligand_num_nodes)
+
+        if self.is_hetero and self.use_energy_decoder:
+            complex_v = torch.split(complex_graph.ndata["node_v"], complex_num_nodes)
+            h_V_p_s_temp,  h_V_p_v_temp = [], []
+            for i, (cv, nl) in enumerate(zip(complex_v, ligand_num_nodes)):
+                protein_s = h_V_p_s[i]
+                protein_v = h_V_p_v[i]
+                residue_lookup = atom_to_residue[i]
+                protein_atom_coords = cv.squeeze(1)[:-nl]
+                protein_atom_s_list, protein_atom_v_list = [], []
+                for coords in protein_atom_coords:
+                    k = tuple([round(j, 5) for j in coords.tolist()])
+                    protein_atom_s = protein_s[residue_lookup[k], :]
+                    protein_atom_v = protein_v[residue_lookup[k], :]
+                    protein_atom_s_list.append(protein_atom_s)
+                    protein_atom_v_list.append(protein_atom_v)
+                h_V_p_s_temp.append(torch.Tensor(torch.stack(protein_atom_s_list)))
+                h_V_p_v_temp.append(torch.Tensor(torch.stack(protein_atom_v_list)))
+            h_V_p_s = h_V_p_s_temp
+            h_V_p_v = h_V_p_v_temp
+
+        h_V_s = [val for pair in zip(h_V_p_s, h_V_l_s) for val in pair]
         h_V_v = [val for pair in zip(h_V_p_v, h_V_l_v) for val in pair]
+
+        complex_graph.ndata["node_s"] = torch.cat(h_V_s, dim=0)
         complex_graph.ndata["node_v"] = torch.cat(h_V_v, dim=0)
 
         ## Complex branch
