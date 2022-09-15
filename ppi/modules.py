@@ -546,7 +546,7 @@ class MultiStageGVPModel(nn.Module):
                 protein_atom_coords = cv.squeeze(1)[:-nl]
                 protein_atom_s_list, protein_atom_v_list = [], []
                 for coords in protein_atom_coords:
-                    k = tuple([round(j, 1) for j in coords.tolist()])
+                    k = tuple([round(j, 2) for j in coords.tolist()])
                     print(k)
                     protein_atom_s = protein_s[residue_lookup[k], :]
                     protein_atom_v = protein_v[residue_lookup[k], :]

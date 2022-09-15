@@ -1005,13 +1005,13 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         atom_to_residue = {}
         residue_counter = 0
         for res in protein_residues.get_residues():
-            if is_aa(res):
-                protein_residue_coords.append(utils.get_atom_coords(res))
-                res_mol = utils.residue_to_mol(res)
-                residue_smiles.append(Chem.MolToSmiles(res_mol))
-                for atom in res:
-                    atom_to_residue[tuple([round(x, 1) for x in atom.coord.tolist()])] = residue_counter
-                residue_counter += 1
+            # if is_aa(res):
+            protein_residue_coords.append(utils.get_atom_coords(res))
+            res_mol = utils.residue_to_mol(res)
+            residue_smiles.append(Chem.MolToSmiles(res_mol))
+            for atom in res:
+                atom_to_residue[tuple([round(x, 2) for x in atom.coord.tolist()])] = residue_counter
+            residue_counter += 1
 
 
         # backbone ["N", "CA", "C", "O"] coordinates for proteins
