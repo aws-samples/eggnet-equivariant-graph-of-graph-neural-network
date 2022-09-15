@@ -298,6 +298,7 @@ class MultiStageGVPModel(nn.Module):
         residual=True,
         num_outputs=1,
         seq_embedding=True,
+        is_hetero=True,
         use_energy_decoder=False,
         vdw_N=6.0,
         max_vdw_interaction=0.0356,
@@ -325,6 +326,7 @@ class MultiStageGVPModel(nn.Module):
         self.num_outputs = num_outputs
         self.seq_embedding = seq_embedding
         self.use_energy_decoder = use_energy_decoder
+        self.is_hetero = is_hetero
 
         if seq_embedding:
             self.W_s_p = nn.Embedding(20, 20)
@@ -433,11 +435,11 @@ class MultiStageGVPModel(nn.Module):
         ## Decoder
         if use_energy_decoder:
             self.decoder = EnergyDecoder(ns_c,
-                                         vdw_N=vdw_N,
-                                         max_vdw_interaction=max_vdw_interaction,
-                                         min_vdw_interaction=min_vdw_interaction,
-                                         dev_vdw_radius=dev_vdw_radius,
-                                         no_rotor_penalty=no_rotor_penalty)
+                                        vdw_N=vdw_N,
+                                        max_vdw_interaction=max_vdw_interaction,
+                                        min_vdw_interaction=min_vdw_interaction,
+                                        dev_vdw_radius=dev_vdw_radius,
+                                        no_rotor_penalty=no_rotor_penalty)
         else:
             self.decoder = nn.Sequential(
                 nn.Linear(ns_c, 2 * ns_c),

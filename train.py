@@ -28,6 +28,7 @@ from ppi.data import (
     PIGNetComplexDataset,
     PIGNetAtomicBigraphComplexDataset,
     PIGNetHeteroBigraphComplexDataset,
+    PIGNetHeteroBigraphComplexDatasetForEnergyModel,
     PIGNetAtomicBigraphComplexEnergyDataset,
 )
 from ppi.data_utils import (
@@ -36,6 +37,7 @@ from ppi.data_utils import (
     PDBBindComplexFeaturizer,
     FingerprintFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizer,
+    PIGNetHeteroBigraphComplexFeaturizerForEnergyModel,
     PIGNetAtomicBigraphGeometricComplexFeaturizer,
     PIGNetAtomicBigraphPhysicalComplexFeaturizer,
 )
@@ -233,7 +235,27 @@ def get_datasets(
                 return test_dataset
         elif input_type == "multistage-hetero":
             if use_energy_decoder:
-                raise NotImplementedError
+                residue_featurizer = FingerprintFeaturizer("MACCS")
+                featurizer = PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(residue_featurizer)
+                test_dataset = PIGNetHeteroBigraphComplexDatasetForEnergyModel(
+                    test_keys, data_dir, id_to_y, featurizer
+                )
+                if not test_only:
+                    with open(
+                        os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
+                    ) as f:
+                        train_keys = pickle.load(f)
+                    n_train = int(0.8 * len(train_keys))
+                    train_dataset = PIGNetHeteroBigraphComplexDatasetForEnergyModel(
+                        train_keys[:n_train], data_dir, id_to_y, featurizer
+                    )
+                    valid_dataset = PIGNetHeteroBigraphComplexDatasetForEnergyModel(
+                        train_keys[n_train:], data_dir, id_to_y, featurizer
+                    )
+
+                    return train_dataset, valid_dataset, test_dataset
+                else:
+                    return test_dataset
             else:
                 residue_featurizer = FingerprintFeaturizer("MACCS")
                 featurizer = PIGNetHeteroBigraphComplexFeaturizer(residue_featurizer)
