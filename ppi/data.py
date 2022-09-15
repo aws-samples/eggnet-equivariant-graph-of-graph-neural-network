@@ -516,30 +516,32 @@ class PIGNetHeteroBigraphComplexDatasetForEnergyModel(data.Dataset):
         with open(os.path.join(self.data_dir, "data", key), "rb") as f:
             m1, _, m2, _ = pickle.load(f)
 
-        protein_graph, ligand_graph, complex_graph = self.featurizer.featurize(
+        protein_graph, ligand_graph, complex_graph, physics = self.featurizer.featurize(
             {
                 "ligand": m1,
                 "protein_atoms": m2,
                 "protein_residues": mol_to_pdb_structure(m2),
             }
         )
-        sample = {"protein_graph": protein_graph, "ligand_graph": ligand_graph, "complex_graph": complex_graph}
+        sample = {"protein_graph": protein_graph, "ligand_graph": ligand_graph, "complex_graph": complex_graph, "sample": physics}
         sample["affinity"] = self.id_to_y[key] * -1.36
         sample["key"] = key
         return sample
 
     def collate_fn(self, samples):
         """Collating protein complex graphs and graph-level targets."""
-        protein_graphs, ligand_graphs, complex_graphs = [], [], []
+        protein_graphs, ligand_graphs, complex_graphs, physics = [], [], [], []
         g_targets = []
         for rec in samples:
             protein_graphs.append(rec["protein_graph"])
             ligand_graphs.append(rec["ligand_graph"])
             complex_graphs.append(rec["complex_graph"])
+            physics.append(rec["sample"])
             g_targets.append(rec["affinity"])
         return {
             "protein_graph": dgl.batch(protein_graphs),
             "ligand_graph": dgl.batch(ligand_graphs),
             "complex_graph": dgl.batch(complex_graphs),
+            "sample": tensor_collate_fn(physics),
             "g_targets": torch.tensor(g_targets).unsqueeze(-1),
         }
