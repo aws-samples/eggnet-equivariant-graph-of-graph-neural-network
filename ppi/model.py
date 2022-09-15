@@ -239,7 +239,7 @@ class LitMultiStageGVPModel(pl.LightningModule):
             return loss
 
     def forward(self, protein_graph, ligand_graph, complex_graph, sample=None, cal_der_loss=False, atom_to_residue=None):
-        return self.model(protein_graph, ligand_graph, complex_graph, sample=sample, cal_der_loss=cal_der_loss, atom_to_residue=None)
+        return self.model(protein_graph, ligand_graph, complex_graph, sample=sample, cal_der_loss=cal_der_loss, atom_to_residue=atom_to_residue)
 
     def _step(self, batch, batch_idx, prefix="train"):
         """Used in train/validation loop, independent of `forward`
