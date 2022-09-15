@@ -302,10 +302,11 @@ def main(args):
     datum = train_dataset[0]["graph"]
     dict_args = vars(args)
     pos_weight = getattr(train_dataset, "pos_weight", None)
+    classify = pos_weight is not None
     model = init_model(
         datum=datum,
         num_outputs=1,
-        classify=train_dataset.pos_weight is not None,
+        classify=classify,
         pos_weight=pos_weight,
         **dict_args,
     )
@@ -335,7 +336,7 @@ def main(args):
         checkpoint_path=checkpoint_callback.best_model_path,
     )
     print("Testing performance on test set")
-    if IS_CLASSIFY[args.dataset_name]:
+    if classify:
         scores = evaluate_graph_classification(model, test_loader)
     else:
         scores = evaluate_graph_regression(model, test_loader)
