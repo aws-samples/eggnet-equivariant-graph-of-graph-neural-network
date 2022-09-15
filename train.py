@@ -38,12 +38,6 @@ MODEL_CONSTRUCTORS = {
     # "gat": GATModel,
 }
 
-# to determine problem type based on task
-IS_CLASSIFY = {
-    "PDBBind": False,
-    "Propedia": True,
-}
-
 
 def init_model(
     datum=None,
@@ -84,6 +78,7 @@ def get_datasets(
     test_only=False,
     residue_featurizer_name="MACCS",
     data_suffix="full",
+    binary_cutoff=None,
 ):
     # initialize residue featurizer
     if "grad" in residue_featurizer_name:
@@ -138,7 +133,7 @@ def get_datasets(
         # featurizer for PDBBind
         featurizer = PDBBindComplexFeaturizer(residue_featurizer)
         test_dataset = PIGNetComplexDataset(
-            test_keys, data_dir, id_to_y, featurizer
+            test_keys, data_dir, id_to_y, featurizer, binary_cutoff
         )
         if not test_only:
             with open(
@@ -147,10 +142,18 @@ def get_datasets(
                 train_keys = pickle.load(f)
             n_train = int(0.8 * len(train_keys))
             train_dataset = PIGNetComplexDataset(
-                train_keys[:n_train], data_dir, id_to_y, featurizer
+                train_keys[:n_train],
+                data_dir,
+                id_to_y,
+                featurizer,
+                binary_cutoff,
             )
             valid_dataset = PIGNetComplexDataset(
-                train_keys[n_train:], data_dir, id_to_y, featurizer
+                train_keys[n_train:],
+                data_dir,
+                id_to_y,
+                featurizer,
+                binary_cutoff,
             )
 
     if not test_only:
@@ -260,6 +263,7 @@ def main(args):
         data_dir=args.data_dir,
         residue_featurizer_name=args.residue_featurizer_name,
         data_suffix=args.data_suffix,
+        binary_cutoff=args.binary_cutoff,
     )
     print(
         "Data loaded:",
@@ -301,7 +305,7 @@ def main(args):
     model = init_model(
         datum=datum,
         num_outputs=1,
-        classify=IS_CLASSIFY[args.dataset_name],
+        classify=train_dataset.pos_weight is not None,
         pos_weight=pos_weight,
         **dict_args,
     )
@@ -390,6 +394,13 @@ if __name__ == "__main__":
         type=str,
         default="full",
     )
+    parser.add_argument(
+        "--binary_cutoff",
+        help="used to convert PDBBind to a binary classification problem",
+        type=float,
+        default=None,
+    )
+
     # featurizer params
     parser.add_argument(
         "--residue_featurizer_name",

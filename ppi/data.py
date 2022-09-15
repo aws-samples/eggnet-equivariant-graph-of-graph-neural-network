@@ -288,12 +288,14 @@ class PIGNetComplexDataset(data.Dataset):
         data_dir: str,
         id_to_y: Dict[str, float],
         featurizer: object,
+        binary_cutoff=None,
     ):
         self.keys = np.array(keys).astype(np.unicode_)
         self.data_dir = data_dir
         self.id_to_y = pd.Series(id_to_y)
         self.featurizer = featurizer
         self.processed_data = pd.Series([None] * len(self))
+        self.binary_cutoff = binary_cutoff
 
     def __len__(self) -> int:
         return len(self.keys)
@@ -322,9 +324,28 @@ class PIGNetComplexDataset(data.Dataset):
                 "protein": m2,
             }
         )
-        sample["affinity"] = self.id_to_y[key] * -1.36
+        if self.binary_cutoff is None:
+            sample["affinity"] = self.id_to_y[key] * -1.36
+        else:
+            # convert to a binary classification problem:
+            sample["affinity"] = self.id_to_y[key] >= self.binary_cutoff
         sample["key"] = key
         return sample
+
+    @property
+    def pos_weight(self) -> torch.Tensor:
+        """To compute the weight of the positive class, assuming binary
+        classification"""
+        if self.binary_cutoff is None:
+            return None
+        else:
+            affinities = self.id_to_y.loc[self.keys] > self.binary_cutoff
+            class_sizes = affinities.astype(int).value_counts()
+            pos_weights = np.mean(class_sizes) / class_sizes
+            pos_weights = torch.from_numpy(
+                pos_weights.values.astype(np.float32)
+            )
+            return pos_weights[1] / pos_weights[0]
 
     def collate_fn(self, samples):
         """Collating protein complex graphs and graph-level targets."""
