@@ -398,7 +398,7 @@ def evaluate_node_classification(model, data_loader):
     }
     return results
 
-def evaluate_graph_regression(model, data_loader, model_name="gvp", use_energy_decoder=False):
+def evaluate_graph_regression(model, data_loader, model_name="gvp", use_energy_decoder=False, is_hetero=False):
     """Evaluate model on dataset and return metrics for graph-level regression."""
     # make predictions on test set
     device = torch.device("cuda:0")
@@ -419,7 +419,10 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp", use_energy_d
                     for key, val in batch.items():
                         if key != "sample":
                             batch[key] = val.to(device)
-                    energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=False)
+                    if is_hetero:
+                        energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=False, atom_to_residue=batch["atom_to_residue"])
+                    else:
+                        energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=False)
                     preds = energies.sum(-1).unsqueeze(-1)
                 else:
                     batch = {key: val.to(device) for key, val in batch.items()}
@@ -527,7 +530,7 @@ def main(args):
     if args.dataset_name == "PepBDB":
         scores = evaluate_node_classification(model, test_loader)
     elif args.dataset_name == "PDBBind":
-        scores = evaluate_graph_regression(model, test_loader, model_name=args.model_name, use_energy_decoder=args.use_energy_decoder)
+        scores = evaluate_graph_regression(model, test_loader, model_name=args.model_name, use_energy_decoder=args.use_energy_decoder, is_hetero=args.is_hetero)
     pprint(scores)
     # save scores to file
     json.dump(
@@ -593,7 +596,8 @@ if __name__ == "__main__":
     )
 
     parser.add_argument("--use_energy_decoder", action="store_true")
-    parser.set_defaults(use_energy_decoder=False)
+    parser.add_argument("--is_hetero", action="store_true")
+    parser.set_defaults(use_energy_decoder=False, is_hetero=False)
 
     args = parser.parse_args()
 
