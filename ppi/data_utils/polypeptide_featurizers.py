@@ -1010,7 +1010,7 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
                 res_mol = utils.residue_to_mol(res)
                 residue_smiles.append(Chem.MolToSmiles(res_mol))
                 for atom in res:
-                    atom_to_residue[tuple([round(x, 5) for x in atom.coord.tolist()])] = residue_counter
+                    atom_to_residue[tuple([round(x, 2) for x in atom.coord.tolist()])] = residue_counter
                 residue_counter += 1
 
 
