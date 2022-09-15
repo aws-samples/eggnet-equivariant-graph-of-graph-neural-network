@@ -417,7 +417,7 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp", use_energy_d
                 if use_energy_decoder:
                     batch["sample"] = {key: val.to(device) for key, val in batch["sample"].items()}
                     for key, val in batch.items():
-                        if key not in ["sample", "atom_to_feature"]:
+                        if not key in ["sample", "atom_to_feature"]:
                             batch[key] = val.to(device)
                     if is_hetero:
                         energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=False, atom_to_residue=batch["atom_to_residue"])
