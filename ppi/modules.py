@@ -441,12 +441,12 @@ class MultiStageGVPModel(nn.Module):
                     'O': nn.Linear(ns_c, ns_c),
                     'S': nn.Linear(ns_c, ns_c),
                 })
-                self.atomic_projections_v = nn.ModuleDict({
-                    'C': nn.Linear(nv_c, nv_c),
-                    'N': nn.Linear(nv_c, nv_c),
-                    'O': nn.Linear(nv_c, nv_c),
-                    'S': nn.Linear(nv_c, nv_c),
-                })
+                # self.atomic_projections_v = nn.ModuleDict({
+                #     'C': nn.Linear(nv_c, nv_c),
+                #     'N': nn.Linear(nv_c, nv_c),
+                #     'O': nn.Linear(nv_c, nv_c),
+                #     'S': nn.Linear(nv_c, nv_c),
+                # })
             self.decoder = EnergyDecoder(ns_c,
                                         vdw_N=vdw_N,
                                         max_vdw_interaction=max_vdw_interaction,
@@ -566,10 +566,9 @@ class MultiStageGVPModel(nn.Module):
                     atom_type = atom_id[0]
                     if atom_type in ['C', 'N', 'O', 'S']:
                         protein_atom_s = self.atomic_projections_s[atom_type](protein_s[residue_idx, :])
-                        protein_atom_v = self.atomic_projections_v[atom_type](protein_v[residue_idx, :])
                     else:
                         protein_atom_s = protein_s[residue_idx, :]
-                        protein_atom_v = protein_v[residue_idx, :]
+                    protein_atom_v = protein_v[residue_idx, :]
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v)
                     num_atoms += 1
