@@ -563,8 +563,8 @@ class MultiStageGVPModel(nn.Module):
                         protein_atom_s = self.atomic_projections[atom_type](protein_s[residue_idx, :])
                     else:
                         protein_atom_s = self.atomic_projections['Other'](protein_s[residue_idx, :])
-                    # protein_atom_v = protein_v[residue_idx, :]
-                    protein_atom_v = coords.unsqueeze(0)
+                    protein_atom_v = protein_v[residue_idx, :]
+                    # protein_atom_v = coords.unsqueeze(0)
                     print(protein_atom_v.shape)
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v)
@@ -574,7 +574,6 @@ class MultiStageGVPModel(nn.Module):
                 protein_num_nodes_temp.append(num_atoms)
             h_V_p_s = h_V_p_s_temp
             h_V_p_v = h_V_p_v_temp
-            print(h_V_p_v.shape)
             protein_num_nodes = protein_num_nodes_temp
 
         h_V_s = [val for pair in zip(h_V_p_s, h_V_l_s) for val in pair]
