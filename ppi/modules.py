@@ -563,7 +563,7 @@ class MultiStageGVPModel(nn.Module):
                     else:
                         protein_atom_s = protein_s[residue_idx, :]
                     # protein_atom_v = protein_v[residue_idx, :]
-                    protein_atom_v = torch.from_numpy(coords)
+                    protein_atom_v = coords
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v)
                     num_atoms += 1
