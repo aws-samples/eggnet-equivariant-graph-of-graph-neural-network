@@ -551,27 +551,22 @@ class MultiStageGVPModel(nn.Module):
             for i, (cv, nl) in enumerate(zip(complex_v, ligand_num_nodes)):
                 protein_s = h_V_p_s[i]
                 protein_v = h_V_p_v[i]
-                print(protein_v.shape)
                 residue_lookup = atom_to_residue[i]
                 protein_atom_coords = cv.squeeze(1)[:-nl]
-                print(protein_atom_coords.shape)
                 protein_atom_s_list, protein_atom_v_list = [], []
                 num_atoms = 0
                 for coords in protein_atom_coords:
                     k = tuple([round(j, 2) for j in coords.tolist()])
-                    residue_idx, atom_id = residue_lookup[k]
+                    residue_idx, atom_id, res_name = residue_lookup[k]
                     atom_type = atom_id[0]
                     if atom_type in ['C', 'N', 'O', 'S']:
                         protein_atom_s = self.atomic_projections[atom_type](protein_s[residue_idx, :])
                     else:
                         protein_atom_s = self.atomic_projections['Other'](protein_s[residue_idx, :])
                     protein_atom_v = protein_v[residue_idx, :]
-                    print(coords.unsqueeze(0).shape)
-                    print(protein_atom_v.shape)
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v)
                     num_atoms += 1
-                print(torch.stack(protein_atom_v_list).shape)
                 h_V_p_s_temp.append(torch.stack(protein_atom_s_list))
                 h_V_p_v_temp.append(torch.stack(protein_atom_v_list))
                 protein_num_nodes_temp.append(num_atoms)
@@ -588,11 +583,6 @@ class MultiStageGVPModel(nn.Module):
         ## Complex branch
         h_V_c = (complex_graph.ndata["node_s"], complex_graph.ndata["node_v"])
         h_E_c = (complex_graph.edata["edge_s"], complex_graph.edata["edge_v"])
-        if self.seq_embedding:
-            seq_c = complex_graph.ndata["seq"]
-            # one-hot encodings
-            seq_c = self.W_s_c(seq_c)
-            h_V_c = (torch.cat([h_V_c[0], seq_c], dim=-1), h_V_c[1])
 
         h_V_c = self.W_v_c(h_V_c)
         h_E_c = self.W_e_c(h_E_c)
