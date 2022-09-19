@@ -477,7 +477,7 @@ class MultiStageGVPModel(nn.Module):
         if use_energy_decoder:
             if self.is_hetero:
                 self.atomic_projections = nn.ModuleDict({atomic_key: nn.Linear(ns_c, ns_c) for atomic_key in ATOMIC_KEYS})
-            self.atomic_projections['Other'] = nn.Linear(ns_c, ns_c)
+                self.atomic_projections['Other'] = nn.Linear(ns_c, ns_c)
             self.decoder = EnergyDecoder(ns_c,
                                         vdw_N=vdw_N,
                                         max_vdw_interaction=max_vdw_interaction,
