@@ -480,7 +480,6 @@ class MultiStageGVPModel(nn.Module):
         if use_energy_decoder:
             if self.is_hetero:
                 self.atomic_projections = nn.ModuleDict({self.atomic_projections[k]: nn.Linear(ns_c, ns_c) for k in ATOMIC_KEYS})
-                self.atomic_projections['Other'] = nn.Linear(ns_c, ns_c)
             self.decoder = EnergyDecoder(ns_c,
                                         vdw_N=vdw_N,
                                         max_vdw_interaction=max_vdw_interaction,
@@ -598,10 +597,7 @@ class MultiStageGVPModel(nn.Module):
                     k = tuple([round(j, 2) for j in coords.tolist()])
                     residue_idx, atom_id, res_name = residue_lookup[k]
                     # atom_type = atom_id[0]
-                    if atom_id in ATOMIC_KEYS:
-                        protein_atom_s = self.atomic_projections[atom_id](protein_s[residue_idx, :])
-                    else:
-                        protein_atom_s = self.atomic_projections['Other'](protein_s[residue_idx, :])
+                    protein_atom_s = self.atomic_projections[atom_id](protein_s[residue_idx, :])
                     protein_atom_v = protein_v[residue_idx, :]
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v)
