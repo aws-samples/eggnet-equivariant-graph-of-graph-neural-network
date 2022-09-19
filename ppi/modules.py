@@ -30,8 +30,6 @@ ATOMIC_KEYS = {
     'CZ',
     'CZ2',
     'CZ3',
-    'MG',
-    'MN',
     'N',
     'ND1',
     'ND2',
