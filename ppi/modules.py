@@ -564,7 +564,7 @@ class MultiStageGVPModel(nn.Module):
                     else:
                         protein_atom_s = self.atomic_projections['Other'](protein_s[residue_idx, :])
                     protein_atom_v = protein_v[residue_idx, :]
-                    print(coords.shape)
+                    print(coords.unsqueeze(0).shape)
                     print(protein_atom_v.shape)
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v)
