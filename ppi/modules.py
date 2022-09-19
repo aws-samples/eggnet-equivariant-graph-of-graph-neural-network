@@ -565,8 +565,8 @@ class MultiStageGVPModel(nn.Module):
                     residue_idx, atom_id = residue_lookup[k]
                     atom_type = atom_id[0]
                     if atom_type in ['C', 'N', 'O', 'S']:
-                        protein_atom_s = self.atomic_projections_s[atom_id](protein_s[residue_idx, :])
-                        protein_atom_v = self.atomic_projections_v[atom_id](protein_v[residue_idx, :])
+                        protein_atom_s = self.atomic_projections_s[atom_type](protein_s[residue_idx, :])
+                        protein_atom_v = self.atomic_projections_v[atom_type](protein_v[residue_idx, :])
                     else:
                         protein_atom_s = protein_s[residue_idx, :]
                         protein_atom_v = protein_v[residue_idx, :]
