@@ -597,9 +597,9 @@ class MultiStageGVPModel(nn.Module):
                 for coords in protein_atom_coords:
                     k = tuple([round(j, 2) for j in coords.tolist()])
                     residue_idx, atom_id, res_name = residue_lookup[k]
-                    atom_type = atom_id[0]
-                    if atom_type in ATOMIC_KEYS:
-                        protein_atom_s = self.atomic_projections[atom_type](protein_s[residue_idx, :])
+                    # atom_type = atom_id[0]
+                    if atom_id in ATOMIC_KEYS:
+                        protein_atom_s = self.atomic_projections[atom_id](protein_s[residue_idx, :])
                     else:
                         protein_atom_s = self.atomic_projections['Other'](protein_s[residue_idx, :])
                     protein_atom_v = protein_v[residue_idx, :]
