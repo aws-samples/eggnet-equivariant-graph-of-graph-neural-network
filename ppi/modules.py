@@ -562,7 +562,7 @@ class MultiStageGVPModel(nn.Module):
                     if atom_type in ['C', 'N', 'O', 'S']:
                         protein_atom_s = self.atomic_projections[atom_type](protein_s[residue_idx, :])
                     else:
-                        protein_atom_s = self.atomic_projections['Other']protein_s[residue_idx, :]
+                        protein_atom_s = self.atomic_projections['Other'](protein_s[residue_idx, :])
                     # protein_atom_v = protein_v[residue_idx, :]
                     protein_atom_v = coords
                     protein_atom_s_list.append(protein_atom_s)
