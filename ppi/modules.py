@@ -578,7 +578,7 @@ class MultiStageGVPModel(nn.Module):
         h_V_v = [val for pair in zip(h_V_p_v, h_V_l_v) for val in pair]
 
         complex_graph.ndata["node_s"] = torch.cat(h_V_s, dim=0)
-        # complex_graph.ndata["node_v"] = torch.cat(h_V_v, dim=0)
+        complex_graph.ndata["node_v"] = torch.cat(h_V_v, dim=0)
 
         ## Complex branch
         h_V_c = (complex_graph.ndata["node_s"], complex_graph.ndata["node_v"])
