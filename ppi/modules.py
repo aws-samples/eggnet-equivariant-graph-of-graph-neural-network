@@ -50,6 +50,12 @@ ATOMIC_KEYS = {
     'OH',
     'SD',
     'SG',
+    'MG',
+    'MN',
+    'ZN',
+    'FE',
+    'NA',
+    'K'
 }
 
 
