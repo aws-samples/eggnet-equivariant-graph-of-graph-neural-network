@@ -605,13 +605,13 @@ class MultiStageGVPModel(nn.Module):
                     # atom_type = atom_id[0]
                     if atom_id in ATOMIC_KEYS:
                         protein_atom_s = self.atomic_projections_s[atom_id](protein_s[residue_idx, :])
-                        protein_atom_v = self.atomic_projections_v[atom_id](protein_v[residue_idx, :].view(-1, protein_v.shape[-2]*protein_v.shape[-1]))
+                        protein_atom_v = self.atomic_projections_v[atom_id](protein_v[residue_idx, :].permute(0, 2, 1))
                     else:
                         protein_atom_s = self.atomic_projections_s['Other'](protein_s[residue_idx, :])
-                        protein_atom_v = self.atomic_projections_v['Other'](protein_v[residue_idx, :].view(-1, protein_v.shape[-2]*protein_v.shape[-1]))
+                        protein_atom_v = self.atomic_projections_v['Other'](protein_v[residue_idx, :].permute(0, 2, 1))
                     # protein_atom_v = protein_v[residue_idx, :]
                     protein_atom_s_list.append(protein_atom_s)
-                    protein_atom_v_list.append(protein_atom_v.view(-1, protein_v.shape[-2], protein_v.shape[-1]))
+                    protein_atom_v_list.append(protein_atom_v.permute(0, 2, 1))
                     num_atoms += 1
                 h_V_p_s_temp.append(torch.stack(protein_atom_s_list))
                 h_V_p_v_temp.append(torch.stack(protein_atom_v_list))
