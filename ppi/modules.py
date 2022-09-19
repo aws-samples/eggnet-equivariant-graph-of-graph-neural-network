@@ -628,7 +628,7 @@ class MultiStageGVPModel(nn.Module):
                     # protein_atom_v = protein_v[residue_idx, :]
                     protein_atom_s_list.append(protein_atom_s)
                     # protein_atom_v_list.append(protein_atom_v.permute(1, 0))
-                    protein_atom_v_list.append(coords)
+                    protein_atom_v_list.append(coords.unsqueeze(1))
                     num_atoms += 1
                 h_V_p_s_temp.append(torch.stack(protein_atom_s_list))
                 h_V_p_v_temp.append(torch.stack(protein_atom_v_list))
