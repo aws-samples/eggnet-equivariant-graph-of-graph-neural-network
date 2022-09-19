@@ -482,8 +482,10 @@ class MultiStageGVPModel(nn.Module):
         ## Decoder
         if use_energy_decoder:
             if self.is_hetero:
-                self.atomic_projections = nn.ModuleDict({atomic_key: nn.Linear(ns_c, ns_c) for atomic_key in ATOMIC_KEYS})
-                self.atomic_projections['Other'] = nn.Linear(ns_c, ns_c)
+                self.atomic_projections_s = nn.ModuleDict({atomic_key: nn.Linear(ns_c, ns_c) for atomic_key in ATOMIC_KEYS})
+                self.atomic_projections_s['Other'] = nn.Linear(ns_c, ns_c)
+                self.atomic_projections_v = nn.ModuleDict({atomic_key: nn.Linear(nv_c[0]*nv_c[1], nv_c[0]*nv_c[1]) for atomic_key in ATOMIC_KEYS})
+                self.atomic_projections_v['Other'] = nn.Linear(nv_c[0]*nv_c[1], nv_c[0]*nv_c[1])
             self.decoder = EnergyDecoder(ns_c,
                                         vdw_N=vdw_N,
                                         max_vdw_interaction=max_vdw_interaction,
@@ -602,12 +604,14 @@ class MultiStageGVPModel(nn.Module):
                     residue_idx, atom_id, res_name = residue_lookup[k]
                     # atom_type = atom_id[0]
                     if atom_id in ATOMIC_KEYS:
-                        protein_atom_s = self.atomic_projections[atom_id](protein_s[residue_idx, :])
+                        protein_atom_s = self.atomic_projections_s[atom_id](protein_s[residue_idx, :])
+                        protein_atom_v = self.atomic_projections_v[atom_id](protein_v[residue_idx, :].view(-1, protein_v.shape[-2]*protein_v.shape[-1]))
                     else:
-                        protein_atom_s = self.atomic_projections['Other'](protein_s[residue_idx, :])
-                    protein_atom_v = protein_v[residue_idx, :]
+                        protein_atom_s = self.atomic_projections_s['Other'](protein_s[residue_idx, :])
+                        protein_atom_v = self.atomic_projections_v['Other'](protein_v[residue_idx, :].view(-1, protein_v.shape[-2]*protein_v.shape[-1]))
+                    # protein_atom_v = protein_v[residue_idx, :]
                     protein_atom_s_list.append(protein_atom_s)
-                    protein_atom_v_list.append(protein_atom_v)
+                    protein_atom_v_list.append(protein_atom_v.view(-1, protein_v.shape[-2], protein_v.shape[-1]))
                     num_atoms += 1
                 h_V_p_s_temp.append(torch.stack(protein_atom_s_list))
                 h_V_p_v_temp.append(torch.stack(protein_atom_v_list))
