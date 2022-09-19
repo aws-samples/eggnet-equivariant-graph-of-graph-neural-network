@@ -427,13 +427,26 @@ class MultiStageGVPModel(nn.Module):
                 complex_node_h_dim[0] * complex_num_layers,
                 complex_node_h_dim[1] * complex_num_layers,
             )
-        ns_c, _ = complex_node_h_dim
+        ns_c, nv_c = complex_node_h_dim
         self.W_out_c = nn.Sequential(
             LayerNorm(complex_node_h_dim), GVP(complex_node_h_dim, (ns_c, 0))
         )
 
         ## Decoder
         if use_energy_decoder:
+            if self.is_hetero:
+                self.atomic_projections_s = nn.ModuleDict({
+                    'C': nn.Linear(ns_c, ns_c),
+                    'N': nn.Linear(ns_c, ns_c),
+                    'O': nn.Linear(ns_c, ns_c),
+                    'S': nn.Linear(ns_c, ns_c),
+                })
+                self.atomic_projections_v = nn.ModuleDict({
+                    'C': nn.Linear(nv_c, nv_c),
+                    'N': nn.Linear(nv_c, nv_c),
+                    'O': nn.Linear(nv_c, nv_c),
+                    'S': nn.Linear(nv_c, nv_c),
+                })
             self.decoder = EnergyDecoder(ns_c,
                                         vdw_N=vdw_N,
                                         max_vdw_interaction=max_vdw_interaction,
@@ -548,9 +561,15 @@ class MultiStageGVPModel(nn.Module):
                 protein_atom_s_list, protein_atom_v_list = [], []
                 num_atoms = 0
                 for coords in protein_atom_coords:
-                    k = tuple([round(j, 2) for j in coords.tolist()])
-                    protein_atom_s = protein_s[residue_lookup[k], :]
-                    protein_atom_v = protein_v[residue_lookup[k], :]
+                    k = tuple([round(j, 2) for j in coords.tolist])
+                    residue_idx, atom_id = residue_lookup[k]
+                    atom_type = atom_id[0]
+                    if atom_type in ['C', 'N', 'O', 'S']:
+                        protein_atom_s = self.atomic_projections_s[atom_id](protein_s[residue_idx, :])
+                        protein_atom_v = self.atomic_projections_v[atom_id](protein_v[residue_idx, :])
+                    else:
+                        protein_atom_s = protein_s[residue_idx, :]
+                        protein_atom_v = protein_v[residue_idx, :]
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v)
                     num_atoms += 1
