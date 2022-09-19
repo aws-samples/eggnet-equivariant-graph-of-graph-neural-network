@@ -385,7 +385,10 @@ class MultiStageGVPModel(nn.Module):
         ligand_edge_h_dim = stage1_edge_h_dim
         protein_num_layers = stage1_num_layers
         ligand_num_layers = stage1_num_layers
-        complex_node_in_dim = stage1_node_h_dim
+        if self.hetero:
+            complex_node_in_dim = stage1_node_h_dim[0], protein_node_in_dim[1]
+        else:
+            complex_node_in_dim = stage1_node_h_dim
         complex_node_h_dim = stage2_node_h_dim
         complex_edge_h_dim = stage2_edge_h_dim
         complex_num_layers = stage2_num_layers
