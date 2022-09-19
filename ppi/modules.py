@@ -571,6 +571,7 @@ class MultiStageGVPModel(nn.Module):
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v)
                     num_atoms += 1
+                print(torch.stack(protein_atom_v_list).shape)
                 h_V_p_s_temp.append(torch.stack(protein_atom_s_list))
                 h_V_p_v_temp.append(torch.stack(protein_atom_v_list))
                 protein_num_nodes_temp.append(num_atoms)
