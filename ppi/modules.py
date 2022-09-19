@@ -551,8 +551,10 @@ class MultiStageGVPModel(nn.Module):
             for i, (cv, nl) in enumerate(zip(complex_v, ligand_num_nodes)):
                 protein_s = h_V_p_s[i]
                 protein_v = h_V_p_v[i]
+                print(protein_v.shape)
                 residue_lookup = atom_to_residue[i]
                 protein_atom_coords = cv.squeeze(1)[:-nl]
+                print(protein_atom_coords.shape)
                 protein_atom_s_list, protein_atom_v_list = [], []
                 num_atoms = 0
                 for coords in protein_atom_coords:
