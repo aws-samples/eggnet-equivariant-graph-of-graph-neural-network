@@ -52,7 +52,8 @@ ATOMIC_KEYS = {
     'OH',
     'SD',
     'SG',
-    'ZN'
+    'ZN',
+    'FE'
 }
 
 
