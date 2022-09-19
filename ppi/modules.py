@@ -12,6 +12,50 @@ import dgl
 from dgl.nn import GATConv
 
 
+ATOMIC_KEYS = {
+    'C',
+    'CA',
+    'CB',
+    'CD',
+    'CD1',
+    'CD2',
+    'CE',
+    'CE1',
+    'CE2',
+    'CE3',
+    'CG',
+    'CG1',
+    'CG2',
+    'CH2',
+    'CZ',
+    'CZ2',
+    'CZ3',
+    'MG',
+    'MN',
+    'N',
+    'ND1',
+    'ND2',
+    'NE',
+    'NE1',
+    'NE2',
+    'NH1',
+    'NH2',
+    'NI',
+    'NZ',
+    'O',
+    'OD1',
+    'OD2',
+    'OE1',
+    'OE2',
+    'OG',
+    'OG1',
+    'OH',
+    'SD',
+    'SG',
+    'ZN'
+}
+
+
 def padded_stack(
     tensors: List[torch.Tensor], side: str = "right", mode: str = "constant", value: Union[int, float] = 0
 ) -> torch.Tensor:
@@ -435,13 +479,8 @@ class MultiStageGVPModel(nn.Module):
         ## Decoder
         if use_energy_decoder:
             if self.is_hetero:
-                self.atomic_projections = nn.ModuleDict({
-                    'C': nn.Linear(ns_c, ns_c),
-                    'N': nn.Linear(ns_c, ns_c),
-                    'O': nn.Linear(ns_c, ns_c),
-                    'S': nn.Linear(ns_c, ns_c),
-                    'Other': nn.Linear(ns_c, ns_c)
-                })
+                self.atomic_projections = nn.ModuleDict({self.atomic_projections[k]: nn.Linear(ns_c, ns_c) for k in ATOMIC_KEYS})
+                self.atomic_projections['Other'] = nn.Linear(ns_c, ns_c)
             self.decoder = EnergyDecoder(ns_c,
                                         vdw_N=vdw_N,
                                         max_vdw_interaction=max_vdw_interaction,
@@ -559,7 +598,7 @@ class MultiStageGVPModel(nn.Module):
                     k = tuple([round(j, 2) for j in coords.tolist()])
                     residue_idx, atom_id, res_name = residue_lookup[k]
                     atom_type = atom_id[0]
-                    if atom_type in ['C', 'N', 'O', 'S']:
+                    if atom_type in ATOMIC_KEYS:
                         protein_atom_s = self.atomic_projections[atom_type](protein_s[residue_idx, :])
                     else:
                         protein_atom_s = self.atomic_projections['Other'](protein_s[residue_idx, :])
