@@ -512,6 +512,7 @@ class MultiStageGVPModel(nn.Module):
                                                         nn.Dropout(p=drop_rate),
                                                         nn.Linear(2 * nv_c, nv_c),
                                                     )
+                                                    
             self.decoder = EnergyDecoder(ns_c,
                                         vdw_N=vdw_N,
                                         max_vdw_interaction=max_vdw_interaction,
