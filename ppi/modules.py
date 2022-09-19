@@ -489,14 +489,9 @@ class MultiStageGVPModel(nn.Module):
                                     nn.Dropout(p=drop_rate),
                                     nn.Linear(2 * ns_c, ns_c),
                                 )
-                    for atomic_key in ATOMIC_KEYS
+                    for atomic_key in ATOMIC_KEYS + {'Other'}
                 })
-                self.atomic_decomposition_s['Other'] = nn.Sequential(
-                                                        nn.Linear(ns_c, 2 * ns_c),
-                                                        nn.ReLU(inplace=True),
-                                                        nn.Dropout(p=drop_rate),
-                                                        nn.Linear(2 * ns_c, ns_c),
-                                                    )
+
                 self.atomic_decomposition_v = nn.ModuleDict({
                     atomic_key: nn.Sequential(
                                     nn.Linear(nv_c, 2 * nv_c),
@@ -504,15 +499,9 @@ class MultiStageGVPModel(nn.Module):
                                     nn.Dropout(p=drop_rate),
                                     nn.Linear(2 * nv_c, nv_c),
                                 )
-                    for atomic_key in ATOMIC_KEYS
+                    for atomic_key in ATOMIC_KEYS + {'Other'}
                 })
-                self.atomic_decomposition_v['Other'] = nn.Sequential(
-                                                        nn.Linear(nv_c, 2 * nv_c),
-                                                        nn.ReLU(inplace=True),
-                                                        nn.Dropout(p=drop_rate),
-                                                        nn.Linear(2 * nv_c, nv_c),
-                                                    )
-                                                    
+
             self.decoder = EnergyDecoder(ns_c,
                                         vdw_N=vdw_N,
                                         max_vdw_interaction=max_vdw_interaction,
