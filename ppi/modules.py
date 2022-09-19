@@ -53,7 +53,8 @@ ATOMIC_KEYS = {
     'SD',
     'SG',
     'ZN',
-    'FE'
+    'FE',
+    'NA'
 }
 
 
