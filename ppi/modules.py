@@ -561,7 +561,7 @@ class MultiStageGVPModel(nn.Module):
                 protein_atom_s_list, protein_atom_v_list = [], []
                 num_atoms = 0
                 for coords in protein_atom_coords:
-                    k = tuple([round(j, 2) for j in coords.tolist])
+                    k = tuple([round(j, 2) for j in coords.tolist()])
                     residue_idx, atom_id = residue_lookup[k]
                     atom_type = atom_id[0]
                     if atom_type in ['C', 'N', 'O', 'S']:
