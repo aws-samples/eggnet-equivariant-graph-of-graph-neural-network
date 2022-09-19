@@ -435,18 +435,12 @@ class MultiStageGVPModel(nn.Module):
         ## Decoder
         if use_energy_decoder:
             if self.is_hetero:
-                self.atomic_projections_s = nn.ModuleDict({
+                self.atomic_projections = nn.ModuleDict({
                     'C': nn.Linear(ns_c, ns_c),
                     'N': nn.Linear(ns_c, ns_c),
                     'O': nn.Linear(ns_c, ns_c),
                     'S': nn.Linear(ns_c, ns_c),
                 })
-                # self.atomic_projections_v = nn.ModuleDict({
-                #     'C': nn.Linear(nv_c, nv_c),
-                #     'N': nn.Linear(nv_c, nv_c),
-                #     'O': nn.Linear(nv_c, nv_c),
-                #     'S': nn.Linear(nv_c, nv_c),
-                # })
             self.decoder = EnergyDecoder(ns_c,
                                         vdw_N=vdw_N,
                                         max_vdw_interaction=max_vdw_interaction,
@@ -565,7 +559,7 @@ class MultiStageGVPModel(nn.Module):
                     residue_idx, atom_id = residue_lookup[k]
                     atom_type = atom_id[0]
                     if atom_type in ['C', 'N', 'O', 'S']:
-                        protein_atom_s = self.atomic_projections_s[atom_type](protein_s[residue_idx, :])
+                        protein_atom_s = self.atomic_projections[atom_type](protein_s[residue_idx, :])
                     else:
                         protein_atom_s = protein_s[residue_idx, :]
                     protein_atom_v = protein_v[residue_idx, :]
@@ -583,7 +577,7 @@ class MultiStageGVPModel(nn.Module):
         h_V_v = [val for pair in zip(h_V_p_v, h_V_l_v) for val in pair]
 
         complex_graph.ndata["node_s"] = torch.cat(h_V_s, dim=0)
-        complex_graph.ndata["node_v"] = torch.cat(h_V_v, dim=0)
+        # complex_graph.ndata["node_v"] = torch.cat(h_V_v, dim=0)
 
         ## Complex branch
         h_V_c = (complex_graph.ndata["node_s"], complex_graph.ndata["node_v"])
