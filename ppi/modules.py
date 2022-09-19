@@ -12,7 +12,7 @@ import dgl
 from dgl.nn import GATConv
 
 
-ATOMIC_KEYS = {
+ATOMIC_KEYS = [
     'C',
     'CA',
     'CB',
@@ -56,7 +56,7 @@ ATOMIC_KEYS = {
     'FE',
     'NA',
     'K'
-}
+]
 
 
 def padded_stack(
@@ -489,7 +489,7 @@ class MultiStageGVPModel(nn.Module):
                                     nn.Dropout(p=drop_rate),
                                     nn.Linear(2 * ns_c, ns_c),
                                 )
-                    for atomic_key in ATOMIC_KEYS + {'Other'}
+                    for atomic_key in ATOMIC_KEYS + ['Other']
                 })
 
                 self.atomic_decomposition_v = nn.ModuleDict({
@@ -499,7 +499,7 @@ class MultiStageGVPModel(nn.Module):
                                     nn.Dropout(p=drop_rate),
                                     nn.Linear(2 * nv_c, nv_c),
                                 )
-                    for atomic_key in ATOMIC_KEYS + {'Other'}
+                    for atomic_key in ATOMIC_KEYS + ['Other']
                 })
 
             self.decoder = EnergyDecoder(ns_c,
