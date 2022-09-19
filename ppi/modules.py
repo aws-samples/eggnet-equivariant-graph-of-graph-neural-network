@@ -564,8 +564,6 @@ class MultiStageGVPModel(nn.Module):
                     else:
                         protein_atom_s = self.atomic_projections['Other'](protein_s[residue_idx, :])
                     protein_atom_v = protein_v[residue_idx, :]
-                    # protein_atom_v = coords.unsqueeze(0)
-                    print(protein_atom_v.shape)
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v)
                     num_atoms += 1
@@ -580,7 +578,7 @@ class MultiStageGVPModel(nn.Module):
         h_V_v = [val for pair in zip(h_V_p_v, h_V_l_v) for val in pair]
 
         complex_graph.ndata["node_s"] = torch.cat(h_V_s, dim=0)
-        complex_graph.ndata["node_v"] = torch.cat(h_V_v, dim=0)
+        # complex_graph.ndata["node_v"] = torch.cat(h_V_v, dim=0)
 
         ## Complex branch
         h_V_c = (complex_graph.ndata["node_s"], complex_graph.ndata["node_v"])
