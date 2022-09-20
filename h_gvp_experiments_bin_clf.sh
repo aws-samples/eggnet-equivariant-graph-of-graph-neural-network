@@ -57,6 +57,24 @@ python train.py --accelerator gpu \
     --persistent_workers True
 
 
+# selfdock: refine the positive complexes
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 500 \
+    --precision 16 \
+    --dataset_name Propedia \
+    --input_type complex \
+    --data_dir /home/ec2-user/SageMaker/efs/data/Propedia \
+    --data_suffix small_selfdock \
+    --residual \
+    --num_workers 4 \
+    --bs 16 \
+    --lr 1e-3 \
+    --early_stopping_patience 10 \
+    --residue_featurizer_name MACCS \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/Propedia_small_GVP_MACCS \
+    --persistent_workers True
+
 # less persistent workers to save CPU RAM
 # -> still may run out of CPU RAM
 python train.py --accelerator gpu \
