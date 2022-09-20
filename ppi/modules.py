@@ -961,11 +961,12 @@ class EigenDecoder(nn.Module):
         for i in range(X.shape[0]):
             Xi = X[i, ...]
             Ci = self.energy_coeff(Xi).squeeze(1)
-            Ai = torch.matmul(Xi, Xi.T)
+            Ai = torch.matmul(Xi, Xi.T)# dim: [num_atoms, num_atoms]
             Li, Vi = torch.linalg.eig(Ai) # Eigendecomposition
-            # L dim: [num_atoms, num_atoms] (diagonal of eigenvalues)
-            # V dim: [num_atoms, num_atoms] (eigenvectors)
+            # Li dim: [num_atoms, num_atoms] (diagonal of eigenvalues)
+            # Vi dim: [num_atoms, num_atoms] (stacked eigenvectors)
             Zi = torch.matmul(Vi.T, Li) # dim: [num_atoms]
-            Ei = Ci*torch.real(torch.square(Zi) / Li) # dim: [num_atoms]
+            deltaZi = Zi - torch.matmul(torch.real(Vi.T), torch.mean(Ai, axis=1))
+            Ei = Ci * torch.square(deltaZi) / Li # dim: [num_atoms]
             E_batch.append(Ei)
         return torch.stack(E_batch) # dim: [batch_size, num_atoms]
