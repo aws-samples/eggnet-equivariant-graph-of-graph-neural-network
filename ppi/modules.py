@@ -943,3 +943,29 @@ class EnergyDecoder(nn.Module):
             der2 = torch.zeros_like(energies).sum()
 
         return energies, der1, der2
+
+
+class EigenDecoder(nn.Module):
+    def __init__(self, hidden_dim):
+        super(EigenDecoder, self).__init__()
+        self.energy_coeff = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, X):
+        # X dim: [batch_size, num_atoms, hidden_dim]
+        E_batch = []
+        for i in range(X.shape[0]):
+            Xi = X[i, ...]
+            Ci = self.energy_coeff(Xi).squeeze(1)
+            Ai = torch.matmul(Xi, Xi.T)
+            Li, Vi = torch.linalg.eig(Ai) # Eigendecomposition
+            # L dim: [num_atoms, num_atoms] (diagonal of eigenvalues)
+            # V dim: [num_atoms, num_atoms] (eigenvectors)
+            Zi = torch.matmul(Vi.T, Li) # dim: [num_atoms]
+            Ei = Ci*torch.real(torch.square(Zi) / Li) # dim: [num_atoms]
+            E_batch.append(Ei)
+        return torch.stack(E_batch) # dim: [batch_size, num_atoms]
