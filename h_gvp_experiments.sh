@@ -317,3 +317,22 @@ python evaluate_casf2016.py --model_name gvp \
     --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/casf2016_processed \
     --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_MACCS/lightning_logs/version_7 \
     --residue_featurizer_name MACCS
+
+# test PDBBind full
+CUDA_VISIBLE_DEVICES=0 python train.py --accelerator gpu \
+    --devices 1 \
+    --max_epochs 500 \
+    --precision 16 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PDBBind/pdbbind_v2019/scoring \
+    --residual \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 10 \
+    --residue_featurizer_name MACCS \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_intact_GVP_MACCS
