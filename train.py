@@ -79,6 +79,7 @@ def get_datasets(
     residue_featurizer_name="MACCS",
     data_suffix="full",
     binary_cutoff=None,
+    add_noise=0.0,
 ):
     # initialize residue featurizer
     if "grad" in residue_featurizer_name:
@@ -106,7 +107,9 @@ def get_datasets(
                     os.path.join(data_dir, f"train_{data_suffix}.csv")
                 )
                 n_train = int(0.8 * train_df.shape[0])
-
+                featurizer = NoncanonicalComplexFeaturizer(
+                    residue_featurizer, add_noise=add_noise
+                )
                 train_dataset = PDBComplexDataset(
                     train_df.iloc[:n_train],
                     data_dir,
@@ -264,6 +267,7 @@ def main(args):
         residue_featurizer_name=args.residue_featurizer_name,
         data_suffix=args.data_suffix,
         binary_cutoff=args.binary_cutoff,
+        add_noise=args.add_noise,
     )
     print(
         "Data loaded:",
@@ -401,7 +405,12 @@ if __name__ == "__main__":
         type=float,
         default=None,
     )
-
+    parser.add_argument(
+        "--add_noise",
+        help="to add Gaussian noise to atom coordinates in train/valid sets",
+        type=float,
+        default=0.0,
+    )
     # featurizer params
     parser.add_argument(
         "--residue_featurizer_name",

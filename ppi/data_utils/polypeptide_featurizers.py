@@ -363,14 +363,16 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
         - residue_featurizer: a function mapping a smile string to a vector
     """
 
-    def __init__(self, residue_featurizer=None, **kwargs):
+    def __init__(self, residue_featurizer=None, add_noise=0.0, **kwargs):
         self.residue_featurizer = residue_featurizer
+        self.add_noise = add_noise
         super(NoncanonicalComplexFeaturizer, self).__init__(**kwargs)
 
-    def extract_coords_and_smiles(self, chain):
+    def extract_coords_and_smiles(self, chain, add_noise=0.0):
         """Extract atom coordinates and smiles strings of residues from a PDB.chain.
         If the chain contains non-canonical residues:
             extract the centroid coordinate repeated 4 times
+        - add_noise: to add Gaussian noise to the atom coordinates
         """
         coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
@@ -387,6 +389,12 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
                     .GetPositions()
                     .astype(np.float32)
                 )
+            if add_noise > 0:
+                noise = np.random.normal(
+                    loc=0, scale=add_noise, size=atom_coords.shape
+                )
+                atom_coords = atom_coords + noise
+            if not is_aa(res):
                 # take the centoid of all atoms, and repeat to the same shape
                 atom_coords = np.tile(atom_coords.mean(axis=0), (4, 1))
 
@@ -410,9 +418,9 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
         (
             protein_coords,
             protein_residue_smiles,
-        ) = self.extract_coords_and_smiles(protein)
+        ) = self.extract_coords_and_smiles(protein, add_noise=self.add_noise)
         ligand_coords, ligand_residue_smiles = self.extract_coords_and_smiles(
-            ligand
+            ligand, add_noise=self.add_noise
         )
         # SMILES strings of AA residues and ligand
         # in the same order with the nodes in the graph
