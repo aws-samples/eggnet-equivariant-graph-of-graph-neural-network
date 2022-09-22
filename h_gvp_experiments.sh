@@ -336,3 +336,21 @@ CUDA_VISIBLE_DEVICES=0 python train.py --accelerator gpu \
     --early_stopping_patience 10 \
     --residue_featurizer_name MACCS \
     --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_intact_GVP_MACCS
+
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 500 \
+    --precision 16 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PDBBind/pdbbind_v2019/scoring \
+    --residual \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 4 \
+    --early_stopping_patience 10 \
+    --residue_featurizer_name MACCS \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_intact_GVP_MACCS
