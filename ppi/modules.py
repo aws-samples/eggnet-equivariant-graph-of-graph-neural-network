@@ -966,9 +966,8 @@ class EigenDecoder(nn.Module):
             # Li dim: [num_atoms, num_atoms] (diagonal of eigenvalues)
             # Vi dim: [num_atoms, num_atoms] (stacked eigenvectors)
             Zi = torch.matmul(Vi.T, Li) # dim: [num_atoms]
-            deltaZi = Zi - torch.matmul(Vi.T, 
-                                        torch.mean(torch.complex(Ai, 
-                                                                 torch.zeros_like(Ai)), axis=1))
+            Ai_complex = torch.complex(Ai, torch.zeros_like(Ai))
+            deltaZi = Zi - torch.matmul(Vi.T, torch.mean(Ai_complex, axis=1))
             Ei = Ci * torch.real(torch.square(deltaZi) / Li) # dim: [num_atoms]
             E_batch.append(Ei)
         return torch.stack(E_batch) # dim: [batch_size, num_atoms]
