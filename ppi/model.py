@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import dgl
 
-from .modules import GVPModel
+from .modules import GVPModel, MultiStageGVPModel
 from ppi.data_utils import get_residue_featurizer
 
 
@@ -317,6 +317,7 @@ class LitMultiStageGVPModel(pl.LightningModule):
             "drop_rate",
             "residual",
             "seq_embedding",
+            "residue_featurizer_name",
             "use_energy_decoder",
             "is_hetero",
             "vdw_N",

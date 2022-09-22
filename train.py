@@ -31,10 +31,10 @@ from ppi.data import (
     PIGNetAtomicBigraphComplexEnergyDataset,
 )
 from ppi.data_utils import (
+    get_residue_featurizer,
     BaseFeaturizer,
     NaturalComplexFeaturizer,
     PDBBindComplexFeaturizer,
-    FingerprintFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizerForEnergyModel,
     PIGNetAtomicBigraphGeometricComplexFeaturizer,
@@ -44,26 +44,17 @@ from ppi.data_utils import (
 # mapping model names to constructors
 MODEL_CONSTRUCTORS = {
     "gvp": LitGVPModel,
-<<<<<<< HEAD
     "hgvp": LitHGVPModel,
-=======
     "multistage-gvp": LitMultiStageGVPModel,
-    # "gvp-multistage-energy": LitGVPMultiStageEnergyModel,
->>>>>>> brandry
-    # "gat": GATModel,
 }
 
 
 def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
-<<<<<<< HEAD
-    if "gvp" in model_name:
-=======
-    if model_name == "gvp":
+    if model_name in ["gvp", "hgvp"]:
         node_in_dim = (
             datum.ndata["node_s"].shape[1],
             datum.ndata["node_v"].shape[1],
         )
->>>>>>> brandry
         kwargs["node_h_dim"] = tuple(kwargs["node_h_dim"])
         kwargs["edge_h_dim"] = tuple(kwargs["edge_h_dim"])
         print("node_h_dim:", kwargs["node_h_dim"])
@@ -211,7 +202,7 @@ def get_datasets(
 
         # featurizer for PDBBind
         if input_type == "complex":
-            residue_featurizer = FingerprintFeaturizer("MACCS")
+            residue_featurizer = get_residue_featurizer(residue_featurizer_name)
             featurizer = PDBBindComplexFeaturizer(residue_featurizer)
             test_dataset = PIGNetComplexDataset(
                 test_keys, data_dir, id_to_y, featurizer
@@ -234,7 +225,7 @@ def get_datasets(
                 return test_dataset
         elif input_type == "multistage-hetero":
             if use_energy_decoder:
-                residue_featurizer = FingerprintFeaturizer("MACCS")
+                residue_featurizer = get_residue_featurizer(residue_featurizer_name)
                 featurizer = PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(residue_featurizer)
                 test_dataset = PIGNetHeteroBigraphComplexDatasetForEnergyModel(
                     test_keys, data_dir, id_to_y, featurizer
@@ -256,7 +247,7 @@ def get_datasets(
                 else:
                     return test_dataset
             else:
-                residue_featurizer = FingerprintFeaturizer("MACCS")
+                residue_featurizer = get_residue_featurizer(residue_featurizer_name)
                 featurizer = PIGNetHeteroBigraphComplexFeaturizer(residue_featurizer)
                 test_dataset = PIGNetHeteroBigraphComplexDataset(
                     test_keys, data_dir, id_to_y, featurizer
