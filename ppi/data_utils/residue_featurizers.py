@@ -47,9 +47,8 @@ class FingerprintFeaturizer(BaseResidueFeaturizer):
         else:
             raise NotImplementedError
         # convert ExplicitBitVect to uint vector:
-        fps_vec = torch.frombuffer(
-            fps.ToBitString().encode(), dtype=torch.uint8
-        ) - ord("0")
+        fps = fps.ToBitString().encode()
+        fps_vec = torch.from_numpy(np.frombuffer(fps, "u1") - ord("0"))
         return fps_vec
 
 
