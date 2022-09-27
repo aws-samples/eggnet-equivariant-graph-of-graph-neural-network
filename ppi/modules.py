@@ -311,14 +311,24 @@ class GVPModel(nn.Module):
             out_protein = []
             out_ligand = []
             for graph in dgl.unbatch(g):
-                ligand_out_h = graph.ndata["out"][
-                    graph.ndata["mask"] == 0
-                ].permute(1, 0)
-                out_ligand.append(ligand_out_h)
-                protein_out_h = graph.ndata["out"][
-                    graph.ndata["mask"] == 1
-                ].permute(1, 0)
-                out_protein.append(protein_out_h)
+                ligand_mask = graph.ndata["mask"] == 0
+                ligand_out_h = graph.ndata["out"][ligand_mask].permute(1, 0)
+                protein_mask = graph.ndata["mask"] == 1
+                protein_out_h = graph.ndata["out"][protein_mask].permute(1, 0)
+                # repeat by number of atoms
+                ligand_out_h_atoms = ligand_out_h.repeat(
+                    1, graph.ndata["atom_counts"][ligand_mask]
+                )
+                protein_n_atoms = graph.ndata["atom_counts"][protein_mask]
+                protein_out_h_atoms = []
+                for i in torch.arange(len(protein_n_atoms)):
+                    protein_out_h_i = protein_out_h[:, [i]]
+                    protein_out_h_atoms.append(
+                        protein_out_h_i.repeat(1, protein_n_atoms[i])
+                    )
+                protein_out_h_atoms = torch.cat(protein_out_h_atoms, axis=1)
+                out_ligand.append(ligand_out_h_atoms)
+                out_protein.append(protein_out_h_atoms)
 
             target_h = padded_stack(out_protein).permute(
                 0, 2, 1
