@@ -275,35 +275,23 @@ class GVPModel(nn.Module):
                 nn.Linear(2 * ns, self.num_outputs),
             )
 
-    def forward(self, batch):
-        """Perform the forward pass.
-        Args:
-            batch: dgl.DGLGraph
-        Returns:
-            (logits, g_logits)
-        """
-        logits, g_logits = self._forward(batch)
-        return logits, g_logits
-
-    def _forward(
+    def forward(
         self,
         g,
         sample=None,
         DM_min=0.5,
         cal_der_loss=False,
     ):
-        """Helper function to perform GVP network forward pass.
+        """Perform GVP network forward pass.
         Args:
             g: dgl.graph
+            sample: dict, output from `mol_to_feature`
         Returns:
             (logits, g_logits)
         """
         out = self.gvp_encoder(g)  # shape: [n_nodes, ns]
         # aggregate node vectors to graph
         g.ndata["out"] = out
-        # graph_out = dgl.mean_nodes(g, "out")  # [n_graphs, ns]
-        # return self.decoder(out) + 0.5, self.decoder(graph_out) + 0.5
-
         ## Decoder
         if self.use_energy_decoder:
             # split and reshape node embeddings to separate those from

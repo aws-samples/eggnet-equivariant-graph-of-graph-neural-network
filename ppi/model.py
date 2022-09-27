@@ -142,7 +142,7 @@ class LitGVPModel(pl.LightningModule):
             return loss
 
     def forward(self, batch):
-        return self.model(batch["graph"])
+        return self.model(batch["graph"], sample=batch.get("sample"))
 
     def _step(self, batch, batch_idx, prefix="train"):
         """Used in train/validation loop, independent of `forward`
@@ -163,9 +163,7 @@ class LitGVPModel(pl.LightningModule):
                     cal_der_loss = True
 
             energies, der1, der2 = self.forward(
-                batch["protein_graph"],
-                batch["ligand_graph"],
-                batch["complex_graph"],
+                batch["graph"],
                 batch["sample"],
                 cal_der_loss,
             )
@@ -174,9 +172,7 @@ class LitGVPModel(pl.LightningModule):
             loss = self._compute_loss(g_preds, g_targets, der1, der2)
         else:
             logits, g_logits = self.forward(
-                batch["protein_graph"],
-                batch["ligand_graph"],
-                batch["complex_graph"],
+                batch["graph"],
             )
             g_targets = batch["g_targets"]
             loss = self._compute_loss(g_logits, g_targets)
