@@ -328,11 +328,6 @@ class PIGNetComplexDataset(data.Dataset):
                 protein_mol = residue_to_mol(protein_pdb)
             physics = mol_to_feature(m1, protein_mol)
             sample["physics"] = physics
-            # a boolean mask to indicate nodes from proteins:
-            mask = torch.zeros(sample["graph"].num_nodes())
-            n_nodes_protein = physics["target_valid"].shape[0]
-            mask[:n_nodes_protein] = 1
-            sample["graph"].ndata["mask"] = mask
         return sample
 
     def collate_fn(self, samples):

@@ -511,6 +511,9 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         )
         if self.count_atoms:
             atom_counts.append(ligand.GetNumAtoms())
+            # a boolean mask to indicate nodes from proteins:
+            mask = torch.ones(protein_coords.shape[0] + 1)
+            mask[-1] = 0
         # take the centroid of ligand atoms
         ligand_coords = ligand_coords.mean(axis=0).reshape(-1, 3)
 
@@ -570,6 +573,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         g.ndata["node_v"] = node_v.contiguous()
         if self.count_atoms:
             g.ndata["atom_counts"] = torch.tensor(atom_counts)
+            g.ndata['mask'] = mask
         # edge features
         g.edata["edge_s"] = edge_s.contiguous()
         g.edata["edge_v"] = edge_v.contiguous()
