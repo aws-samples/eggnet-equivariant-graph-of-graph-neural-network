@@ -492,12 +492,22 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         if self.count_atoms:
             atom_counts = []  # counts of atom for each node
         for res in protein.get_residues():
+            res_mol = utils.residue_to_mol(res)
+            residue_smiles.append(Chem.MolToSmiles(res_mol))
             if is_aa(res):
-                protein_coords.append(utils.get_atom_coords(res))
-                res_mol = utils.residue_to_mol(res)
-                residue_smiles.append(Chem.MolToSmiles(res_mol))
-                if self.count_atoms:
-                    atom_counts.append(res_mol.GetNumAtoms())
+                atom_coords = utils.get_atom_coords(res)
+            else:
+                # non-AA residue: get the coords of all atoms
+                atom_coords = (
+                    res_mol.GetConformers()[0]
+                    .GetPositions()
+                    .astype(np.float32)
+                )
+                # take the centoid of all atoms, and repeat to the same shape
+                atom_coords = np.tile(atom_coords.mean(axis=0), (4, 1))
+            protein_coords.append(atom_coords)
+            if self.count_atoms:
+                atom_counts.append(res_mol.GetNumAtoms())
 
         # backbone ["N", "CA", "C", "O"] coordinates for proteins
         # shape: [seq_len, 4, 3]
@@ -573,7 +583,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         g.ndata["node_v"] = node_v.contiguous()
         if self.count_atoms:
             g.ndata["atom_counts"] = torch.tensor(atom_counts)
-            g.ndata['mask'] = mask
+            g.ndata["mask"] = mask
         # edge features
         g.edata["edge_s"] = edge_s.contiguous()
         g.edata["edge_v"] = edge_v.contiguous()

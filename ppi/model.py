@@ -162,16 +162,16 @@ class LitGVPModel(pl.LightningModule):
                 ):
                     cal_der_loss = True
 
-            energies, der1, der2 = self.forward(
+            energies, der1, der2 = self.model.forward(
                 batch["graph"],
-                batch["sample"],
-                cal_der_loss,
+                sample=batch["sample"],
+                cal_der_loss=cal_der_loss,
             )
             g_preds = energies.sum(-1).unsqueeze(-1)
             g_targets = batch["g_targets"]
             loss = self._compute_loss(g_preds, g_targets, der1, der2)
         else:
-            logits, g_logits = self.forward(
+            logits, g_logits = self.model.forward(
                 batch["graph"],
             )
             g_targets = batch["g_targets"]
