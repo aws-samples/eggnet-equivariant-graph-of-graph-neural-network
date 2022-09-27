@@ -251,7 +251,6 @@ class GVPModel(nn.Module):
             num_layers=3,
             drop_rate=0.1,
             residual=residual,
-            num_outputs=num_outputs,
             seq_embedding=seq_embedding,
         )
         self.num_outputs = num_outputs
