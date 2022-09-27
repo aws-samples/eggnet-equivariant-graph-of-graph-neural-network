@@ -1111,18 +1111,12 @@ class EnergyDecoder(nn.Module):
             energies, der1, der2
         """
         (
-            ligand_h,
-            ligand_adj,
-            target_h,
-            target_adj,
             interaction_indice,
             ligand_pos,
             target_pos,
             rotor,
             ligand_vdw_radii,
             target_vdw_radii,
-            ligand_valid,
-            target_valid,
             ligand_non_metal,
             target_non_metal,
         ) = sample.values()

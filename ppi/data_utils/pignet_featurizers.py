@@ -19,12 +19,12 @@ RDLogger.DisableLog("rdApp.*")
 random.seed(0)
 
 INTERACTION_TYPES = [
-    "saltbridge",
+    # "saltbridge",
     "hbonds",
-    "pication",
-    "pistack",
-    "halogen",
-    "waterbridge",
+    # "pication",
+    # "pistack",
+    # "halogen",
+    # "waterbridge",
     "hydrophobic",
     "metal_complexes",
 ]
@@ -54,8 +54,8 @@ HYBRIDIZATIONS = [
     Chem.rdchem.HybridizationType.UNSPECIFIED,
 ]
 FORMALCHARGES = [-2, -1, 0, 1, 2, 3, 4]
-METALS = ["Zn", "Mn", "Co", "Mg", "Ni", "Fe", "Ca", "Cu"]
-HYDROPHOBICS = ["F", "CL", "BR", "I"]
+METALS = ("Zn", "Mn", "Co", "Mg", "Ni", "Fe", "Ca", "Cu")
+HYDROPHOBICS = ("F", "CL", "BR", "I")
 VDWRADII = {
     6: 1.90,
     7: 1.8,
@@ -83,12 +83,16 @@ HBOND_ACCEPPTOR_SMARTS = [
 
 def get_period_group(atom: Atom) -> List[bool]:
     period, group = PERIODIC_TABLE[atom.GetSymbol().upper()]
-    return one_of_k_encoding(period, PERIODS) + one_of_k_encoding(group, GROUPS)
+    return one_of_k_encoding(period, PERIODS) + one_of_k_encoding(
+        group, GROUPS
+    )
 
 
 def one_of_k_encoding(x: Any, allowable_set: List[Any]) -> List[bool]:
     if x not in allowable_set:
-        raise Exception("input {0} not in allowable set{1}:".format(x, allowable_set))
+        raise Exception(
+            "input {0} not in allowable set{1}:".format(x, allowable_set)
+        )
     return list(map(lambda s: x == s, allowable_set))
 
 
@@ -159,12 +163,22 @@ def get_hbond_atom_indices(mol: Mol, smarts_list: List[str]) -> np.ndarray:
 
 
 def get_A_hbond(ligand_mol: Mol, target_mol: Mol) -> np.ndarray:
-    ligand_h_acc_indice = get_hbond_atom_indices(ligand_mol, HBOND_ACCEPPTOR_SMARTS)
-    target_h_acc_indice = get_hbond_atom_indices(target_mol, HBOND_ACCEPPTOR_SMARTS)
-    ligand_h_donor_indice = get_hbond_atom_indices(ligand_mol, HBOND_DONOR_INDICES)
-    target_h_donor_indice = get_hbond_atom_indices(target_mol, HBOND_DONOR_INDICES)
+    ligand_h_acc_indice = get_hbond_atom_indices(
+        ligand_mol, HBOND_ACCEPPTOR_SMARTS
+    )
+    target_h_acc_indice = get_hbond_atom_indices(
+        target_mol, HBOND_ACCEPPTOR_SMARTS
+    )
+    ligand_h_donor_indice = get_hbond_atom_indices(
+        ligand_mol, HBOND_DONOR_INDICES
+    )
+    target_h_donor_indice = get_hbond_atom_indices(
+        target_mol, HBOND_DONOR_INDICES
+    )
 
-    hbond_indice = np.zeros((ligand_mol.GetNumAtoms(), target_mol.GetNumAtoms()))
+    hbond_indice = np.zeros(
+        (ligand_mol.GetNumAtoms(), target_mol.GetNumAtoms())
+    )
     for i in ligand_h_acc_indice:
         for j in target_h_donor_indice:
             hbond_indice[i, j] = 1
@@ -175,8 +189,12 @@ def get_A_hbond(ligand_mol: Mol, target_mol: Mol) -> np.ndarray:
 
 
 def get_A_metal_complexes(ligand_mol: Mol, target_mol: Mol) -> np.ndarray:
-    ligand_h_acc_indice = get_hbond_atom_indices(ligand_mol, HBOND_ACCEPPTOR_SMARTS)
-    target_h_acc_indice = get_hbond_atom_indices(target_mol, HBOND_ACCEPPTOR_SMARTS)
+    ligand_h_acc_indice = get_hbond_atom_indices(
+        ligand_mol, HBOND_ACCEPPTOR_SMARTS
+    )
+    target_h_acc_indice = get_hbond_atom_indices(
+        target_mol, HBOND_ACCEPPTOR_SMARTS
+    )
     ligand_metal_indice = np.array(
         [
             idx
@@ -192,7 +210,9 @@ def get_A_metal_complexes(ligand_mol: Mol, target_mol: Mol) -> np.ndarray:
         ]
     )
 
-    metal_indice = np.zeros((ligand_mol.GetNumAtoms(), target_mol.GetNumAtoms()))
+    metal_indice = np.zeros(
+        (ligand_mol.GetNumAtoms(), target_mol.GetNumAtoms())
+    )
     for ligand_idx in ligand_h_acc_indice:
         for target_idx in target_metal_indice:
             metal_indice[ligand_idx, target_idx] = 1
@@ -208,19 +228,17 @@ def mol_to_feature(ligand_mol: Mol, target_mol: Mol) -> Dict[str, Any]:
     target_mol = Chem.RemoveHs(target_mol)
 
     # prepare ligand
-    ligand_natoms = ligand_mol.GetNumAtoms()
     ligand_pos = np.array(ligand_mol.GetConformers()[0].GetPositions())
-    ligand_adj = GetAdjacencyMatrix(ligand_mol) + np.eye(ligand_natoms)
-    ligand_h = get_atom_feature(ligand_mol)
 
     # prepare protein
-    target_natoms = target_mol.GetNumAtoms()
     target_pos = np.array(target_mol.GetConformers()[0].GetPositions())
-    target_adj = GetAdjacencyMatrix(target_mol) + np.eye(target_natoms)
-    target_h = get_atom_feature(target_mol)
 
     interaction_indice = np.zeros(
-        (len(INTERACTION_TYPES), ligand_mol.GetNumAtoms(), target_mol.GetNumAtoms())
+        (
+            len(INTERACTION_TYPES),
+            ligand_mol.GetNumAtoms(),
+            target_mol.GetNumAtoms(),
+        )
     )
     interaction_indice[0] = get_A_hbond(ligand_mol, target_mol)
     interaction_indice[1] = get_A_metal_complexes(ligand_mol, target_mol)
@@ -229,16 +247,18 @@ def mol_to_feature(ligand_mol: Mol, target_mol: Mol) -> Dict[str, Any]:
     # count rotatable bonds
     rotor = CalcNumRotatableBonds(ligand_mol)
 
-    # valid
-    ligand_valid = np.ones((ligand_natoms,))
-    target_valid = np.ones((target_natoms,))
-
     # no metal
     ligand_non_metal = np.array(
-        [1 if atom.GetSymbol() not in METALS else 0 for atom in ligand_mol.GetAtoms()]
+        [
+            1 if atom.GetSymbol() not in METALS else 0
+            for atom in ligand_mol.GetAtoms()
+        ]
     )
     target_non_metal = np.array(
-        [1 if atom.GetSymbol() not in METALS else 0 for atom in target_mol.GetAtoms()]
+        [
+            1 if atom.GetSymbol() not in METALS else 0
+            for atom in target_mol.GetAtoms()
+        ]
     )
     # vdw radius
     ligand_vdw_radii = np.array(
@@ -249,18 +269,12 @@ def mol_to_feature(ligand_mol: Mol, target_mol: Mol) -> Dict[str, Any]:
     )
 
     sample = {
-        "ligand_h": ligand_h,
-        "ligand_adj": ligand_adj,
-        "target_h": target_h,
-        "target_adj": target_adj,
         "interaction_indice": interaction_indice,
         "ligand_pos": ligand_pos,
         "target_pos": target_pos,
         "rotor": rotor,
         "ligand_vdw_radii": ligand_vdw_radii,
         "target_vdw_radii": target_vdw_radii,
-        "ligand_valid": ligand_valid,
-        "target_valid": target_valid,
         "ligand_non_metal": ligand_non_metal,
         "target_non_metal": target_non_metal,
     }
