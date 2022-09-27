@@ -39,6 +39,15 @@ class LitGVPModel(pl.LightningModule):
             "drop_rate",
             "residual",
             "seq_embedding",
+            "use_energy_decoder",
+            "is_hetero",
+            "vdw_N",
+            "max_vdw_interaction",
+            "min_vdw_interaction",
+            "dev_vdw_radius",
+            "loss_der1_ratio",
+            "loss_der2_ratio",
+            "min_loss_der2",
         ]
 
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
@@ -73,15 +82,64 @@ class LitGVPModel(pl.LightningModule):
         parser.add_argument("--drop_rate", type=float, default=0.1)
         parser.add_argument("--residual", action="store_true")
         parser.add_argument("--seq_embedding", action="store_true")
+        parser.add_argument(
+            "--vdw_N",
+            help="vdw N",
+            type=float,
+            default=6.0,
+        )
+        parser.add_argument(
+            "--max_vdw_interaction",
+            help="max vdw _interaction",
+            type=float,
+            default=0.0356,
+        )
+        parser.add_argument(
+            "--min_vdw_interaction",
+            help="min vdw _interaction",
+            type=float,
+            default=0.0178,
+        )
+        parser.add_argument(
+            "--dev_vdw_radius",
+            help="deviation of vdw radius",
+            type=float,
+            default=0.2,
+        )
+        parser.add_argument(
+            "--loss_der1_ratio",
+            help="loss der1 ratio",
+            type=float,
+            default=10.0,
+        )
+        parser.add_argument(
+            "--loss_der2_ratio",
+            help="loss der2 ratio",
+            type=float,
+            default=10.0,
+        )
+        parser.add_argument(
+            "--min_loss_der2",
+            help="min loss der2",
+            type=float,
+            default=-20.0,
+        )
         parser.set_defaults(residual=False, seq_embedding=False)
         return parent_parser
 
-    def _compute_loss(self, logits, targets):
-        # binary classification
-        # loss = F.binary_cross_entropy_with_logits(logits, targets)
+    def _compute_loss(self, logits, targets, loss_der1=0, loss_der2=0):
         # regression
-        loss = F.mse_loss(logits, targets)
-        return loss
+        if self.hparams.use_energy_decoder:
+            loss_all = 0.0
+            loss = F.mse_loss(logits, targets)
+            loss_der2 = loss_der2.clamp(min=self.hparams.min_loss_der2)
+            loss_all += loss
+            loss_all += loss_der1.sum() * self.hparams.loss_der1_ratio
+            loss_all += loss_der2.sum() * self.hparams.loss_der2_ratio
+            return loss_all
+        else:
+            loss = F.mse_loss(logits, targets)
+            return loss
 
     def forward(self, batch):
         return self.model(batch["graph"])
@@ -95,14 +153,33 @@ class LitGVPModel(pl.LightningModule):
         Returns:
             Loss
         """
-        logits, g_logits = self.forward(batch)
-        # node-level targets and mask
-        # targets = batch.ndata["target"]
-        # train_mask = batch.ndata["mask"]
-        # loss = self._compute_loss(logits[train_mask], targets[train_mask])
-        # graph-level targets
-        g_targets = batch["g_targets"]
-        loss = self._compute_loss(g_logits, g_targets)
+        if self.hparams.use_energy_decoder:
+            cal_der_loss = False
+            if prefix == "train":
+                if (
+                    self.hparams.loss_der1_ratio > 0
+                    or self.hparams.loss_der2_ratio > 0.0
+                ):
+                    cal_der_loss = True
+
+            energies, der1, der2 = self.forward(
+                batch["protein_graph"],
+                batch["ligand_graph"],
+                batch["complex_graph"],
+                batch["sample"],
+                cal_der_loss,
+            )
+            g_preds = energies.sum(-1).unsqueeze(-1)
+            g_targets = batch["g_targets"]
+            loss = self._compute_loss(g_preds, g_targets, der1, der2)
+        else:
+            logits, g_logits = self.forward(
+                batch["protein_graph"],
+                batch["ligand_graph"],
+                batch["complex_graph"],
+            )
+            g_targets = batch["g_targets"]
+            loss = self._compute_loss(g_logits, g_targets)
         self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])
         return loss
 
@@ -442,8 +519,23 @@ class LitMultiStageGVPModel(pl.LightningModule):
             loss = F.mse_loss(logits, targets)
             return loss
 
-    def forward(self, protein_graph, ligand_graph, complex_graph, sample=None, cal_der_loss=False, atom_to_residue=None):
-        return self.model(protein_graph, ligand_graph, complex_graph, sample=sample, cal_der_loss=cal_der_loss, atom_to_residue=atom_to_residue)
+    def forward(
+        self,
+        protein_graph,
+        ligand_graph,
+        complex_graph,
+        sample=None,
+        cal_der_loss=False,
+        atom_to_residue=None,
+    ):
+        return self.model(
+            protein_graph,
+            ligand_graph,
+            complex_graph,
+            sample=sample,
+            cal_der_loss=cal_der_loss,
+            atom_to_residue=atom_to_residue,
+        )
 
     def _step(self, batch, batch_idx, prefix="train"):
         """Used in train/validation loop, independent of `forward`
@@ -457,17 +549,37 @@ class LitMultiStageGVPModel(pl.LightningModule):
         if self.hparams.use_energy_decoder:
             cal_der_loss = False
             if prefix == "train":
-                if self.hparams.loss_der1_ratio > 0 or self.hparams.loss_der2_ratio > 0.0:
+                if (
+                    self.hparams.loss_der1_ratio > 0
+                    or self.hparams.loss_der2_ratio > 0.0
+                ):
                     cal_der_loss = True
             if self.hparams.is_hetero:
-                energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss, batch["atom_to_residue"])
+                energies, der1, der2 = self.forward(
+                    batch["protein_graph"],
+                    batch["ligand_graph"],
+                    batch["complex_graph"],
+                    batch["sample"],
+                    cal_der_loss,
+                    batch["atom_to_residue"],
+                )
             else:
-                energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss)
+                energies, der1, der2 = self.forward(
+                    batch["protein_graph"],
+                    batch["ligand_graph"],
+                    batch["complex_graph"],
+                    batch["sample"],
+                    cal_der_loss,
+                )
             g_preds = energies.sum(-1).unsqueeze(-1)
             g_targets = batch["g_targets"]
             loss = self._compute_loss(g_preds, g_targets, der1, der2)
         else:
-            logits, g_logits = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
+            logits, g_logits = self.forward(
+                batch["protein_graph"],
+                batch["ligand_graph"],
+                batch["complex_graph"],
+            )
             g_targets = batch["g_targets"]
             loss = self._compute_loss(g_logits, g_targets)
         self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])

@@ -1,6 +1,7 @@
 """
 Pytorch dataset classes from PPI prediction.
 """
+from ppi.data_utils.pignet_featurizers import mol_to_feature
 from rdkit import Chem
 import os
 import pickle
@@ -280,12 +281,14 @@ class PIGNetComplexDataset(data.Dataset):
         data_dir: str,
         id_to_y: Dict[str, float],
         featurizer: object,
+        compute_energy=False,
     ):
         self.keys = np.array(keys).astype(np.unicode_)
         self.data_dir = data_dir
         self.id_to_y = pd.Series(id_to_y)
         self.featurizer = featurizer
         self.processed_data = pd.Series([None] * len(self))
+        self.compute_energy = compute_energy
 
     def __len__(self) -> int:
         return len(self.keys)
@@ -306,16 +309,30 @@ class PIGNetComplexDataset(data.Dataset):
             m1, _, m2, _ = pickle.load(f)
 
         if type(m2) is Chem.rdchem.Mol:
-            m2 = mol_to_pdb_structure(m2)
+            protein_mol = m2
+            protein_pdb = mol_to_pdb_structure(m2)
+        else:
+            protein_pdb = m2
+            protein_mol = None
 
         sample = self.featurizer.featurize(
             {
                 "ligand": m1,
-                "protein": m2,
+                "protein": protein_pdb,
             }
         )
         sample["affinity"] = self.id_to_y[key] * -1.36
         sample["key"] = key
+        if self.compute_energy:
+            if protein_mol is None:
+                protein_mol = residue_to_mol(protein_pdb)
+            physics = mol_to_feature(m1, protein_mol)
+            sample["physics"] = physics
+            # a boolean mask to indicate nodes from proteins:
+            mask = torch.zeros(sample["graph"].num_nodes())
+            n_nodes_protein = physics["target_valid"].shape[0]
+            mask[:n_nodes_protein] = 1
+            sample["graph"].ndata["mask"] = mask
         return sample
 
     def collate_fn(self, samples):
@@ -323,16 +340,20 @@ class PIGNetComplexDataset(data.Dataset):
         graphs = []
         smiles_strings = []
         g_targets = []
+        physics = []
         for rec in samples:
             graphs.append(rec["graph"])
             g_targets.append(rec["affinity"])
             if "smiles_strings" in rec:
                 smiles_strings.extend(rec["smiles_strings"])
+            if self.compute_energy:
+                physics.append(rec["physics"])
         return {
             "graph": dgl.batch(graphs),
             "g_targets": torch.tensor(g_targets)
             .to(torch.float32)
             .unsqueeze(-1),
+            "sample": tensor_collate_fn(physics),
             "smiles_strings": smiles_strings,
         }
 

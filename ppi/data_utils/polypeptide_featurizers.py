@@ -13,7 +13,12 @@ from Bio.PDB.Polypeptide import is_aa
 from . import contact_map_utils as utils
 
 from dgllife.utils import mol_to_bigraph
-from dgllife.utils.featurizers import CanonicalAtomFeaturizer, CanonicalBondFeaturizer, PretrainAtomFeaturizer, PretrainBondFeaturizer
+from dgllife.utils.featurizers import (
+    CanonicalAtomFeaturizer,
+    CanonicalBondFeaturizer,
+    PretrainAtomFeaturizer,
+    PretrainBondFeaturizer,
+)
 
 from .pignet_featurizers import mol_to_feature
 
@@ -459,8 +464,9 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         - residue_featurizer: a function mapping a smile string to a vector
     """
 
-    def __init__(self, residue_featurizer, **kwargs):
+    def __init__(self, residue_featurizer, count_atoms=False, **kwargs):
         self.residue_featurizer = residue_featurizer
+        self.count_atoms = count_atoms
         super(PDBBindComplexFeaturizer, self).__init__(**kwargs)
 
     def featurize(self, protein_complex: dict) -> dict:
@@ -483,11 +489,15 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
 
         protein_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
+        if self.count_atoms:
+            atom_counts = []  # counts of atom for each node
         for res in protein.get_residues():
             if is_aa(res):
                 protein_coords.append(utils.get_atom_coords(res))
                 res_mol = utils.residue_to_mol(res)
                 residue_smiles.append(Chem.MolToSmiles(res_mol))
+                if self.count_atoms:
+                    atom_counts.append(res_mol.GetNumAtoms())
 
         # backbone ["N", "CA", "C", "O"] coordinates for proteins
         # shape: [seq_len, 4, 3]
@@ -499,6 +509,8 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         ligand_coords = torch.as_tensor(
             ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
         )
+        if self.count_atoms:
+            atom_counts.append(ligand.GetNumAtoms())
         # take the centroid of ligand atoms
         ligand_coords = ligand_coords.mean(axis=0).reshape(-1, 3)
 
@@ -556,6 +568,8 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
         # node features
         g.ndata["node_s"] = node_s.contiguous()
         g.ndata["node_v"] = node_v.contiguous()
+        if self.count_atoms:
+            g.ndata["atom_counts"] = torch.tensor(atom_counts)
         # edge features
         g.edata["edge_s"] = edge_s.contiguous()
         g.edata["edge_v"] = edge_v.contiguous()
@@ -579,7 +593,9 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         (g_rec, g_lig): featurized receptor graph, featurized ligand graph
     """
 
-    def __init__(self, residue_featurizer, molecular_featurizers="canonical", **kwargs):
+    def __init__(
+        self, residue_featurizer, molecular_featurizers="canonical", **kwargs
+    ):
         self.residue_featurizer = residue_featurizer
         if molecular_featurizers == "canonical":
             self.node_featurizer = CanonicalAtomFeaturizer()
@@ -607,10 +623,12 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         """
         ligand, protein = protein_complex["ligand"], protein_complex["protein"]
         ligand = Chem.RemoveHs(ligand)
-        ligand_graph = mol_to_bigraph(mol=ligand,
-                                      node_featurizer=self.node_featurizer, 
-                                      edge_featurizer=self.edge_featurizer,
-                                      add_self_loop=self.add_self_loop)
+        ligand_graph = mol_to_bigraph(
+            mol=ligand,
+            node_featurizer=self.node_featurizer,
+            edge_featurizer=self.edge_featurizer,
+            add_self_loop=self.add_self_loop,
+        )
 
         protein_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
@@ -637,10 +655,12 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
             .to(torch.long)
         )
         # shape: [seq_len + 1, d_embed]
-        
+
         # construct knn graph from C-alpha coordinates
         ca_coords = protein_coords[:, 1]
-        protein_graph = dgl.knn_graph(ca_coords, k=min(self.top_k, ca_coords.shape[0]))
+        protein_graph = dgl.knn_graph(
+            ca_coords, k=min(self.top_k, ca_coords.shape[0])
+        )
         ca_edge_index = protein_graph.edges()
 
         pos_embeddings = self._positional_embeddings(ca_edge_index)
@@ -676,7 +696,10 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
             ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
         )
 
-        ligand_vectors = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
+        ligand_vectors = (
+            ligand_coords[ligand_graph.edges()[0].long()]
+            - ligand_coords[ligand_graph.edges()[1].long()]
+        )
         # ligand node features
         ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
         ligand_graph.ndata["node_v"] = ligand_coords.unsqueeze(-2)
@@ -698,8 +721,14 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
             device=self.device,
         )
 
-        protein_feat_pad = F.pad(protein_graph.ndata['node_s'], (0, ligand_graph.ndata['node_s'].shape[-1]))
-        ligand_feat_pad = F.pad(ligand_graph.ndata['node_s'], (protein_graph.ndata['node_s'].shape[-1], 0))
+        protein_feat_pad = F.pad(
+            protein_graph.ndata["node_s"],
+            (0, ligand_graph.ndata["node_s"].shape[-1]),
+        )
+        ligand_feat_pad = F.pad(
+            ligand_graph.ndata["node_s"],
+            (protein_graph.ndata["node_s"].shape[-1], 0),
+        )
 
         node_s = torch.cat([protein_feat_pad, ligand_feat_pad], dim=0)
         node_v = X_cat.unsqueeze(-2)
@@ -733,7 +762,13 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
         (g_rec, g_lig): featurized receptor graph, featurized ligand graph
     """
 
-    def __init__(self, residue_featurizer, molecular_featurizers="canonical", return_physics=False, **kwargs):
+    def __init__(
+        self,
+        residue_featurizer,
+        molecular_featurizers="canonical",
+        return_physics=False,
+        **kwargs
+    ):
         self.residue_featurizer = residue_featurizer
         self.return_physics = return_physics
         if molecular_featurizers == "canonical":
@@ -746,7 +781,9 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
             self.add_self_loop = True
         else:
             raise NotImplementedError()
-        super(PIGNetAtomicBigraphGeometricComplexFeaturizer, self).__init__(**kwargs)
+        super(PIGNetAtomicBigraphGeometricComplexFeaturizer, self).__init__(
+            **kwargs
+        )
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
         """Featurizes the protein complex information as a graph for the GNN
@@ -765,16 +802,20 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
             sample = mol_to_feature(ligand_mol=ligand, target_mol=protein)
 
         ligand = Chem.RemoveHs(ligand)
-        ligand_graph = mol_to_bigraph(mol=ligand,
-                                      node_featurizer=self.node_featurizer, 
-                                      edge_featurizer=self.edge_featurizer,
-                                      add_self_loop=self.add_self_loop)
+        ligand_graph = mol_to_bigraph(
+            mol=ligand,
+            node_featurizer=self.node_featurizer,
+            edge_featurizer=self.edge_featurizer,
+            add_self_loop=self.add_self_loop,
+        )
 
         protein = Chem.RemoveHs(protein)
-        protein_graph = mol_to_bigraph(mol=protein,
-                                      node_featurizer=self.node_featurizer, 
-                                      edge_featurizer=self.edge_featurizer,
-                                      add_self_loop=self.add_self_loop)
+        protein_graph = mol_to_bigraph(
+            mol=protein,
+            node_featurizer=self.node_featurizer,
+            edge_featurizer=self.edge_featurizer,
+            add_self_loop=self.add_self_loop,
+        )
 
         # shape: [protein_n_atoms, 3]
         # shape: [seq_len, 4, 3]
@@ -787,15 +828,23 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
             ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
         )
 
-        protein_vectors = protein_coords[protein_graph.edges()[0].long()] - protein_coords[protein_graph.edges()[1].long()]
+        protein_vectors = (
+            protein_coords[protein_graph.edges()[0].long()]
+            - protein_coords[protein_graph.edges()[1].long()]
+        )
         # protein node features
         protein_graph.ndata["node_s"] = protein_graph.ndata["h"]
         protein_graph.ndata["node_v"] = protein_coords.unsqueeze(-2)
         # protein edge features
         protein_graph.edata["edge_s"] = protein_graph.edata["e"]
-        protein_graph.edata["edge_v"] = _normalize(protein_vectors).unsqueeze(-2)
+        protein_graph.edata["edge_v"] = _normalize(protein_vectors).unsqueeze(
+            -2
+        )
 
-        ligand_vectors = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
+        ligand_vectors = (
+            ligand_coords[ligand_graph.edges()[0].long()]
+            - ligand_coords[ligand_graph.edges()[1].long()]
+        )
         # ligand node features
         ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
         ligand_graph.ndata["node_v"] = ligand_coords.unsqueeze(-2)
@@ -817,7 +866,9 @@ class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
             device=self.device,
         )
 
-        node_s = torch.cat([protein_graph.ndata['h'], ligand_graph.ndata['h']], dim=0)
+        node_s = torch.cat(
+            [protein_graph.ndata["h"], ligand_graph.ndata["h"]], dim=0
+        )
         node_v = X_ca.unsqueeze(-2)
         edge_s = rbf
         edge_v = _normalize(E_vectors).unsqueeze(-2)
@@ -852,7 +903,13 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
         (g_rec, g_lig): featurized receptor graph, featurized ligand graph
     """
 
-    def __init__(self, residue_featurizer, molecular_featurizers="canonical", return_physics=False, **kwargs):
+    def __init__(
+        self,
+        residue_featurizer,
+        molecular_featurizers="canonical",
+        return_physics=False,
+        **kwargs
+    ):
         self.residue_featurizer = residue_featurizer
         self.return_physics = return_physics
         if molecular_featurizers == "canonical":
@@ -865,7 +922,9 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
             self.add_self_loop = True
         else:
             raise NotImplementedError()
-        super(PIGNetAtomicBigraphPhysicalComplexFeaturizer, self).__init__(**kwargs)
+        super(PIGNetAtomicBigraphPhysicalComplexFeaturizer, self).__init__(
+            **kwargs
+        )
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
         """Featurizes the protein complex information as a graph for the GNN
@@ -883,16 +942,20 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
         sample = mol_to_feature(ligand_mol=ligand, target_mol=protein)
 
         ligand = Chem.RemoveHs(ligand)
-        ligand_graph = mol_to_bigraph(mol=ligand,
-                                      node_featurizer=self.node_featurizer, 
-                                      edge_featurizer=self.edge_featurizer,
-                                      add_self_loop=self.add_self_loop)
+        ligand_graph = mol_to_bigraph(
+            mol=ligand,
+            node_featurizer=self.node_featurizer,
+            edge_featurizer=self.edge_featurizer,
+            add_self_loop=self.add_self_loop,
+        )
 
         protein = Chem.RemoveHs(protein)
-        protein_graph = mol_to_bigraph(mol=protein,
-                                      node_featurizer=self.node_featurizer, 
-                                      edge_featurizer=self.edge_featurizer,
-                                      add_self_loop=self.add_self_loop)
+        protein_graph = mol_to_bigraph(
+            mol=protein,
+            node_featurizer=self.node_featurizer,
+            edge_featurizer=self.edge_featurizer,
+            add_self_loop=self.add_self_loop,
+        )
 
         # shape: [protein_n_atoms, 3]
         # shape: [seq_len, 4, 3]
@@ -905,15 +968,23 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
             ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
         )
 
-        protein_vectors = protein_coords[protein_graph.edges()[0].long()] - protein_coords[protein_graph.edges()[1].long()]
+        protein_vectors = (
+            protein_coords[protein_graph.edges()[0].long()]
+            - protein_coords[protein_graph.edges()[1].long()]
+        )
         # protein node features
         protein_graph.ndata["node_s"] = protein_graph.ndata["h"]
         protein_graph.ndata["node_v"] = protein_coords.unsqueeze(-2)
         # protein edge features
         protein_graph.edata["edge_s"] = protein_graph.edata["e"]
-        protein_graph.edata["edge_v"] = _normalize(protein_vectors).unsqueeze(-2)
+        protein_graph.edata["edge_v"] = _normalize(protein_vectors).unsqueeze(
+            -2
+        )
 
-        ligand_vectors = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
+        ligand_vectors = (
+            ligand_coords[ligand_graph.edges()[0].long()]
+            - ligand_coords[ligand_graph.edges()[1].long()]
+        )
         # ligand node features
         ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
         ligand_graph.ndata["node_v"] = ligand_coords.unsqueeze(-2)
@@ -922,13 +993,22 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
         ligand_graph.edata["edge_v"] = _normalize(ligand_vectors).unsqueeze(-2)
 
         # construct complex graph from rdkit computed interactions
-        n_ligand = sample['interaction_indice'].shape[1]
-        n_protein = sample['interaction_indice'].shape[2]
-        interaction_indice_pad = np.pad(sample['interaction_indice'], 
-                                [(0, 0), (n_protein, 0), (0, n_ligand)])
-        interaction_indice_symm = np.maximum(interaction_indice_pad, np.transpose(interaction_indice_pad, (0, 2, 1)))
-        src, dst = np.nonzero(interaction_indice_symm.max(axis=0) + np.eye(n_protein+n_ligand))
-        complex_graph = dgl.graph((torch.from_numpy(src), torch.from_numpy(dst)))
+        n_ligand = sample["interaction_indice"].shape[1]
+        n_protein = sample["interaction_indice"].shape[2]
+        interaction_indice_pad = np.pad(
+            sample["interaction_indice"],
+            [(0, 0), (n_protein, 0), (0, n_ligand)],
+        )
+        interaction_indice_symm = np.maximum(
+            interaction_indice_pad,
+            np.transpose(interaction_indice_pad, (0, 2, 1)),
+        )
+        src, dst = np.nonzero(
+            interaction_indice_symm.max(axis=0) + np.eye(n_protein + n_ligand)
+        )
+        complex_graph = dgl.graph(
+            (torch.from_numpy(src), torch.from_numpy(dst))
+        )
         edge_index = complex_graph.edges()
 
         # combine protein and ligand coordinates
@@ -941,11 +1021,32 @@ class PIGNetAtomicBigraphPhysicalComplexFeaturizer(BaseFeaturizer):
             device=self.device,
         )
 
-        node_s = 1.*(torch.cat([torch.from_numpy(sample['target_h']), 
-                            torch.from_numpy(sample['ligand_h'])], dim=0)).float()
-        node_v = torch.cat([torch.from_numpy(sample['target_pos']), 
-                            torch.from_numpy(sample['ligand_pos'])], dim=0).unsqueeze(-2).float()
-        edge_s = torch.from_numpy(interaction_indice_symm[:, src, dst]).T.float()
+        node_s = (
+            1.0
+            * (
+                torch.cat(
+                    [
+                        torch.from_numpy(sample["target_h"]),
+                        torch.from_numpy(sample["ligand_h"]),
+                    ],
+                    dim=0,
+                )
+            ).float()
+        )
+        node_v = (
+            torch.cat(
+                [
+                    torch.from_numpy(sample["target_pos"]),
+                    torch.from_numpy(sample["ligand_pos"]),
+                ],
+                dim=0,
+            )
+            .unsqueeze(-2)
+            .float()
+        )
+        edge_s = torch.from_numpy(
+            interaction_indice_symm[:, src, dst]
+        ).T.float()
         edge_v = _normalize(E_vectors).unsqueeze(-2).float()
 
         node_s, node_v, edge_s, edge_v = map(
@@ -978,7 +1079,9 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         (g_rec, g_lig): featurized receptor graph, featurized ligand graph
     """
 
-    def __init__(self, residue_featurizer, molecular_featurizers="canonical", **kwargs):
+    def __init__(
+        self, residue_featurizer, molecular_featurizers="canonical", **kwargs
+    ):
         self.residue_featurizer = residue_featurizer
         if molecular_featurizers == "canonical":
             self.node_featurizer = CanonicalAtomFeaturizer()
@@ -990,7 +1093,9 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
             self.add_self_loop = True
         else:
             raise NotImplementedError()
-        super(PIGNetHeteroBigraphComplexFeaturizerForEnergyModel, self).__init__(**kwargs)
+        super(
+            PIGNetHeteroBigraphComplexFeaturizerForEnergyModel, self
+        ).__init__(**kwargs)
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
         """Featurizes the protein complex information as a graph for the GNN
@@ -1004,14 +1109,20 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         Returns:
             dgl.graph instance representing with the protein complex information
         """
-        ligand, protein_atoms, protein_residues = protein_complex["ligand"], protein_complex["protein_atoms"], protein_complex["protein_residues"]
+        ligand, protein_atoms, protein_residues = (
+            protein_complex["ligand"],
+            protein_complex["protein_atoms"],
+            protein_complex["protein_residues"],
+        )
         sample = mol_to_feature(ligand_mol=ligand, target_mol=protein_atoms)
 
         ligand = Chem.RemoveHs(ligand)
-        ligand_graph = mol_to_bigraph(mol=ligand,
-                                      node_featurizer=self.node_featurizer, 
-                                      edge_featurizer=self.edge_featurizer,
-                                      add_self_loop=self.add_self_loop)
+        ligand_graph = mol_to_bigraph(
+            mol=ligand,
+            node_featurizer=self.node_featurizer,
+            edge_featurizer=self.edge_featurizer,
+            add_self_loop=self.add_self_loop,
+        )
 
         protein_residue_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
@@ -1023,9 +1134,10 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
             res_mol = utils.residue_to_mol(res)
             residue_smiles.append(Chem.MolToSmiles(res_mol))
             for atom in res:
-                atom_to_residue[tuple([round(x, 2) for x in atom.get_coord().tolist()])] = (residue_counter, atom.get_id(), res.get_resname())
+                atom_to_residue[
+                    tuple([round(x, 2) for x in atom.get_coord().tolist()])
+                ] = (residue_counter, atom.get_id(), res.get_resname())
             residue_counter += 1
-
 
         # backbone ["N", "CA", "C", "O"] coordinates for proteins
         # shape: [seq_len, 4, 3]
@@ -1044,10 +1156,12 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
             .to(torch.long)
         )
         # shape: [seq_len + 1, d_embed]
-        
+
         # construct knn graph from C-alpha coordinates
         ca_coords = protein_residue_coords[:, 1]
-        protein_graph = dgl.knn_graph(ca_coords, k=min(self.top_k, ca_coords.shape[0]))
+        protein_graph = dgl.knn_graph(
+            ca_coords, k=min(self.top_k, ca_coords.shape[0])
+        )
         ca_edge_index = protein_graph.edges()
 
         pos_embeddings = self._positional_embeddings(ca_edge_index)
@@ -1083,7 +1197,10 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
             ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
         )
 
-        ligand_vectors = ligand_coords[ligand_graph.edges()[0].long()] - ligand_coords[ligand_graph.edges()[1].long()]
+        ligand_vectors = (
+            ligand_coords[ligand_graph.edges()[0].long()]
+            - ligand_coords[ligand_graph.edges()[1].long()]
+        )
         # ligand node features
         ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
         ligand_graph.ndata["node_v"] = ligand_coords.unsqueeze(-2)
@@ -1092,20 +1209,30 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         ligand_graph.edata["edge_v"] = _normalize(ligand_vectors).unsqueeze(-2)
 
         # construct complex graph from rdkit computed interactions
-        n_ligand = sample['interaction_indice'].shape[1]
-        n_protein = sample['interaction_indice'].shape[2]
-        interaction_indice_pad = np.pad(sample['interaction_indice'], 
-                                [(0, 0), (n_protein, 0), (0, n_ligand)])
-        interaction_indice_symm = np.maximum(interaction_indice_pad, np.transpose(interaction_indice_pad, (0, 2, 1)))
-        src, dst = np.nonzero(interaction_indice_symm.max(axis=0) + np.eye(n_protein+n_ligand))
-        complex_graph = dgl.graph((torch.from_numpy(src), torch.from_numpy(dst)))
+        n_ligand = sample["interaction_indice"].shape[1]
+        n_protein = sample["interaction_indice"].shape[2]
+        interaction_indice_pad = np.pad(
+            sample["interaction_indice"],
+            [(0, 0), (n_protein, 0), (0, n_ligand)],
+        )
+        interaction_indice_symm = np.maximum(
+            interaction_indice_pad,
+            np.transpose(interaction_indice_pad, (0, 2, 1)),
+        )
+        src, dst = np.nonzero(
+            interaction_indice_symm.max(axis=0) + np.eye(n_protein + n_ligand)
+        )
+        complex_graph = dgl.graph(
+            (torch.from_numpy(src), torch.from_numpy(dst))
+        )
         edge_index = complex_graph.edges()
 
         # combine protein and ligand atomic coordinates
-        
+
         # shape: [protein_n_atoms, 3]
         protein_atom_coords = torch.as_tensor(
-            protein_atoms.GetConformers()[0].GetPositions(), dtype=torch.float32
+            protein_atoms.GetConformers()[0].GetPositions(),
+            dtype=torch.float32,
         )
 
         X_ca = torch.cat((protein_atom_coords, ligand_coords), axis=0)
@@ -1117,11 +1244,32 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
             device=self.device,
         )
 
-        node_s = 1.*(torch.cat([torch.from_numpy(sample['target_h']), 
-                            torch.from_numpy(sample['ligand_h'])], dim=0)).float()
-        node_v = torch.cat([torch.from_numpy(sample['target_pos']), 
-                            torch.from_numpy(sample['ligand_pos'])], dim=0).unsqueeze(-2).float()
-        edge_s = torch.from_numpy(interaction_indice_symm[:, src, dst]).T.float()
+        node_s = (
+            1.0
+            * (
+                torch.cat(
+                    [
+                        torch.from_numpy(sample["target_h"]),
+                        torch.from_numpy(sample["ligand_h"]),
+                    ],
+                    dim=0,
+                )
+            ).float()
+        )
+        node_v = (
+            torch.cat(
+                [
+                    torch.from_numpy(sample["target_pos"]),
+                    torch.from_numpy(sample["ligand_pos"]),
+                ],
+                dim=0,
+            )
+            .unsqueeze(-2)
+            .float()
+        )
+        edge_s = torch.from_numpy(
+            interaction_indice_symm[:, src, dst]
+        ).T.float()
         edge_v = _normalize(E_vectors).unsqueeze(-2).float()
 
         node_s, node_v, edge_s, edge_v = map(
@@ -1134,4 +1282,10 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         # edge features
         complex_graph.edata["edge_s"] = edge_s
         complex_graph.edata["edge_v"] = edge_v
-        return protein_graph, ligand_graph, complex_graph, sample, atom_to_residue
+        return (
+            protein_graph,
+            ligand_graph,
+            complex_graph,
+            sample,
+            atom_to_residue,
+        )
