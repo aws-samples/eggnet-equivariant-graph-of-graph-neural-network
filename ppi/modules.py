@@ -248,8 +248,8 @@ class GVPModel(nn.Module):
             node_h_dim,
             edge_in_dim,
             edge_h_dim,
-            num_layers=3,
-            drop_rate=0.1,
+            num_layers=num_layers,
+            drop_rate=drop_rate,
             residual=residual,
             seq_embedding=seq_embedding,
         )
