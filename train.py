@@ -442,8 +442,16 @@ def evaluate_graph_regression(
     with torch.no_grad():
         for batch in data_loader:
             if model_name == "gvp":
-                batch = {key: val.to(device) for key, val in batch.items()}
-                _, preds = model(batch["graph"])
+                batch['graph'] = batch['graph'].to(device)
+                if use_energy_decoder:
+                    batch["sample"] = {
+                        key: val.to(device)
+                        for key, val in batch["sample"].items()
+                    }
+                    energies, _, _ = model(batch)
+                    preds = energies.sum(-1).unsqueeze(-1)
+                else:
+                    _, preds = model(batch)
             elif model_name == "multistage-gvp":
                 if use_energy_decoder:
                     batch["sample"] = {
