@@ -486,6 +486,9 @@ class LitMultiStageGVPModel(pl.LightningModule):
 class LitMultiStageHGVPModel(pl.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
+        self.residue_featurizer = get_residue_featurizer(
+            kwargs["residue_featurizer_name"]
+        )
         hparams = [
             "lr",
             "protein_node_in_dim",
