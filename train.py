@@ -414,16 +414,19 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp", use_energy_d
                 if use_energy_decoder:
                     batch["sample"] = {key: val.to(device) for key, val in batch["sample"].items()}
                     for key, val in batch.items():
-                        if key not in ["sample", "atom_to_residue"]:
+                        if key not in ["sample", "atom_to_residue", "smiles_strings"]:
                             batch[key] = val.to(device)
                     if is_hetero:
-                        energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=False, atom_to_residue=batch["atom_to_residue"])
+                        energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], 
+                                                cal_der_loss=False, atom_to_residue=batch["atom_to_residue"], smiles_strings=batch["smiles_strings"])
                     else:
-                        energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=False)
+                        energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], cal_der_loss=False, smiles_strings=batch["smiles_strings"])
                     preds = energies.sum(-1).unsqueeze(-1)
                 else:
-                    batch = {key: val.to(device) for key, val in batch.items()}
-                    _, preds = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
+                    for key, val in batch.items():
+                        if key not in ["sample", "atom_to_residue", "smiles_strings"]:
+                            batch[key] = val.to(device)
+                    _, preds = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], smiles_strings=batch["smiles_strings"])
             else:
                 raise NotImplementedError
             preds = preds.to("cpu")
