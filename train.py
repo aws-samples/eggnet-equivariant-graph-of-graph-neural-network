@@ -20,7 +20,7 @@ import torchmetrics
 
 # custom imports
 # from ppi.modules import GATModel, GVPModel
-from ppi.model import LitGVPModel, LitMultiStageGVPModel, LitHGVPModel
+from ppi.model import LitGVPModel, LitHGVPModel, LitMultiStageGVPModel, LitMultiStageHGVPModel
 from ppi.data import (
     prepare_pepbdb_data_list,
     PepBDBComplexDataset,
@@ -46,6 +46,7 @@ MODEL_CONSTRUCTORS = {
     "gvp": LitGVPModel,
     "hgvp": LitHGVPModel,
     "multistage-gvp": LitMultiStageGVPModel,
+    "multistage-hgvp": LitMultiStageHGVPModel,
 }
 
 
@@ -62,7 +63,7 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
         model = MODEL_CONSTRUCTORS[model_name](
             g=datum, num_outputs=num_outputs, **kwargs
         )
-    elif model_name == "multistage-gvp":
+    elif model_name == ["multistage-gvp", "multistage-hgvp"]:
         protein_graph = datum["protein_graph"] 
         ligand_graph = datum["ligand_graph"] 
         complex_graph = datum["complex_graph"]
@@ -130,6 +131,15 @@ def get_datasets(
     residue_featurizer_name="MACCS",
     use_energy_decoder=False
 ):
+    # initialize residue featurizer
+    if "grad" in residue_featurizer_name:
+        # Do not init residue_featurizer if it involes grad
+        # This will allow joint training of residue_featurizer with the
+        # model
+        residue_featurizer = None
+    else:
+        residue_featurizer = get_residue_featurizer(residue_featurizer_name)
+
     if name == "PepBDB":
         # load parsed PepBDB structures
         train_structs = pickle.load(
@@ -202,8 +212,7 @@ def get_datasets(
 
         # featurizer for PDBBind
         if input_type == "complex":
-            residue_featurizer = get_residue_featurizer(residue_featurizer_name)
-            featurizer = PDBBindComplexFeaturizer(residue_featurizer)
+            featurizer = PDBBindComplexFeaturizer(residue_featurizer=residue_featurizer)
             test_dataset = PIGNetComplexDataset(
                 test_keys, data_dir, id_to_y, featurizer
             )
@@ -225,8 +234,7 @@ def get_datasets(
                 return test_dataset
         elif input_type == "multistage-hetero":
             if use_energy_decoder:
-                residue_featurizer = get_residue_featurizer(residue_featurizer_name)
-                featurizer = PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(residue_featurizer)
+                featurizer = PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(residue_featurizer=residue_featurizer)
                 test_dataset = PIGNetHeteroBigraphComplexDatasetForEnergyModel(
                     test_keys, data_dir, id_to_y, featurizer
                 )
@@ -247,8 +255,7 @@ def get_datasets(
                 else:
                     return test_dataset
             else:
-                residue_featurizer = get_residue_featurizer(residue_featurizer_name)
-                featurizer = PIGNetHeteroBigraphComplexFeaturizer(residue_featurizer)
+                featurizer = PIGNetHeteroBigraphComplexFeaturizer(residue_featurizer=residue_featurizer)
                 test_dataset = PIGNetHeteroBigraphComplexDataset(
                     test_keys, data_dir, id_to_y, featurizer
                 )

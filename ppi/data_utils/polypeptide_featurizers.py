@@ -626,17 +626,21 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
             np.asarray(protein_coords), dtype=torch.float32
         )
 
-        residues = (
-            torch.stack(
-                [
-                    self.residue_featurizer.featurize(smiles)
-                    for smiles in residue_smiles
-                ],
+        # SMILES strings of AA residues and ligand
+        # in the same order with the nodes in the graph
+        smiles_strings = residue_smiles + [Chem.MolToSmiles(ligand)]
+        if self.residue_featurizer:
+            residues = (
+                torch.stack(
+                    [
+                        self.residue_featurizer.featurize(smiles)
+                        for smiles in smiles_strings
+                    ]
+                )
+                .to(self.device)
+                .to(torch.long)
             )
-            .to(self.device)
-            .to(torch.long)
-        )
-        # shape: [seq_len + 1, d_embed]
+            # shape: [seq_len + 1, d_embed]
         
         # construct knn graph from C-alpha coordinates
         ca_coords = protein_coords[:, 1]
@@ -701,7 +705,10 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         protein_feat_pad = F.pad(protein_graph.ndata['node_s'], (0, ligand_graph.ndata['node_s'].shape[-1]))
         ligand_feat_pad = F.pad(ligand_graph.ndata['node_s'], (protein_graph.ndata['node_s'].shape[-1], 0))
 
-        node_s = torch.cat([protein_feat_pad, ligand_feat_pad], dim=0)
+        if self.residue_featurizer:
+            node_s = torch.cat([dihedrals, residues], dim=-1)
+        else:
+            node_s = dihedrals
         node_v = X_cat.unsqueeze(-2)
         edge_s = rbf
         edge_v = _normalize(E_vectors).unsqueeze(-2)
@@ -716,7 +723,10 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         # edge features
         complex_graph.edata["edge_s"] = edge_s
         complex_graph.edata["edge_v"] = edge_v
-        return protein_graph, ligand_graph, complex_graph
+        if self.residue_featurizer:
+            return protein_graph, ligand_graph, complex_graph
+        else:
+            return protein_graph, ligand_graph, complex_graph, smiles_strings
 
 
 class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
@@ -1033,17 +1043,21 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
             np.asarray(protein_residue_coords), dtype=torch.float32
         )
 
-        residues = (
-            torch.stack(
-                [
-                    self.residue_featurizer.featurize(smiles)
-                    for smiles in residue_smiles
-                ],
+        # SMILES strings of AA residues and ligand
+        # in the same order with the nodes in the graph
+        smiles_strings = residue_smiles + [Chem.MolToSmiles(ligand)]
+        if self.residue_featurizer:
+            residues = (
+                torch.stack(
+                    [
+                        self.residue_featurizer.featurize(smiles)
+                        for smiles in smiles_strings
+                    ]
+                )
+                .to(self.device)
+                .to(torch.long)
             )
-            .to(self.device)
-            .to(torch.long)
-        )
-        # shape: [seq_len + 1, d_embed]
+            # shape: [seq_len + 1, d_embed]
         
         # construct knn graph from C-alpha coordinates
         ca_coords = protein_residue_coords[:, 1]
@@ -1062,7 +1076,10 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         orientations = self._orientations(ca_coords)
         sidechains = self._sidechains(protein_residue_coords)
 
-        node_s = torch.cat([dihedrals, residues], dim=-1)
+        if self.residue_featurizer:
+            node_s = torch.cat([dihedrals, residues], dim=-1)
+        else:
+            node_s = dihedrals
         node_v = torch.cat([orientations, sidechains.unsqueeze(-2)], dim=-2)
         edge_s = torch.cat([rbf, pos_embeddings], dim=-1)
         edge_v = _normalize(ca_vectors).unsqueeze(-2)
@@ -1134,4 +1151,8 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         # edge features
         complex_graph.edata["edge_s"] = edge_s
         complex_graph.edata["edge_v"] = edge_v
-        return protein_graph, ligand_graph, complex_graph, sample, atom_to_residue
+
+        if self.residue_featurizer:
+            return protein_graph, ligand_graph, complex_graph, sample, atom_to_residue
+        else:
+            return protein_graph, ligand_graph, complex_graph, sample, atom_to_residue, smiles_strings
