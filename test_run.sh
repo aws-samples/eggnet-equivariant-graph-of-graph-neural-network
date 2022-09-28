@@ -28,4 +28,98 @@ python train.py --accelerator gpu \
     --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/brandry/PDBBind_MSGVP_hetero_energy \
     --use_energy_decoder \
     --is_hetero
+
+# small PDBBind    
+python train.py --accelerator gpu \
+    --devices -1 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type multistage-hetero \
+    --model_name multistage-gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring    
+
+## with energy
+python train.py --accelerator gpu \
+    --devices -1 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type multistage-hetero \
+    --model_name multistage-gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --num_workers 8
+
+## ssGVP with energy
+python train.py --accelerator gpu \
+    --devices -1 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --num_workers 8 \
+    --persistent_workers True
+
+
+# intact PDBBind
+python train.py --accelerator gpu \
+    --devices -1 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PDBBind/pdbbind_v2019/scoring 
     
+python train.py --accelerator gpu \
+    --devices -1 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type multistage-hetero \
+    --model_name multistage-gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PDBBind/pdbbind_v2019/scoring \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_intact_MSGVP_hetero \
+    --bs 16 \
+    --num_workers 8 \
+    --persistent_workers True
+
+python train.py --accelerator gpu \
+    --devices -1 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type multistage-hetero \
+    --model_name multistage-gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PDBBind/pdbbind_v2019/scoring \
+    --bs 16 \
+    --num_workers 8 \
+    --persistent_workers True \
+    --use_energy_decoder \
+    --is_hetero
+
+python train.py --accelerator gpu \
+    --devices -1 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MACCS \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PDBBind/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --num_workers 0 \
+    --bs 2
