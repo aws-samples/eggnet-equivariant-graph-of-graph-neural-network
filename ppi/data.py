@@ -325,7 +325,7 @@ class PIGNetComplexDataset(data.Dataset):
         sample["key"] = key
         if self.compute_energy:
             if protein_mol is None:
-                protein_mol = residue_to_mol(protein_pdb)
+                protein_mol = residue_to_mol(protein_pdb, sanitize=False)
             physics = mol_to_feature(m1, protein_mol)
             sample["physics"] = physics
         return sample
