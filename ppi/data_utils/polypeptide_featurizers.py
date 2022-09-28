@@ -659,7 +659,10 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         orientations = self._orientations(ca_coords)
         sidechains = self._sidechains(protein_coords)
 
-        node_s = torch.cat([dihedrals, residues], dim=-1)
+        if self.residue_featurizer:
+            node_s = torch.cat([dihedrals, residues], dim=-1)
+        else:
+            node_s = dihedrals
         node_v = torch.cat([orientations, sidechains.unsqueeze(-2)], dim=-2)
         edge_s = torch.cat([rbf, pos_embeddings], dim=-1)
         edge_v = _normalize(ca_vectors).unsqueeze(-2)
