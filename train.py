@@ -166,6 +166,7 @@ def get_datasets(
                     id_to_y,
                     featurizer,
                     compute_energy=use_energy_decoder,
+                    intra_mol_energy=intra_mol_energy,
                 )
                 valid_dataset = PIGNetComplexDataset(
                     train_keys[n_train:],
@@ -173,6 +174,7 @@ def get_datasets(
                     id_to_y,
                     featurizer,
                     compute_energy=use_energy_decoder,
+                    intra_mol_energy=intra_mol_energy,
                 )
 
                 return train_dataset, valid_dataset, test_dataset
