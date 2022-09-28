@@ -63,7 +63,7 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
         model = MODEL_CONSTRUCTORS[model_name](
             g=datum, num_outputs=num_outputs, **kwargs
         )
-    elif model_name == ["multistage-gvp", "multistage-hgvp"]:
+    elif model_name in ["multistage-gvp", "multistage-hgvp"]:
         protein_graph = datum["protein_graph"] 
         ligand_graph = datum["ligand_graph"] 
         complex_graph = datum["complex_graph"]
@@ -486,9 +486,9 @@ def main(args):
     )
     # 3. Prepare model
     if args.dataset_name == "PDBBind":
-        if args.model_name == "gvp":
+        if args.model_name in ["gvp", "hgvp"]:
             datum = train_dataset[0]["graph"]
-        elif args.model_name == "multistage-gvp":
+        elif args.model_name in ["multistage-gvp", "multistage-hgvp"]:
             datum = train_dataset[0]
         else:
             raise NotImplementedError
