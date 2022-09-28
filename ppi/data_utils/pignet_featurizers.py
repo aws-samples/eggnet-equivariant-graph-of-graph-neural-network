@@ -297,5 +297,5 @@ def mol_to_feature(
         sample["target_interaction_indice"] = get_interaction_indices(
             target_mol, target_mol
         )
-        sample["roter_target"] = CalcNumRotatableBonds(target_mol)
+        sample["rotor_target"] = CalcNumRotatableBonds(target_mol)
     return sample
