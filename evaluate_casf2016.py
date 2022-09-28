@@ -227,6 +227,7 @@ def main(args):
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
         use_energy_decoder=args.use_energy_decoder,
+        intra_mol_energy=args.intra_mol_energy,
     )
     print(
         "Data loaded:",
@@ -271,6 +272,7 @@ def main(args):
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
         use_energy_decoder=args.use_energy_decoder,
+        intra_mol_energy=args.intra_mol_energy,
     )
     print(
         "Data loaded:",
@@ -314,6 +316,7 @@ def main(args):
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
         use_energy_decoder=args.use_energy_decoder,
+        intra_mol_energy=args.intra_mol_energy,
     )
     print(
         "Data loaded:",
@@ -396,7 +399,10 @@ if __name__ == "__main__":
 
     parser.add_argument("--use_energy_decoder", action="store_true")
     parser.add_argument("--is_hetero", action="store_true")
-    parser.set_defaults(use_energy_decoder=False, is_hetero=False)
+    parser.add_argument("--intra_mol_energy", action="store_true")
+    parser.set_defaults(
+        use_energy_decoder=False, is_hetero=False, intra_mol_energy=False
+    )
 
     args = parser.parse_args()
 

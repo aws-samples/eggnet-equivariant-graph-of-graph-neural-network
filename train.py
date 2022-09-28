@@ -125,67 +125,9 @@ def get_datasets(
     test_only=False,
     residue_featurizer_name="MACCS",
     use_energy_decoder=False,
+    intra_mol_energy=False,
 ):
-    if name == "PepBDB":
-        # load parsed PepBDB structures
-        train_structs = pickle.load(
-            open(
-                "/home/ec2-user/SageMaker/efs/data/CAMP/structures_train.pkl",
-                "rb",
-            )
-        )
-        len(train_structs)
-        test_structs = pickle.load(
-            open(
-                "/home/ec2-user/SageMaker/efs/data/CAMP/structures_test.pkl",
-                "rb",
-            )
-        )
-        len(test_structs)
-        column_names = [
-            "PDB ID",
-            "peptide chain ID",
-            "peptide length",
-            "number of atoms in peptide",
-            "protein chain ID",
-            "number of atoms in protein",
-            "number of atom contacts between peptide and protein",
-            "?",
-            "peptide with nonstandard amino acid?",
-            "resolution",
-            "molecular type",
-        ]
-        # load metadata
-        DATA_DIR = "/home/ec2-user/SageMaker/efs/data/PepBDB"
-        metadata = os.path.join(DATA_DIR, "peptidelist.txt")
-        df = pd.read_csv(
-            metadata, header=None, delim_whitespace=True, names=column_names
-        )
-        data_list_train = prepare_pepbdb_data_list(train_structs, df)
-        data_list_test = prepare_pepbdb_data_list(test_structs, df)
-
-        # split train/val
-        n_train = int(0.8 * len(data_list_train))
-
-        if input_type == "complex":
-            # Protein complex as input
-            complex_featurizer = NaturalComplexFeaturizer()
-            train_dataset = PepBDBComplexDataset(
-                data_list_train[:n_train],
-                featurizer=complex_featurizer,
-                preprocess=True,
-            )
-            valid_dataset = PepBDBComplexDataset(
-                data_list_train[n_train:],
-                featurizer=complex_featurizer,
-                preprocess=True,
-            )
-            test_dataset = PepBDBComplexDataset(
-                data_list_test, featurizer=complex_featurizer, preprocess=True
-            )
-        elif input_type == "polypeptides":
-            raise NotImplementedError
-    elif name == "PDBBind":
+    if name == "PDBBind":
         # PIGNet parsed PDBBind datasets
         # read labels
         with open(os.path.join(data_dir, "pdb_to_affinity.txt")) as f:
@@ -210,6 +152,7 @@ def get_datasets(
                 id_to_y,
                 featurizer,
                 compute_energy=use_energy_decoder,
+                intra_mol_energy=intra_mol_energy,
             )
             if not test_only:
                 with open(
@@ -442,7 +385,7 @@ def evaluate_graph_regression(
     with torch.no_grad():
         for batch in data_loader:
             if model_name == "gvp":
-                batch['graph'] = batch['graph'].to(device)
+                batch["graph"] = batch["graph"].to(device)
                 if use_energy_decoder:
                     batch["sample"] = {
                         key: val.to(device)
@@ -512,6 +455,7 @@ def main(args):
         data_dir=args.data_dir,
         residue_featurizer_name=args.residue_featurizer_name,
         use_energy_decoder=args.use_energy_decoder,
+        intra_mol_energy=args.intra_mol_energy,
     )
     print(
         "Data loaded:",
@@ -667,7 +611,10 @@ if __name__ == "__main__":
 
     parser.add_argument("--use_energy_decoder", action="store_true")
     parser.add_argument("--is_hetero", action="store_true")
-    parser.set_defaults(use_energy_decoder=False, is_hetero=False)
+    parser.add_argument("--intra_mol_energy", action="store_true")
+    parser.set_defaults(
+        use_energy_decoder=False, is_hetero=False, intra_mol_energy=False
+    )
 
     args = parser.parse_args()
 

@@ -58,6 +58,37 @@ ATOMIC_KEYS = [
     "K",
 ]
 
+INTER_PHYS_KEYS = [
+    "interaction_indice",
+    "ligand_pos",
+    "target_pos",
+    "roter",
+    "ligand_vdw_radii",
+    "target_vdw_radii",
+    "ligand_non_metal",
+    "target_non_metal",
+]
+TARGET_PHYS_KEYS = [
+    "target_interaction_indice",
+    "target_pos",
+    "target_pos",
+    "roter_target",
+    "target_vdw_radii",
+    "target_vdw_radii",
+    "target_non_metal",
+    "target_non_metal",
+]
+LIGAND_PHYS_KEYS = [
+    "ligand_interaction_indice",
+    "ligand_pos",
+    "ligand_pos",
+    "roter",
+    "ligand_vdw_radii",
+    "ligand_vdw_radii",
+    "ligand_non_metal",
+    "ligand_non_metal",
+]
+
 
 def padded_stack(
     tensors: List[torch.Tensor],
@@ -219,8 +250,8 @@ class GVPModel(nn.Module):
         residual=True,
         num_outputs=1,
         seq_embedding=True,
-        is_hetero=False,
         use_energy_decoder=False,
+        intra_mol_energy=False,
         vdw_N=6.0,
         max_vdw_interaction=0.0356,
         min_vdw_interaction=0.0178,
@@ -255,7 +286,7 @@ class GVPModel(nn.Module):
         )
         self.num_outputs = num_outputs
         self.use_energy_decoder = use_energy_decoder
-        self.is_hetero = is_hetero
+        self.intra_mol_energy = intra_mol_energy
         ns, nv = node_h_dim
         ## Decoder
         if use_energy_decoder:
@@ -267,6 +298,23 @@ class GVPModel(nn.Module):
                 dev_vdw_radius=dev_vdw_radius,
                 no_rotor_penalty=no_rotor_penalty,
             )
+            if intra_mol_energy:
+                self.decoder_ligand = EnergyDecoder(
+                    ns // 2,
+                    vdw_N=vdw_N,
+                    max_vdw_interaction=max_vdw_interaction,
+                    min_vdw_interaction=min_vdw_interaction,
+                    dev_vdw_radius=dev_vdw_radius,
+                    no_rotor_penalty=no_rotor_penalty,
+                )
+                self.decoder_target = EnergyDecoder(
+                    ns // 2,
+                    vdw_N=vdw_N,
+                    max_vdw_interaction=max_vdw_interaction,
+                    min_vdw_interaction=min_vdw_interaction,
+                    dev_vdw_radius=dev_vdw_radius,
+                    no_rotor_penalty=no_rotor_penalty,
+                )
         else:
             self.decoder = nn.Sequential(
                 nn.Linear(ns, 2 * ns),
@@ -336,9 +384,30 @@ class GVPModel(nn.Module):
                 [h1_, h2_], -1
             )  # dim: [batch_size, max_atoms_ligand, max_atoms_protein, ns*2]
 
-            return self.decoder(
-                sample, h_cat, DM_min=DM_min, cal_der_loss=cal_der_loss
+            energies, der1, der2 = self.decoder(
+                [sample[key] for key in INTER_PHYS_KEYS],
+                h_cat,
+                DM_min=DM_min,
+                cal_der_loss=cal_der_loss,
             )
+            if self.intra_mol_energy:
+                energies_l, der1_l, der2_l = self.decoder_ligand(
+                    [sample[key] for key in LIGAND_PHYS_KEYS],
+                    ligand_h.unsqueeze(2).repeat(1, 1, ligand_h.size(1), 1),
+                    DM_min=DM_min,
+                    cal_der_loss=cal_der_loss,
+                )
+                energies_t, der1_t, der2_t = self.decoder_ligand(
+                    [sample[key] for key in TARGET_PHYS_KEYS],
+                    target_h.unsqueeze(1).repeat(1, target_h.size(1), 1, 1),
+                    DM_min=DM_min,
+                    cal_der_loss=cal_der_loss,
+                )
+                energies += energies_l + energies_t
+                der1 += der1_l + der1_t
+                der2 += der2_l + der2_t
+
+            return energies, der1, der2
         else:
             # aggregate node vectors to graph
             graph_out = dgl.mean_nodes(g, "out")  # [n_graphs, ns]
@@ -932,7 +1001,10 @@ class MultiStageGVPModel(nn.Module):
             )  # dim: [batch_size, max_atoms_ligand, max_atoms_protein, ns_ligand+ns_protein]
 
             return self.decoder(
-                sample, h_cat, DM_min=DM_min, cal_der_loss=cal_der_loss
+                sample.values(),
+                h_cat,
+                DM_min=DM_min,
+                cal_der_loss=cal_der_loss,
             )
         else:
             # aggregate node vectors to graph
@@ -1105,7 +1177,7 @@ class EnergyDecoder(nn.Module):
     def forward(self, sample, h_cat, DM_min=0.5, cal_der_loss=False):
         """Perform the forward pass.
         Args:
-            sample: Dict of tensors created by pignet_featurizers
+            sample: List of tensors created by pignet_featurizers
             h_cat: torch.Tensor batch of hidden representations of atoms
         Returns:
             energies, der1, der2
@@ -1119,7 +1191,7 @@ class EnergyDecoder(nn.Module):
             target_vdw_radii,
             ligand_non_metal,
             target_non_metal,
-        ) = sample.values()
+        ) = sample
 
         # distance matrix
         ligand_pos.requires_grad = True

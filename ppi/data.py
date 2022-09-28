@@ -282,6 +282,7 @@ class PIGNetComplexDataset(data.Dataset):
         id_to_y: Dict[str, float],
         featurizer: object,
         compute_energy=False,
+        intra_mol_energy=False,
     ):
         self.keys = np.array(keys).astype(np.unicode_)
         self.data_dir = data_dir
@@ -289,6 +290,7 @@ class PIGNetComplexDataset(data.Dataset):
         self.featurizer = featurizer
         self.processed_data = pd.Series([None] * len(self))
         self.compute_energy = compute_energy
+        self.intra_mol_energy = intra_mol_energy
 
     def __len__(self) -> int:
         return len(self.keys)
@@ -326,7 +328,9 @@ class PIGNetComplexDataset(data.Dataset):
         if self.compute_energy:
             if protein_mol is None:
                 protein_mol = residue_to_mol(protein_pdb, sanitize=False)
-            physics = mol_to_feature(m1, protein_mol)
+            physics = mol_to_feature(
+                m1, protein_mol, compute_full=self.intra_mol_energy
+            )
             sample["physics"] = physics
         return sample
 

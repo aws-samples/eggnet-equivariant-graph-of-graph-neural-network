@@ -222,17 +222,7 @@ def get_A_metal_complexes(ligand_mol: Mol, target_mol: Mol) -> np.ndarray:
     return metal_indice
 
 
-def mol_to_feature(ligand_mol: Mol, target_mol: Mol) -> Dict[str, Any]:
-    # Remove hydrogens
-    ligand_mol = Chem.RemoveHs(ligand_mol)
-    target_mol = Chem.RemoveHs(target_mol)
-
-    # prepare ligand
-    ligand_pos = np.array(ligand_mol.GetConformers()[0].GetPositions())
-
-    # prepare protein
-    target_pos = np.array(target_mol.GetConformers()[0].GetPositions())
-
+def get_interaction_indices(ligand_mol: Mol, target_mol: Mol) -> np.array:
     interaction_indice = np.zeros(
         (
             len(INTERACTION_TYPES),
@@ -243,6 +233,28 @@ def mol_to_feature(ligand_mol: Mol, target_mol: Mol) -> Dict[str, Any]:
     interaction_indice[0] = get_A_hbond(ligand_mol, target_mol)
     interaction_indice[1] = get_A_metal_complexes(ligand_mol, target_mol)
     interaction_indice[2] = get_A_hydrophobic(ligand_mol, target_mol)
+    return interaction_indice
+
+
+def mol_to_feature(
+    ligand_mol: Mol, target_mol: Mol, compute_full: bool = False
+) -> Dict[str, Any]:
+    """
+    Args:
+        compute_full: if True, compute components for
+            both inter and intra energies.
+    """
+    # Remove hydrogens
+    ligand_mol = Chem.RemoveHs(ligand_mol)
+    target_mol = Chem.RemoveHs(target_mol)
+
+    # prepare ligand
+    ligand_pos = np.array(ligand_mol.GetConformers()[0].GetPositions())
+
+    # prepare protein
+    target_pos = np.array(target_mol.GetConformers()[0].GetPositions())
+
+    interaction_indice = get_interaction_indices(ligand_mol, target_mol)
 
     # count rotatable bonds
     rotor = CalcNumRotatableBonds(ligand_mol)
@@ -278,4 +290,12 @@ def mol_to_feature(ligand_mol: Mol, target_mol: Mol) -> Dict[str, Any]:
         "ligand_non_metal": ligand_non_metal,
         "target_non_metal": target_non_metal,
     }
+    if compute_full:
+        sample["ligand_interaction_indice"] = get_interaction_indices(
+            ligand_mol, ligand_mol
+        )
+        sample["target_interaction_indice"] = get_interaction_indices(
+            target_mol, target_mol
+        )
+        sample["roter_target"] = CalcNumRotatableBonds(target_mol)
     return sample
