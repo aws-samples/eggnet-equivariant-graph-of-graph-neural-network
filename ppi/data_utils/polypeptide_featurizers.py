@@ -615,10 +615,10 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         protein_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
         for res in protein.get_residues():
-            if is_aa(res):
-                protein_coords.append(utils.get_atom_coords(res))
-                res_mol = utils.residue_to_mol(res)
-                residue_smiles.append(Chem.MolToSmiles(res_mol))
+            # if is_aa(res):
+            protein_coords.append(utils.get_atom_coords(res))
+            res_mol = utils.residue_to_mol(res)
+            residue_smiles.append(Chem.MolToSmiles(res_mol))
 
         # backbone ["N", "CA", "C", "O"] coordinates for proteins
         # shape: [seq_len, 4, 3]
@@ -705,8 +705,8 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
             device=self.device,
         )
 
-        # protein_feat_pad = F.pad(protein_graph.ndata['node_s'], (0, ligand_graph.ndata['node_s'].shape[-1]))
-        # ligand_feat_pad = F.pad(ligand_graph.ndata['node_s'], (protein_graph.ndata['node_s'].shape[-1], 0))
+        protein_feat_pad = F.pad(protein_graph.ndata['node_s'], (0, ligand_graph.ndata['node_s'].shape[-1]))
+        ligand_feat_pad = F.pad(ligand_graph.ndata['node_s'], (protein_graph.ndata['node_s'].shape[-1], 0))
 
         if self.residue_featurizer:
             node_s = torch.cat([dihedrals, residues], dim=-1)
