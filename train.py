@@ -414,7 +414,7 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp", use_energy_d
                 if use_energy_decoder:
                     batch["sample"] = {key: val.to(device) for key, val in batch["sample"].items()}
                     for key, val in batch.items():
-                        if key not in ["sample", "atom_to_residue", "smiles_strings"]:
+                        if key not in ["sample", "atom_to_residue"]:
                             batch[key] = val.to(device)
                     if is_hetero:
                         energies, _, _ = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], 
@@ -424,7 +424,7 @@ def evaluate_graph_regression(model, data_loader, model_name="gvp", use_energy_d
                     preds = energies.sum(-1).unsqueeze(-1)
                 else:
                     for key, val in batch.items():
-                        if key not in ["sample", "atom_to_residue", "smiles_strings"]:
+                        if key not in ["sample", "atom_to_residue"]:
                             batch[key] = val.to(device)
                     _, preds = model(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"])
             elif model_name == "multistage-hgvp":
