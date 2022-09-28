@@ -705,8 +705,8 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
             device=self.device,
         )
 
-        protein_feat_pad = F.pad(protein_graph.ndata['node_s'], (0, ligand_graph.ndata['node_s'].shape[-1]))
-        ligand_feat_pad = F.pad(ligand_graph.ndata['node_s'], (protein_graph.ndata['node_s'].shape[-1], 0))
+        # protein_feat_pad = F.pad(protein_graph.ndata['node_s'], (0, ligand_graph.ndata['node_s'].shape[-1]))
+        # ligand_feat_pad = F.pad(ligand_graph.ndata['node_s'], (protein_graph.ndata['node_s'].shape[-1], 0))
 
         if self.residue_featurizer:
             node_s = torch.cat([dihedrals, residues], dim=-1)
