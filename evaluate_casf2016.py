@@ -34,7 +34,13 @@ def choose_best_pose(id_to_pred: Dict[str, float]) -> Dict[str, float]:
     return retval
 
 
-def predict(model, data_loader, model_name="gvp", use_energy_decoder=False, is_hetero=False):
+def predict(
+    model,
+    data_loader,
+    model_name="gvp",
+    use_energy_decoder=False,
+    is_hetero=False,
+):
     """Make predictions on data from the data_loader"""
     # make predictions on test set
     device = torch.device("cuda:0")
@@ -45,7 +51,16 @@ def predict(model, data_loader, model_name="gvp", use_energy_decoder=False, is_h
     with torch.no_grad():
         for batch in tqdm(data_loader):
             if model_name == "gvp":
-                _, preds = model(batch["graph"].to(device))
+                batch["graph"] = batch["graph"].to(device)
+                if use_energy_decoder:
+                    batch["sample"] = {
+                        key: val.to(device)
+                        for key, val in batch["sample"].items()
+                    }
+                    energies, _, _ = model(batch)
+                    preds = energies.sum(-1).unsqueeze(-1)
+                else:
+                    _, preds = model(batch)
             elif model_name == "multistage-gvp":
                 if use_energy_decoder:
                     if is_hetero:
@@ -53,15 +68,21 @@ def predict(model, data_loader, model_name="gvp", use_energy_decoder=False, is_h
                             batch["protein_graph"].to(device),
                             batch["ligand_graph"].to(device),
                             batch["complex_graph"].to(device),
-                            {key: val.to(device) for key, val in batch["sample"].items()},
-                            atom_to_residue=batch["atom_to_residue"]
-                        ) 
+                            {
+                                key: val.to(device)
+                                for key, val in batch["sample"].items()
+                            },
+                            atom_to_residue=batch["atom_to_residue"],
+                        )
                     else:
                         energies, _, _ = model(
                             batch["protein_graph"].to(device),
                             batch["ligand_graph"].to(device),
                             batch["complex_graph"].to(device),
-                            {key: val.to(device) for key, val in batch["sample"].items()}
+                            {
+                                key: val.to(device)
+                                for key, val in batch["sample"].items()
+                            },
                         )
                     preds = energies.sum(-1).unsqueeze(-1)
                 else:
@@ -205,7 +226,7 @@ def main(args):
         data_dir=os.path.join(args.data_dir, "scoring"),
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
-        use_energy_decoder=args.use_energy_decoder
+        use_energy_decoder=args.use_energy_decoder,
     )
     print(
         "Data loaded:",
@@ -219,7 +240,11 @@ def main(args):
         collate_fn=scoring_dataset.collate_fn,
     )
     scores = evaluate_graph_regression(
-        model, scoring_data_loader, model_name=args.model_name, use_energy_decoder=args.use_energy_decoder, is_hetero=args.is_hetero
+        model,
+        scoring_data_loader,
+        model_name=args.model_name,
+        use_energy_decoder=args.use_energy_decoder,
+        is_hetero=args.is_hetero,
     )
     pprint(scores)
     # save scores to file
@@ -245,7 +270,7 @@ def main(args):
         data_dir=os.path.join(args.data_dir, "docking"),
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
-        use_energy_decoder=args.use_energy_decoder
+        use_energy_decoder=args.use_energy_decoder,
     )
     print(
         "Data loaded:",
@@ -258,7 +283,13 @@ def main(args):
         num_workers=args.num_workers,
         collate_fn=docking_dataset.collate_fn,
     )
-    all_preds = predict(model, docking_data_loader, model_name=args.model_name, use_energy_decoder=args.use_energy_decoder, is_hetero=args.is_hetero)
+    all_preds = predict(
+        model,
+        docking_data_loader,
+        model_name=args.model_name,
+        use_energy_decoder=args.use_energy_decoder,
+        is_hetero=args.is_hetero,
+    )
     id_to_pred = dict(zip(docking_dataset.keys, all_preds))
 
     docking_scores = evaluate_docking(id_to_pred, id_to_rmsd)
@@ -282,7 +313,7 @@ def main(args):
         data_dir=os.path.join(args.data_dir, "screening"),
         test_only=True,
         residue_featurizer_name=args.residue_featurizer_name,
-        use_energy_decoder=args.use_energy_decoder
+        use_energy_decoder=args.use_energy_decoder,
     )
     print(
         "Data loaded:",
@@ -296,7 +327,11 @@ def main(args):
         collate_fn=screening_dataset.collate_fn,
     )
     all_preds = predict(
-        model, screening_data_loader, model_name=args.model_name, use_energy_decoder=args.use_energy_decoder, is_hetero=args.is_hetero
+        model,
+        screening_data_loader,
+        model_name=args.model_name,
+        use_energy_decoder=args.use_energy_decoder,
+        is_hetero=args.is_hetero,
     )
     id_to_pred = dict(zip(screening_dataset.keys, all_preds))
     screening_scores = evaluate_screening(id_to_pred, true_binder_list)
@@ -358,7 +393,7 @@ if __name__ == "__main__":
         type=str,
         default="MACCS",
     )
-    
+
     parser.add_argument("--use_energy_decoder", action="store_true")
     parser.add_argument("--is_hetero", action="store_true")
     parser.set_defaults(use_energy_decoder=False, is_hetero=False)
