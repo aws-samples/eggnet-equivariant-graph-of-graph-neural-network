@@ -628,7 +628,7 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
 
         # SMILES strings of AA residues and ligand
         # in the same order with the nodes in the graph
-        smiles_strings = residue_smiles + [Chem.MolToSmiles(ligand)]
+        smiles_strings = residue_smiles
         if self.residue_featurizer:
             residues = (
                 torch.stack(
@@ -1048,7 +1048,7 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
 
         # SMILES strings of AA residues and ligand
         # in the same order with the nodes in the graph
-        smiles_strings = residue_smiles + [Chem.MolToSmiles(ligand)]
+        smiles_strings = residue_smiles
         if self.residue_featurizer:
             residues = (
                 torch.stack(
