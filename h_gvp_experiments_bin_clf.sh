@@ -174,3 +174,40 @@ python train.py --accelerator gpu \
     --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_bin_GVP_MolT5_small \
     --persistent_workers True \
     --binary_cutoff 6.7
+
+###########
+## ProtCID
+###########
+python train.py --accelerator gpu \
+    --devices 1 \
+    --max_epochs 500 \
+    --precision 16 \
+    --dataset_name Propedia \
+    --input_type complex \
+    --data_dir /home/ec2-user/SageMaker/efs/data/ProtCID/JaredJanssen_Benchmark \
+    --data_suffix small \
+    --residual \
+    --num_workers 8 \
+    --bs 16 \
+    --lr 1e-3 \
+    --early_stopping_patience 10 \
+    --residue_featurizer_name MACCS \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/ProtCID_small_GVP_MACCS \
+    --persistent_workers True
+
+python train.py --accelerator gpu \
+    --devices 1 \
+    --max_epochs 500 \
+    --precision 16 \
+    --dataset_name Propedia \
+    --input_type complex \
+    --data_dir /home/ec2-user/SageMaker/efs/data/ProtCID/JaredJanssen_Benchmark \
+    --data_suffix small \
+    --residual \
+    --num_workers 4 \
+    --bs 16 \
+    --lr 1e-3 \
+    --early_stopping_patience 10 \
+    --residue_featurizer_name MolT5-small \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/ProtCID_small_GVP_MolT5_small \
+    --persistent_workers True
