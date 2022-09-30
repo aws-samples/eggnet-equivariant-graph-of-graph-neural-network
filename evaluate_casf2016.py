@@ -50,6 +50,10 @@ def predict(
     all_preds = []
     with torch.no_grad():
         for batch in tqdm(data_loader):
+            # Move relevant tensors to GPU
+            for key, val in batch.items():
+                if key not in ("sample", "atom_to_residue", "smiles_strings"):
+                    batch[key] = val.to(device)
             if model_name == "gvp":
                 batch["graph"] = batch["graph"].to(device)
                 if use_energy_decoder:
@@ -63,34 +67,69 @@ def predict(
                     _, preds = model(batch)
             elif model_name == "multistage-gvp":
                 if use_energy_decoder:
+                    batch["sample"] = {
+                        key: val.to(device)
+                        for key, val in batch["sample"].items()
+                    }
                     if is_hetero:
                         energies, _, _ = model(
-                            batch["protein_graph"].to(device),
-                            batch["ligand_graph"].to(device),
-                            batch["complex_graph"].to(device),
-                            {
-                                key: val.to(device)
-                                for key, val in batch["sample"].items()
-                            },
+                            batch["protein_graph"],
+                            batch["ligand_graph"],
+                            batch["complex_graph"],
+                            batch["sample"],
+                            cal_der_loss=False,
                             atom_to_residue=batch["atom_to_residue"],
                         )
                     else:
                         energies, _, _ = model(
-                            batch["protein_graph"].to(device),
-                            batch["ligand_graph"].to(device),
-                            batch["complex_graph"].to(device),
-                            {
-                                key: val.to(device)
-                                for key, val in batch["sample"].items()
-                            },
+                            batch["protein_graph"],
+                            batch["ligand_graph"],
+                            batch["complex_graph"],
+                            batch["sample"],
+                            cal_der_loss=False,
                         )
                     preds = energies.sum(-1).unsqueeze(-1)
                 else:
                     _, preds = model(
-                        batch["protein_graph"].to(device),
-                        batch["ligand_graph"].to(device),
-                        batch["complex_graph"].to(device),
+                        batch["protein_graph"],
+                        batch["ligand_graph"],
+                        batch["complex_graph"],
                     )
+            elif model_name == "multistage-hgvp":
+                if use_energy_decoder:
+                    batch["sample"] = {
+                        key: val.to(device)
+                        for key, val in batch["sample"].items()
+                    }
+                    if is_hetero:
+                        energies, _, _ = model(
+                            batch["protein_graph"],
+                            batch["ligand_graph"],
+                            batch["complex_graph"],
+                            batch["sample"],
+                            cal_der_loss=False,
+                            atom_to_residue=batch["atom_to_residue"],
+                            smiles_strings=batch["smiles_strings"],
+                        )
+                    else:
+                        energies, _, _ = model(
+                            batch["protein_graph"],
+                            batch["ligand_graph"],
+                            batch["complex_graph"],
+                            batch["sample"],
+                            cal_der_loss=False,
+                            smiles_strings=batch["smiles_strings"],
+                        )
+                    preds = energies.sum(-1).unsqueeze(-1)
+                else:
+                    _, preds = model(
+                        batch["protein_graph"],
+                        batch["ligand_graph"],
+                        batch["complex_graph"],
+                        smiles_strings=batch["smiles_strings"],
+                    )
+            else:
+                raise NotImplementedError
             preds = preds.to("cpu")
             preds = list(preds.numpy().reshape(-1))
             all_preds.extend(preds)

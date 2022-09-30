@@ -911,12 +911,9 @@ class MultiStageGVPModel(nn.Module):
                             protein_v[residue_idx, :].permute(1, 0)
                         )
                     else:
-                        protein_atom_s = self.atomic_decomposition_s["Other"](
-                            protein_s[residue_idx, :]
-                        )
-                        protein_atom_v = self.atomic_decomposition_v["Other"](
-                            protein_v[residue_idx, :].permute(1, 0)
-                        )
+                        protein_atom_s = self.atomic_decomposition_s['Other'](protein_s[residue_idx, :])
+                        protein_atom_v = self.atomic_decomposition_v['Other'](protein_v[residue_idx, :].permute(1, 0))
+                    # protein_atom_s = protein_s[residue_idx, :]
                     # protein_atom_v = protein_v[residue_idx, :]
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v.permute(1, 0))
