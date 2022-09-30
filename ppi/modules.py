@@ -397,7 +397,7 @@ class GVPModel(nn.Module):
                     DM_min=DM_min,
                     cal_der_loss=cal_der_loss,
                 )
-                energies_t, der1_t, der2_t = self.decoder_ligand(
+                energies_t, der1_t, der2_t = self.decoder_target(
                     [sample[key] for key in TARGET_PHYS_KEYS],
                     target_h.unsqueeze(1).repeat(1, target_h.size(1), 1, 1),
                     DM_min=DM_min,
