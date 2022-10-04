@@ -315,6 +315,8 @@ class GVPModel(nn.Module):
                     dev_vdw_radius=dev_vdw_radius,
                     no_rotor_penalty=no_rotor_penalty,
                 )
+                # used for weighted sum of 3 sources of energies
+                self.energy_weights = nn.Linear(3, 1, bias=False)
         else:
             self.decoder = nn.Sequential(
                 nn.Linear(ns, 2 * ns),
@@ -403,10 +405,18 @@ class GVPModel(nn.Module):
                     DM_min=DM_min,
                     cal_der_loss=cal_der_loss,
                 )
-                energies += energies_l + energies_t
-                der1 += der1_l + der1_t
-                der2 += der2_l + der2_t
-
+                # weighted sum of 3 energies
+                energies = torch.stack(
+                    [energies, energies_l, energies_t], axis=-1
+                )
+                # shape: [bs, 4 types of interactions, 3]
+                energies = self.energy_weights(energies).squeeze(-1)
+                der1 = self.energy_weights(
+                    torch.stack([der1, der1_l, der1_t])
+                ).squeeze(-1)
+                der2 = self.energy_weights(
+                    torch.stack([der2, der2_l, der2_t])
+                ).squeeze(-1)
             return energies, der1, der2
         else:
             # aggregate node vectors to graph
@@ -911,8 +921,12 @@ class MultiStageGVPModel(nn.Module):
                             protein_v[residue_idx, :].permute(1, 0)
                         )
                     else:
-                        protein_atom_s = self.atomic_decomposition_s['Other'](protein_s[residue_idx, :])
-                        protein_atom_v = self.atomic_decomposition_v['Other'](protein_v[residue_idx, :].permute(1, 0))
+                        protein_atom_s = self.atomic_decomposition_s["Other"](
+                            protein_s[residue_idx, :]
+                        )
+                        protein_atom_v = self.atomic_decomposition_v["Other"](
+                            protein_v[residue_idx, :].permute(1, 0)
+                        )
                     # protein_atom_s = protein_s[residue_idx, :]
                     # protein_atom_v = protein_v[residue_idx, :]
                     protein_atom_s_list.append(protein_atom_s)
