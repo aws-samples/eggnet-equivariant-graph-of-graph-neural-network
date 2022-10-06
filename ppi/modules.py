@@ -728,14 +728,15 @@ class MultiStageGVPModel(nn.Module):
                     }
                 )
 
-            self.decoder = EnergyDecoder(
-                ns_c,
-                vdw_N=vdw_N,
-                max_vdw_interaction=max_vdw_interaction,
-                min_vdw_interaction=min_vdw_interaction,
-                dev_vdw_radius=dev_vdw_radius,
-                no_rotor_penalty=no_rotor_penalty,
-            )
+            # self.decoder = EnergyDecoder(
+            #     ns_c,
+            #     vdw_N=vdw_N,
+            #     max_vdw_interaction=max_vdw_interaction,
+            #     min_vdw_interaction=min_vdw_interaction,
+            #     dev_vdw_radius=dev_vdw_radius,
+            #     no_rotor_penalty=no_rotor_penalty,
+            # )
+            self.decoder = EigenDecoder(hidden_dim=ns_c)
         else:
             self.decoder = nn.Sequential(
                 nn.Linear(ns_c, 2 * ns_c),
