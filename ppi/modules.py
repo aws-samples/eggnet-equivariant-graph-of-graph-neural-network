@@ -316,7 +316,7 @@ class GVPModel(nn.Module):
                     no_rotor_penalty=no_rotor_penalty,
                 )
                 # used for weighted sum of 3 sources of energies
-                self.energy_weights = nn.Linear(3, 1, bias=False)
+                self.energy_weights = nn.Linear(3 * 4, 1, bias=False)
         else:
             self.decoder = nn.Sequential(
                 nn.Linear(ns, 2 * ns),
@@ -405,17 +405,21 @@ class GVPModel(nn.Module):
                     DM_min=DM_min,
                     cal_der_loss=cal_der_loss,
                 )
-                # weighted sum of 3 energies
-                energies = torch.stack(
+                # weighted sum of 3 * 4 energies
+                energies = torch.cat(
                     [energies, energies_l, energies_t], axis=-1
                 )
-                # shape: [bs, 4 types of interactions, 3]
-                energies = self.energy_weights(energies).squeeze(-1)
+                # shape: [bs, 4 types of interactions * 3]
+                energies = self.energy_weights(energies)
                 der1 = self.energy_weights(
-                    torch.stack([der1, der1_l, der1_t])
+                    torch.cat(
+                        [der1.repeat(4), der1_l.repeat(4), der1_t.repeat(4)]
+                    )
                 ).squeeze(-1)
                 der2 = self.energy_weights(
-                    torch.stack([der2, der2_l, der2_t])
+                    torch.cat(
+                        [der2.repeat(4), der2_l.repeat(4), der2_t.repeat(4)]
+                    )
                 ).squeeze(-1)
             return energies, der1, der2
         else:
