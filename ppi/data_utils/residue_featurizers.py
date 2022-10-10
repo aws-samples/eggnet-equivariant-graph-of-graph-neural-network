@@ -10,6 +10,7 @@ from dgllife.utils import mol_to_bigraph
 from rdkit import Chem
 from rdkit.Chem import MACCSkeys
 from rdkit.Chem import AllChem
+from dgllife.model import load_pretrained
 
 
 class BaseResidueFeaturizer(object):
@@ -58,17 +59,27 @@ class GNNFeaturizer(BaseResidueFeaturizer):
     to featurize the graph as a vector.
     """
 
-    def __init__(self, gnn_model, device="cpu"):
+    def __init__(self, gnn_model, requires_grad=False, device="cpu"):
         self.gnn_model = gnn_model
         self.device = device
+        self.requires_grad = requires_grad
         super(GNNFeaturizer, self).__init__()
 
     def _featurize(self, smiles: str) -> torch.tensor:
         mol = Chem.MolFromSmiles(smiles)
         g = mol_to_bigraph(mol)
         g = g.to(self.device)
-        return self.gnn_model(g)
+        if not self.requires_grad:
+            with torch.no_grad():
+                outputs = self.gnn_model(g)
+        else:
+            outputs = self.gnn_model(g)
 
+    def forward(self, smiles: str) -> torch.tensor:
+        """Expose this method when we want to unfreeze the network,
+        training jointly with higher level GNN"""
+        assert self.requires_grad
+        return self._featurize(smiles)
 
 class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
     """
@@ -130,6 +141,10 @@ def get_residue_featurizer(name=""):
     Handles initializing the residue featurizer.
     """
     fingerprint_names = ("MACCS", "Morgan")
+    gnn_names = ('gin_supervised_contextpred', 
+                'gin_supervised_infomax',
+                'gin_supervised_edgepred',
+                'gin_supervised_masking')
     if name in fingerprint_names:
         residue_featurizer = FingerprintFeaturizer(name)
     elif name.lower().startswith("molt5"):
@@ -140,4 +155,13 @@ def get_residue_featurizer(name=""):
         residue_featurizer = MolT5Featurizer(
             model_size=model_size, requires_grad=requires_grad
         )
+    elif name.lower().startswith("gin"):
+        requires_grad = True if "grad" in name else False
+        name = name.replace("-grad", "")
+        name = name.replace("-", "_")
+        assert name in gnn_names
+        gnn_model = load_pretrained(name)
+        residue_featurizer = GNNFeaturizer(gnn_model, requires_grad)
+    else:
+        raise NotImplementedError
     return residue_featurizer
