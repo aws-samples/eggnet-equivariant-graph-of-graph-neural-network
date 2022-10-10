@@ -12,6 +12,25 @@ from rdkit import Chem
 from rdkit.Chem import MACCSkeys
 from rdkit.Chem import AllChem
 from dgllife.model import load_pretrained
+from dgl.nn.pytorch.glob import GlobalAttentionPooling, SumPooling, AvgPooling, MaxPooling, Set2Set
+
+
+def featurize_atoms(mol):
+    feats = []
+    for atom in mol.GetAtoms():
+        feats.append(atom.GetAtomicNum())
+    return {'atomic': torch.tensor(feats).reshape(-1, 1).float()}
+
+
+def featurize_bonds(mol):
+    feats = []
+    bond_types = [Chem.rdchem.BondType.SINGLE, Chem.rdchem.BondType.DOUBLE,
+                  Chem.rdchem.BondType.TRIPLE, Chem.rdchem.BondType.AROMATIC]
+    for bond in mol.GetBonds():
+        btype = bond_types.index(bond.GetBondType())
+        # One bond between atom u and v corresponds to two edges (u, v) and (v, u)
+        feats.extend([btype, btype])
+    return {'type': torch.tensor(feats).reshape(-1, 1).float()}
 
 
 class BaseResidueFeaturizer(object):
@@ -54,32 +73,56 @@ class FingerprintFeaturizer(BaseResidueFeaturizer):
         return fps_vec
 
 
-class GNNFeaturizer(BaseResidueFeaturizer, nn.Module):
+class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
     """
     Convert a molecule to atom graph, then apply pretrained GNN
     to featurize the graph as a vector.
     """
 
-    def __init__(self, gnn_model, requires_grad=False, device="cpu"):
+    def __init__(self, gin_model, readout='attention', requires_grad=False, device="cpu"):
         nn.Module.__init__(self)
         BaseResidueFeaturizer.__init__(self)
-        self.gnn_model = gnn_model
+        self.gin_model = gin_model
         self.device = device
         self.requires_grad = requires_grad
+
+        if readout == 'sum':
+            self.readout = SumPooling()
+        elif readout == 'mean':
+            self.readout = AvgPooling()
+        elif readout == 'max':
+            self.readout = MaxPooling()
+        elif readout == 'attention':
+            if JK == 'concat':
+                self.readout = GlobalAttentionPooling(
+                    gate_nn=nn.Linear((self.gin_model.num_layers + 1) * self.gin_model.emb_dim, 1))
+            else:
+                self.readout = GlobalAttentionPooling(
+                    gate_nn=nn.Linear(self.gin_model.emb_dim, 1))
+        elif readout == 'set2set':
+            self.readout = Set2Set()
+        else:
+            raise ValueError("Expect readout to be 'sum', 'mean', "
+                             "'max', 'attention' or 'set2set', got {}".format(readout))
 
     def _featurize(self, smiles: Union[str, List[str]]) -> torch.tensor:
         graphs = []
         for s in smiles:
             mol = Chem.MolFromSmiles(s)
-            graph = mol_to_bigraph(mol)
+            graph = mol_to_bigraph(mol, 
+                                   node_featurizer=featurize_atoms,
+                                   edge_featurizer=featurize_bonds)
             graphs.append(graph)
         g = dgl.batch(graphs)
         g = g.to(self.device)
         if not self.requires_grad:
             with torch.no_grad():
-                outputs = self.gnn_model(g)
+                node_feats = self.gin_model(g, g.ndata['atomic'].tolist(), g.edata['type'].tolist())
+                graph_feats = self.readout(g, node_feats)
         else:
-            outputs = self.gnn_model(g)
+            node_feats = self.gin_model(g, g.ndata['atomic'].tolist(), g.edata['type'].tolist())
+            graph_feats = self.readout(g, node_feats)
+        return graph_feats
 
     def forward(self, smiles: str) -> torch.tensor:
         """Expose this method when we want to unfreeze the network,
@@ -89,7 +132,7 @@ class GNNFeaturizer(BaseResidueFeaturizer, nn.Module):
 
     @property
     def output_size(self) -> int:
-        return self.gnn_model.gnn_layers[-1].mlp[-1].out_features
+        return self.gin_model.emb_dim
 
 class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
     """
@@ -171,9 +214,8 @@ def get_residue_featurizer(name=""):
         name = name.replace("-", "_")
         name = name.lower()
         assert name in gnn_names
-        gnn_model = load_pretrained(name)
-        print(gnn_model)
-        residue_featurizer = GNNFeaturizer(gnn_model, requires_grad)
+        gin_model = load_pretrained(name)
+        residue_featurizer = GINFeaturizer(gin_model, requires_grad)
     else:
         raise NotImplementedError
     return residue_featurizer
