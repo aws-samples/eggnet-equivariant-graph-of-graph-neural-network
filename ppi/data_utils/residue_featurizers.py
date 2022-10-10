@@ -115,7 +115,7 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         else:
             node_feats = self.gin_model(bg, nfeats, efeats)
             graph_feats = self.readout(bg, node_feats)
-        return graph_feats
+        return graph_feats.squeeze(0)
 
     def forward(self, smiles: str, device="cpu") -> torch.tensor:
         """Expose this method when we want to unfreeze the network,
