@@ -703,7 +703,7 @@ class MultiStageGVPModel(nn.Module):
 
         ## Decoder
         if use_energy_decoder:
-            if self.is_hetero:
+            # if self.is_hetero:
                 # self.atomic_decomposition_s = nn.ModuleDict(
                 #     {
                 #         atomic_key: nn.Sequential(
