@@ -86,6 +86,8 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         self.device = device
         self.requires_grad = requires_grad
 
+        emb_dim = gin_model.node_embeddings[0].embedding_dim
+
         if readout == 'sum':
             self.readout = SumPooling()
         elif readout == 'mean':
