@@ -65,7 +65,7 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         nn.Module.__init__(self)
         BaseResidueFeaturizer.__init__(self)
         self.device = device
-        self.gin_model = gin_model.to(self.device)
+        self.gin_model = gin_model
         self.requires_grad = requires_grad
 
         self.emb_dim = gin_model.node_embeddings[0].embedding_dim
@@ -205,7 +205,7 @@ def get_residue_featurizer(name="", device="cpu"):
         name = name.lower()
         print(name)
         assert name in gin_names
-        gin_model = load_pretrained(name)
+        gin_model = load_pretrained(name).to(device)
         print(gin_model)
         residue_featurizer = GINFeaturizer(gin_model=gin_model, 
                                             readout=readout, 
