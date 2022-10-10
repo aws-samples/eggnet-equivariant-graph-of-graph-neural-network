@@ -79,10 +79,10 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         elif readout == 'attention':
             if gin_model.JK == 'concat':
                 self.readout = GlobalAttentionPooling(
-                    gate_nn=nn.Linear((self.gin_model.num_layers + 1) * self.emb_dim, 1))
+                    gate_nn=nn.Linear((self.gin_model.num_layers + 1) * self.emb_dim, 1).to(device))
             else:
                 self.readout = GlobalAttentionPooling(
-                    gate_nn=nn.Linear(self.emb_dim, 1))
+                    gate_nn=nn.Linear(self.emb_dim, 1).to(device))
         elif readout == 'set2set':
             self.readout = Set2Set()
         else:
@@ -205,7 +205,8 @@ def get_residue_featurizer(name="", device="cpu"):
         name = name.lower()
         print(name)
         assert name in gin_names
-        gin_model = load_pretrained(name).to(device)
+        gin_model = load_pretrained(name)
+        gin_model = gin_model.to(device)
         print(gin_model)
         residue_featurizer = GINFeaturizer(gin_model=gin_model, 
                                             readout=readout, 
