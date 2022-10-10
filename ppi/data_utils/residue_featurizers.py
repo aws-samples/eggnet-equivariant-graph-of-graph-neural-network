@@ -116,10 +116,11 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
                                canonical_atom_order=False)
             graphs.append(graph)
         bg = dgl.batch(graphs)
-        nfeats = [bg.ndata.pop('atomic_number'),
-                  bg.ndata.pop('chirality_type')]
-        efeats = [bg.edata.pop('bond_type'),
-                  bg.edata.pop('bond_direction_type')]
+        bg = bg.to(self.gin_model.device)
+        nfeats = [bg.ndata.pop('atomic_number').to(self.gin_model.device),
+                  bg.ndata.pop('chirality_type').to(self.gin_model.device)]
+        efeats = [bg.edata.pop('bond_type').to(self.gin_model.device),
+                  bg.edata.pop('bond_direction_type').to(self.gin_model.device)]
         if not self.requires_grad:
             with torch.no_grad():
                 node_feats = self.gin_model(bg, nfeats, efeats)
