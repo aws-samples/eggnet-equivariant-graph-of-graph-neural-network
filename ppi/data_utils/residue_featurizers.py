@@ -194,7 +194,7 @@ def get_residue_featurizer(name=""):
     Handles initializing the residue featurizer.
     """
     fingerprint_names = ("MACCS", "Morgan")
-    gnn_names = ('gin_supervised_contextpred', 
+    gin_names = ('gin_supervised_contextpred', 
                 'gin_supervised_infomax',
                 'gin_supervised_edgepred',
                 'gin_supervised_masking')
@@ -211,10 +211,11 @@ def get_residue_featurizer(name=""):
     elif name.lower().startswith("gin"):
         requires_grad = True if "grad" in name else False
         name_split = name.split("-")
-        readout = name_split[-2]
+        readout = name_split[3]
         name = "_".join(name[0:3])
         name = name.lower()
-        assert name in gnn_names
+        print(name)
+        assert name in gin_names
         gin_model = load_pretrained(name)
         residue_featurizer = GINFeaturizer(gin_model=gin_model, readout=readout, requires_grad=requires_grad)
     else:
