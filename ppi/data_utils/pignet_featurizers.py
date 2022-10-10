@@ -280,6 +280,10 @@ def mol_to_feature(
         [get_vdw_radius(atom) for atom in target_mol.GetAtoms()]
     )
 
+    # atom features
+    target_h = get_atom_feature(target_mol)
+    ligand_h = get_atom_feature(ligand_mol)
+
     sample = {
         "interaction_indice": interaction_indice,
         "ligand_pos": ligand_pos,
@@ -289,6 +293,8 @@ def mol_to_feature(
         "target_vdw_radii": target_vdw_radii,
         "ligand_non_metal": ligand_non_metal,
         "target_non_metal": target_non_metal,
+        "target_h": target_h,
+        "ligand_h": ligand_h
     }
     if compute_full:
         sample["ligand_interaction_indice"] = get_interaction_indices(
