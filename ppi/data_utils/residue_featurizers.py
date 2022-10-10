@@ -7,7 +7,7 @@ from transformers import T5Tokenizer, T5EncoderModel
 import torch
 import torch.nn as nn
 import numpy as np
-from dgllife.utils import mol_to_bigraph
+from dgllife.utils import mol_to_bigraph, PretrainAtomFeaturizer, PretrainBondFeaturizer
 from rdkit import Chem
 from rdkit.Chem import MACCSkeys
 from rdkit.Chem import AllChem
@@ -82,8 +82,8 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
     def __init__(self, gin_model, readout='attention', requires_grad=False, device="cpu"):
         nn.Module.__init__(self)
         BaseResidueFeaturizer.__init__(self)
-        self.gin_model = gin_model
         self.device = device
+        self.gin_model = gin_model.to(self.device)
         self.requires_grad = requires_grad
 
         self.emb_dim = gin_model.node_embeddings[0].embedding_dim
@@ -109,21 +109,26 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
 
     def _featurize(self, smiles: Union[str, List[str]]) -> torch.tensor:
         graphs = []
-        for s in smiles:
-            mol = Chem.MolFromSmiles(s)
-            graph = mol_to_bigraph(mol, 
-                                   node_featurizer=featurize_atoms,
-                                   edge_featurizer=featurize_bonds)
+        for smi in smiles:
+            mol = Chem.MolFromSmiles(smi)
+            graph = mol_to_bigraph(mol, add_self_loop=True,
+                               node_featurizer=PretrainAtomFeaturizer(),
+                               edge_featurizer=PretrainBondFeaturizer(),
+                               canonical_atom_order=False)
             graphs.append(graph)
-        g = dgl.batch(graphs)
-        g = g.to(self.device)
+        bg = dgl.batch(graphs)
+        bg = bg.to(self.device)
+        nfeats = [bg.ndata.pop('atomic_number').to(self.device),
+                  bg.ndata.pop('chirality_type').to(self.device)]
+        efeats = [bg.edata.pop('bond_type').to(self.device),
+                  bg.edata.pop('bond_direction_type').to(self.device)]
         if not self.requires_grad:
             with torch.no_grad():
-                node_feats = self.gin_model(g, g.ndata['atomic'].tolist(), g.edata['type'].tolist())
-                graph_feats = self.readout(g, node_feats)
+                node_feats = self.gin_model(bg, nfeats, efeats)
+                graph_feats = self.readout(bg, node_feats)
         else:
-            node_feats = self.gin_model(g, g.ndata['atomic'].tolist(), g.edata['type'].tolist())
-            graph_feats = self.readout(g, node_feats)
+            node_feats = self.gin_model(bg, nfeats, efeats)
+            graph_feats = self.readout(bg, node_feats)
         return graph_feats
 
     def forward(self, smiles: str) -> torch.tensor:
