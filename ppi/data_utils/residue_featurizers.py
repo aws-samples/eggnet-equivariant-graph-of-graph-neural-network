@@ -112,6 +112,9 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
                 node_feats = self.gin_model(bg, nfeats, efeats)
                 graph_feats = self.readout(bg, node_feats)
         else:
+            print(bg.get_device())
+            print(nfeats.get_device())
+            print(efeats.get_device())
             node_feats = self.gin_model(bg, nfeats, efeats)
             graph_feats = self.readout(bg, node_feats)
         return graph_feats
