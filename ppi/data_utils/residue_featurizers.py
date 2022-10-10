@@ -210,7 +210,6 @@ def get_residue_featurizer(name="", device="cpu"):
         assert name in gin_names
         gin_model = load_pretrained(name)
         gin_model = gin_model.to(device)
-        print(gin_model)
         residue_featurizer = GINFeaturizer(gin_model=gin_model, 
                                             readout=readout, 
                                             requires_grad=requires_grad, 
