@@ -79,11 +79,10 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
     to featurize the graph as a vector.
     """
 
-    def __init__(self, gin_model, readout='attention', requires_grad=False, device="cpu"):
+    def __init__(self, gin_model, readout='attention', requires_grad=False):
         nn.Module.__init__(self)
         BaseResidueFeaturizer.__init__(self)
-        self.device = device
-        self.gin_model = gin_model.to(self.device)
+        self.gin_model = gin_model
         self.requires_grad = requires_grad
 
         self.emb_dim = gin_model.node_embeddings[0].embedding_dim
@@ -117,11 +116,10 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
                                canonical_atom_order=False)
             graphs.append(graph)
         bg = dgl.batch(graphs)
-        bg = bg.to(self.device)
-        nfeats = [bg.ndata.pop('atomic_number').to(self.device),
-                  bg.ndata.pop('chirality_type').to(self.device)]
-        efeats = [bg.edata.pop('bond_type').to(self.device),
-                  bg.edata.pop('bond_direction_type').to(self.device)]
+        nfeats = [bg.ndata.pop('atomic_number'),
+                  bg.ndata.pop('chirality_type')]
+        efeats = [bg.edata.pop('bond_type'),
+                  bg.edata.pop('bond_direction_type')]
         if not self.requires_grad:
             with torch.no_grad():
                 node_feats = self.gin_model(bg, nfeats, efeats)
