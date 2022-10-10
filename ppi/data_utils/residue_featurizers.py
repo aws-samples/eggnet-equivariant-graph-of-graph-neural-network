@@ -93,6 +93,7 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         self.readout = self.readout.to(self.device)
 
     def _featurize(self, smiles: Union[str, List[str]], device="cpu") -> torch.tensor:
+        print(self.device)
         print(device)
         graphs = []
         for smi in smiles:
