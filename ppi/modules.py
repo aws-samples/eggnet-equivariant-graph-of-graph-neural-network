@@ -1188,8 +1188,8 @@ class EnergyDecoder(nn.Module):
             target_vdw_radii,
             ligand_non_metal,
             target_non_metal,
-            target_h,
-            ligand_h
+            _,
+            _
         ) = sample
 
         # distance matrix
