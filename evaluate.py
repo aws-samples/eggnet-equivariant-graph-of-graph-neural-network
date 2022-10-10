@@ -17,12 +17,18 @@ def load_model_from_checkpoint(
 ) -> pl.LightningModule:
     """Load a ptl model from checkpoint path.
     Args:
-        checkpoint_path: the path to `lightning_logs/version_x`
+        checkpoint_path: the path to `lightning_logs/version_x` or
+            the .ckpt file itself.
         model_name: should be a key in `MODEL_CONSTRUCTORS`
     """
-    # find the .ckpt file
-    ckpt_file = os.listdir(os.path.join(checkpoint_path, "checkpoints"))[0]
-    ckpt_file_path = os.path.join(checkpoint_path, "checkpoints", ckpt_file)
+    if not checkpoint_path.endswith(".ckpt"):
+        # find the .ckpt file
+        ckpt_file = os.listdir(os.path.join(checkpoint_path, "checkpoints"))[0]
+        ckpt_file_path = os.path.join(
+            checkpoint_path, "checkpoints", ckpt_file
+        )
+    else:
+        ckpt_file_path = checkpoint_path
     # load the model from checkpoint
     ModelConstructor = MODEL_CONSTRUCTORS[model_name]
     model = ModelConstructor.load_from_checkpoint(ckpt_file_path)
