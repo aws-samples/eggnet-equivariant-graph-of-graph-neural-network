@@ -53,17 +53,18 @@ class FingerprintFeaturizer(BaseResidueFeaturizer):
         return fps_vec
 
 
-class GNNFeaturizer(BaseResidueFeaturizer):
+class GNNFeaturizer(BaseResidueFeaturizer, nn.Module):
     """
     Convert a molecule to atom graph, then apply pretrained GNN
     to featurize the graph as a vector.
     """
 
     def __init__(self, gnn_model, requires_grad=False, device="cpu"):
+        nn.Module.__init__(self)
+        BaseResidueFeaturizer.__init__(self)
         self.gnn_model = gnn_model
         self.device = device
         self.requires_grad = requires_grad
-        super(GNNFeaturizer, self).__init__()
 
     def _featurize(self, smiles: str) -> torch.tensor:
         mol = Chem.MolFromSmiles(smiles)
