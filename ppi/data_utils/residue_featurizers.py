@@ -93,6 +93,8 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         self.gin_model = self.gin_model.to(device)
         self.readout = self.readout.to(device)
         graphs = []
+        if isinstance(smiles, str):
+            smiles = [smiles]
         for smi in smiles:
             mol = Chem.MolFromSmiles(smi)
             graph = mol_to_bigraph(mol, add_self_loop=True,
