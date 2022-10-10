@@ -163,7 +163,7 @@ def get_residue_featurizer(name=""):
         requires_grad = True if "grad" in name else False
         name = name.replace("-grad", "")
         name = name.replace("-", "_")
-        name = name.lower
+        name = name.lower()
         assert name in gnn_names
         gnn_model = load_pretrained(name)
         print(gnn_model)
