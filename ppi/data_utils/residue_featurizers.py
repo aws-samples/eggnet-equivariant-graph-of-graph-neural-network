@@ -210,12 +210,13 @@ def get_residue_featurizer(name=""):
         )
     elif name.lower().startswith("gin"):
         requires_grad = True if "grad" in name else False
-        name = name.replace("-grad", "")
-        name = name.replace("-", "_")
+        name_split = name.split("-")
+        readout = name_split[-2]
+        name = "_".join(name[0:3])
         name = name.lower()
         assert name in gnn_names
         gin_model = load_pretrained(name)
-        residue_featurizer = GINFeaturizer(gin_model, requires_grad)
+        residue_featurizer = GINFeaturizer(gin_model=gin_model, readout=readout, requires_grad=requires_grad)
     else:
         raise NotImplementedError
     return residue_featurizer
