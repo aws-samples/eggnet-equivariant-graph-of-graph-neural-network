@@ -66,9 +66,13 @@ class GNNFeaturizer(BaseResidueFeaturizer, nn.Module):
         self.device = device
         self.requires_grad = requires_grad
 
-    def _featurize(self, smiles: str) -> torch.tensor:
-        mol = Chem.MolFromSmiles(smiles)
-        g = mol_to_bigraph(mol)
+    def _featurize(self, smiles: Union[str, List[str]]) -> torch.tensor:
+        graphs = []
+        for s in smiles:
+            mol = Chem.MolFromSmiles(smiles)
+            graph = mol_to_bigraph(mol)
+            graphs.append(graph)
+        g = dgl.batch(graphs)
         g = g.to(self.device)
         if not self.requires_grad:
             with torch.no_grad():
