@@ -257,7 +257,9 @@ def main(args):
     # 0. Prepare model
     model = load_model_from_checkpoint(args.checkpoint_path, args.model_name)
     if args.checkpoint_path.endswith(".ckpt"):
-        checkpoint_path = os.path.join(args.checkpoint_path, "../../")
+        checkpoint_path = os.path.dirname(
+            os.path.dirname(args.checkpoint_path)
+        )
     else:
         checkpoint_path = args.checkpoint_path
     # 1. Scoring data
