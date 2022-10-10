@@ -15,24 +15,6 @@ from dgllife.model import load_pretrained
 from dgl.nn.pytorch.glob import GlobalAttentionPooling, SumPooling, AvgPooling, MaxPooling, Set2Set
 
 
-def featurize_atoms(mol):
-    feats = []
-    for atom in mol.GetAtoms():
-        feats.append(atom.GetAtomicNum())
-    return {'atomic': torch.tensor(feats).reshape(-1, 1).float()}
-
-
-def featurize_bonds(mol):
-    feats = []
-    bond_types = [Chem.rdchem.BondType.SINGLE, Chem.rdchem.BondType.DOUBLE,
-                  Chem.rdchem.BondType.TRIPLE, Chem.rdchem.BondType.AROMATIC]
-    for bond in mol.GetBonds():
-        btype = bond_types.index(bond.GetBondType())
-        # One bond between atom u and v corresponds to two edges (u, v) and (v, u)
-        feats.extend([btype, btype])
-    return {'type': torch.tensor(feats).reshape(-1, 1).float()}
-
-
 class BaseResidueFeaturizer(object):
     """A simple base class with caching"""
 
@@ -116,11 +98,10 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
                                canonical_atom_order=False)
             graphs.append(graph)
         bg = dgl.batch(graphs)
-        bg = bg.to(self.gin_model.device)
-        nfeats = [bg.ndata.pop('atomic_number').to(self.gin_model.device),
-                  bg.ndata.pop('chirality_type').to(self.gin_model.device)]
-        efeats = [bg.edata.pop('bond_type').to(self.gin_model.device),
-                  bg.edata.pop('bond_direction_type').to(self.gin_model.device)]
+        nfeats = [bg.ndata.pop('atomic_number'),
+                  bg.ndata.pop('chirality_type')]
+        efeats = [bg.edata.pop('bond_type'),
+                  bg.edata.pop('bond_direction_type')]
         if not self.requires_grad:
             with torch.no_grad():
                 node_feats = self.gin_model(bg, nfeats, efeats)
