@@ -212,7 +212,7 @@ def get_residue_featurizer(name=""):
         requires_grad = True if "grad" in name else False
         name_split = name.split("-")
         readout = name_split[3]
-        name = "_".join(name[0:3])
+        name = "_".join(name_split[0:3])
         name = name.lower()
         print(name)
         assert name in gin_names
