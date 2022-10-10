@@ -45,6 +45,7 @@ from ppi.data_utils import (
     PIGNetAtomicBigraphGeometricComplexFeaturizer,
     PIGNetAtomicBigraphPhysicalComplexFeaturizer,
 )
+from ppi.transfer import load_state_dict_to_model
 
 # mapping model names to constructors
 MODEL_CONSTRUCTORS = {
@@ -595,13 +596,20 @@ def main(args):
         datum = train_dataset[0][0]
     dict_args = vars(args)
     model = init_model(datum=datum, num_outputs=1, **dict_args)
+    if args.pretrained_weights:
+        # load pretrained weights
+        checkpoint = torch.load(
+            args.pretrained_weights, map_location=torch.device("cpu")
+        )
+        load_state_dict_to_model(model, checkpoint["state_dict"])
+
     # 4. Training model
     # callbacks
     early_stop_callback = EarlyStopping(
         monitor="val_loss", patience=args.early_stopping_patience
     )
     # Init ModelCheckpoint callback, monitoring 'val_loss'
-    checkpoint_callback = ModelCheckpoint(monitor="val_loss")
+    checkpoint_callback = ModelCheckpoint(monitor="val_loss", save_last=True)
     # init pl.Trainer
     trainer = pl.Trainer.from_argparse_args(
         args,
@@ -707,6 +715,12 @@ if __name__ == "__main__":
     parser.add_argument("--intra_mol_energy", action="store_true")
     parser.set_defaults(
         use_energy_decoder=False, is_hetero=False, intra_mol_energy=False
+    )
+    parser.add_argument(
+        "--pretrained_weights",
+        type=str,
+        default=None,
+        help="path to pretrained weights to initialize model",
     )
 
     args = parser.parse_args()
