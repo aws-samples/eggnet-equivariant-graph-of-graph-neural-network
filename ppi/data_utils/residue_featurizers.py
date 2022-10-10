@@ -93,12 +93,8 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         elif readout == 'max':
             self.readout = MaxPooling()
         elif readout == 'attention':
-            if JK == 'concat':
-                self.readout = GlobalAttentionPooling(
-                    gate_nn=nn.Linear((self.gin_model.num_layers + 1) * self.gin_model.emb_dim, 1))
-            else:
-                self.readout = GlobalAttentionPooling(
-                    gate_nn=nn.Linear(self.gin_model.emb_dim, 1))
+            self.readout = GlobalAttentionPooling(
+                gate_nn=nn.Linear(self.gin_model.emb_dim, 1))
         elif readout == 'set2set':
             self.readout = Set2Set()
         else:
