@@ -86,6 +86,8 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         self.device = device
         self.requires_grad = requires_grad
 
+        emb_dim = gin_model.
+
         if readout == 'sum':
             self.readout = SumPooling()
         elif readout == 'mean':
@@ -217,6 +219,7 @@ def get_residue_featurizer(name=""):
         print(name)
         assert name in gin_names
         gin_model = load_pretrained(name)
+        print(gin_model)
         residue_featurizer = GINFeaturizer(gin_model=gin_model, readout=readout, requires_grad=requires_grad)
     else:
         raise NotImplementedError
