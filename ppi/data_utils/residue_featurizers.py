@@ -70,7 +70,7 @@ class GNNFeaturizer(BaseResidueFeaturizer, nn.Module):
     def _featurize(self, smiles: Union[str, List[str]]) -> torch.tensor:
         graphs = []
         for s in smiles:
-            mol = Chem.MolFromSmiles(smiles)
+            mol = Chem.MolFromSmiles(s)
             graph = mol_to_bigraph(mol)
             graphs.append(graph)
         g = dgl.batch(graphs)
