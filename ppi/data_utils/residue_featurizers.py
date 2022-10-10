@@ -118,11 +118,11 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
             graph_feats = self.readout(bg, node_feats)
         return graph_feats
 
-    def forward(self, smiles: str) -> torch.tensor:
+    def forward(self, smiles: str, device="cpu") -> torch.tensor:
         """Expose this method when we want to unfreeze the network,
         training jointly with higher level GNN"""
         assert self.requires_grad
-        return self._featurize(smiles)
+        return self._featurize(smiles, device=device)
 
     @property
     def output_size(self) -> int:
