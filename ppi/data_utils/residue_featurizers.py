@@ -83,7 +83,7 @@ class GNNFeaturizer(BaseResidueFeaturizer):
 
     @property
     def output_size(self) -> int:
-        return self.gnn_model.gnn_layers[-1].mlp.out_features
+        return self.gnn_model.gnn_layers[-1].mlp[-1].out_features
 
 class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
     """
