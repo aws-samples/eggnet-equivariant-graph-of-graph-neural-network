@@ -89,12 +89,9 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
             raise ValueError("Expect readout to be 'sum', 'mean', "
                              "'max', 'attention' or 'set2set', got {}".format(readout))
 
-        self.gin_model = self.gin_model.to(self.device)
-        self.readout = self.readout.to(self.device)
-
     def _featurize(self, smiles: Union[str, List[str]], device="cpu") -> torch.tensor:
-        print(self.device)
-        print(device)
+        self.gin_model = self.gin_model.to(device)
+        self.readout = self.readout.to(device)
         graphs = []
         for smi in smiles:
             mol = Chem.MolFromSmiles(smi)
