@@ -86,7 +86,7 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         self.device = device
         self.requires_grad = requires_grad
 
-        emb_dim = gin_model.node_embeddings[0].embedding_dim
+        self.emb_dim = gin_model.node_embeddings[0].embedding_dim
 
         if readout == 'sum':
             self.readout = SumPooling()
@@ -97,10 +97,10 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         elif readout == 'attention':
             if gin_model.JK == 'concat':
                 self.readout = GlobalAttentionPooling(
-                    gate_nn=nn.Linear((self.gin_model.num_layers + 1) * self.gin_model.emb_dim, 1))
+                    gate_nn=nn.Linear((self.gin_model.num_layers + 1) * self.emb_dim, 1))
             else:
                 self.readout = GlobalAttentionPooling(
-                    gate_nn=nn.Linear(self.gin_model.emb_dim, 1))
+                    gate_nn=nn.Linear(self.emb_dim, 1))
         elif readout == 'set2set':
             self.readout = Set2Set()
         else:
@@ -134,7 +134,7 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
 
     @property
     def output_size(self) -> int:
-        return self.gin_model.emb_dim
+        return self.emb_dim
 
 class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
     """
