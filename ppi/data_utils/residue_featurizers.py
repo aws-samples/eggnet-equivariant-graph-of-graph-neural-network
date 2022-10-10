@@ -79,15 +79,18 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         elif readout == 'attention':
             if gin_model.JK == 'concat':
                 self.readout = GlobalAttentionPooling(
-                    gate_nn=nn.Linear((self.gin_model.num_layers + 1) * self.emb_dim, 1).to(device))
+                    gate_nn=nn.Linear((self.gin_model.num_layers + 1) * self.emb_dim, 1))
             else:
                 self.readout = GlobalAttentionPooling(
-                    gate_nn=nn.Linear(self.emb_dim, 1).to(device))
+                    gate_nn=nn.Linear(self.emb_dim, 1))
         elif readout == 'set2set':
             self.readout = Set2Set()
         else:
             raise ValueError("Expect readout to be 'sum', 'mean', "
                              "'max', 'attention' or 'set2set', got {}".format(readout))
+
+        self.gin_model = self.gin_model.to(self.device)
+        self.readout = self.readout.to(self.device)
 
     def _featurize(self, smiles: Union[str, List[str]]) -> torch.tensor:
         graphs = []
