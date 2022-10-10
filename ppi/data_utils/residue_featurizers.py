@@ -204,6 +204,7 @@ def get_residue_featurizer(name="", device="cpu"):
         name = "_".join(name_split[0:3])
         name = name.lower()
         print(name)
+        print(device)
         assert name in gin_names
         gin_model = load_pretrained(name)
         gin_model = gin_model.to(device)
