@@ -68,7 +68,7 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         self.gin_model = gin_model
         self.requires_grad = requires_grad
 
-        self.emb_dim = gin_model.node_embeddings[0].embedding_dim
+        self.emb_dim = self.gin_model.node_embeddings[0].embedding_dim
 
         if readout == 'sum':
             self.readout = SumPooling()

@@ -594,18 +594,6 @@ class LitMultiStageGVPModel(pl.LightningModule):
 class LitMultiStageHGVPModel(pl.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
-        self.residue_featurizer = get_residue_featurizer(
-            kwargs["residue_featurizer_name"], device=self.device
-        )
-         # lazy init for model that requires an input datum
-        if kwargs.get("g", None):
-            protein_node_in_dim, protein_edge_in_dim = infer_input_dim(kwargs["g"])
-            protein_node_in_dim = (
-                protein_node_in_dim[0] + self.residue_featurizer.output_size,
-                protein_node_in_dim[1],
-            )
-            kwargs["protein_node_in_dim"] = protein_node_in_dim
-            kwargs["protein_edge_in_dim"] = protein_edge_in_dim
         
         hparams = [
             "lr",
@@ -635,6 +623,20 @@ class LitMultiStageHGVPModel(pl.LightningModule):
             "min_loss_der2",
         ]
         self.save_hyperparameters(*hparams)
+
+        self.residue_featurizer = get_residue_featurizer(
+            kwargs["residue_featurizer_name"], 
+            device=self.device
+        )
+         # lazy init for model that requires an input datum
+        if kwargs.get("g", None):
+            protein_node_in_dim, protein_edge_in_dim = infer_input_dim(kwargs["g"])
+            protein_node_in_dim = (
+                protein_node_in_dim[0] + self.residue_featurizer.output_size,
+                protein_node_in_dim[1],
+            )
+            kwargs["protein_node_in_dim"] = protein_node_in_dim
+            kwargs["protein_edge_in_dim"] = protein_edge_in_dim
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
         self.model = MultiStageGVPModel(**model_kwargs)
 
