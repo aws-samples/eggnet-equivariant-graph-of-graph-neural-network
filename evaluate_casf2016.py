@@ -256,7 +256,10 @@ def main(args):
     pl.seed_everything(42, workers=True)
     # 0. Prepare model
     model = load_model_from_checkpoint(args.checkpoint_path, args.model_name)
-
+    if args.checkpoint_path.endswith(".ckpt"):
+        checkpoint_path = os.path.join(args.checkpoint_path, "../../")
+    else:
+        checkpoint_path = args.checkpoint_path
     # 1. Scoring data
     print("Performing scoring task...")
     scoring_dataset = get_datasets(
@@ -291,7 +294,7 @@ def main(args):
     json.dump(
         scores,
         open(
-            os.path.join(args.checkpoint_path, "casf2016_scoring_scores.json"),
+            os.path.join(checkpoint_path, "casf2016_scoring_scores.json"),
             "w",
         ),
     )
@@ -338,7 +341,7 @@ def main(args):
     json.dump(
         docking_scores,
         open(
-            os.path.join(args.checkpoint_path, "casf2016_docking_scores.json"),
+            os.path.join(checkpoint_path, "casf2016_docking_scores.json"),
             "w",
         ),
     )
@@ -381,9 +384,7 @@ def main(args):
     json.dump(
         screening_scores,
         open(
-            os.path.join(
-                args.checkpoint_path, "casf2016_screening_scores.json"
-            ),
+            os.path.join(checkpoint_path, "casf2016_screening_scores.json"),
             "w",
         ),
     )
