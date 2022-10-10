@@ -92,7 +92,8 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         self.gin_model = self.gin_model.to(self.device)
         self.readout = self.readout.to(self.device)
 
-    def _featurize(self, smiles: Union[str, List[str]]) -> torch.tensor:
+    def _featurize(self, smiles: Union[str, List[str]], device="cpu") -> torch.tensor:
+        print(device)
         graphs = []
         for smi in smiles:
             mol = Chem.MolFromSmiles(smi)
@@ -112,9 +113,6 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
                 node_feats = self.gin_model(bg, nfeats, efeats)
                 graph_feats = self.readout(bg, node_feats)
         else:
-            print(bg.get_device())
-            print(nfeats.get_device())
-            print(efeats.get_device())
             node_feats = self.gin_model(bg, nfeats, efeats)
             graph_feats = self.readout(bg, node_feats)
         return graph_feats
