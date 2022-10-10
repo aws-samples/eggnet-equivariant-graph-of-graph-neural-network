@@ -222,6 +222,15 @@ class LitHGVPModel(pl.LightningModule):
             "residual",
             "seq_embedding",
             "residue_featurizer_name",
+            "use_energy_decoder",
+            "intra_mol_energy",
+            "vdw_N",
+            "max_vdw_interaction",
+            "min_vdw_interaction",
+            "dev_vdw_radius",
+            "loss_der1_ratio",
+            "loss_der2_ratio",
+            "min_loss_der2",
         ]
         self.save_hyperparameters(*hparams)
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
@@ -250,7 +259,48 @@ class LitHGVPModel(pl.LightningModule):
             default=(32, 1),
             help="edge_h_dim in GVP",
         )
-
+        parser.add_argument(
+            "--vdw_N",
+            help="vdw N",
+            type=float,
+            default=6.0,
+        )
+        parser.add_argument(
+            "--max_vdw_interaction",
+            help="max vdw _interaction",
+            type=float,
+            default=0.0356,
+        )
+        parser.add_argument(
+            "--min_vdw_interaction",
+            help="min vdw _interaction",
+            type=float,
+            default=0.0178,
+        )
+        parser.add_argument(
+            "--dev_vdw_radius",
+            help="deviation of vdw radius",
+            type=float,
+            default=0.2,
+        )
+        parser.add_argument(
+            "--loss_der1_ratio",
+            help="loss der1 ratio",
+            type=float,
+            default=10.0,
+        )
+        parser.add_argument(
+            "--loss_der2_ratio",
+            help="loss der2 ratio",
+            type=float,
+            default=10.0,
+        )
+        parser.add_argument(
+            "--min_loss_der2",
+            help="min loss der2",
+            type=float,
+            default=-20.0,
+        )
         parser.add_argument("--num_layers", type=int, default=3)
         parser.add_argument("--drop_rate", type=float, default=0.1)
         parser.add_argument("--residual", action="store_true")
@@ -258,17 +308,31 @@ class LitHGVPModel(pl.LightningModule):
         parser.set_defaults(residual=False, seq_embedding=False)
         return parent_parser
 
-    def _compute_loss(self, logits, targets):
+    def _compute_loss(self, logits, targets, loss_der1=0, loss_der2=0):
         # regression
-        loss = F.mse_loss(logits, targets)
-        return loss
+        if self.hparams.use_energy_decoder:
+            loss_all = 0.0
+            loss = F.mse_loss(logits, targets)
+            loss_der2 = loss_der2.clamp(min=self.hparams.min_loss_der2)
+            loss_all += loss
+            loss_all += loss_der1.sum() * self.hparams.loss_der1_ratio
+            loss_all += loss_der2.sum() * self.hparams.loss_der2_ratio
+            return loss_all
+        else:
+            loss = F.mse_loss(logits, targets)
+            return loss
 
-    def forward(self, batch):
+    def forward(self, batch, cal_der_loss=False):
         bg, smiles_strings = batch["graph"], batch["smiles_strings"]
         node_s = bg.ndata["node_s"]
         residue_embeddings = self.residue_featurizer(smiles_strings)
         bg.ndata["node_s"] = torch.cat((node_s, residue_embeddings), axis=1)
-        return self.model(bg)
+        if self.hparams.use_energy_decoder:
+            return self.model(
+                bg, sample=batch.get("sample"), cal_der_loss=cal_der_loss
+            )
+        else:
+            return self.model(bg, sample=batch.get("sample"))
 
     def _step(self, batch, batch_idx, prefix="train"):
         """Used in train/validation loop, independent of `forward`
@@ -279,10 +343,26 @@ class LitHGVPModel(pl.LightningModule):
         Returns:
             Loss
         """
-        logits, g_logits = self.forward(batch)
-        # graph-level targets
-        g_targets = batch["g_targets"]
-        loss = self._compute_loss(g_logits, g_targets)
+        if self.hparams.use_energy_decoder:
+            cal_der_loss = False
+            if prefix == "train":
+                if (
+                    self.hparams.loss_der1_ratio > 0
+                    or self.hparams.loss_der2_ratio > 0.0
+                ):
+                    cal_der_loss = True
+
+            energies, der1, der2 = self.forward(
+                batch,
+                cal_der_loss=cal_der_loss,
+            )
+            g_preds = energies.sum(-1).unsqueeze(-1)
+            g_targets = batch["g_targets"]
+            loss = self._compute_loss(g_preds, g_targets, der1, der2)
+        else:
+            logits, g_logits = self.forward(batch)
+            g_targets = batch["g_targets"]
+            loss = self._compute_loss(g_logits, g_targets)
         self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])
         return loss
 
@@ -597,16 +677,18 @@ class LitMultiStageHGVPModel(pl.LightningModule):
         self.residue_featurizer = get_residue_featurizer(
             kwargs["residue_featurizer_name"]
         )
-         # lazy init for model that requires an input datum
+        # lazy init for model that requires an input datum
         if kwargs.get("g", None):
-            protein_node_in_dim, protein_edge_in_dim = infer_input_dim(kwargs["g"])
+            protein_node_in_dim, protein_edge_in_dim = infer_input_dim(
+                kwargs["g"]
+            )
             protein_node_in_dim = (
                 protein_node_in_dim[0] + self.residue_featurizer.output_size,
                 protein_node_in_dim[1],
             )
             kwargs["protein_node_in_dim"] = protein_node_in_dim
             kwargs["protein_edge_in_dim"] = protein_edge_in_dim
-        
+
         hparams = [
             "lr",
             "protein_node_in_dim",
@@ -748,11 +830,29 @@ class LitMultiStageHGVPModel(pl.LightningModule):
             loss = F.mse_loss(logits, targets)
             return loss
 
-    def forward(self, protein_graph, ligand_graph, complex_graph, sample=None, smiles_strings=None, cal_der_loss=False, atom_to_residue=None):
+    def forward(
+        self,
+        protein_graph,
+        ligand_graph,
+        complex_graph,
+        sample=None,
+        smiles_strings=None,
+        cal_der_loss=False,
+        atom_to_residue=None,
+    ):
         protein_node_s = protein_graph.ndata["node_s"]
         residue_embeddings = self.residue_featurizer(smiles_strings)
-        protein_graph.ndata["node_s"] = torch.cat((protein_node_s, residue_embeddings), axis=1)
-        return self.model(protein_graph, ligand_graph, complex_graph, sample=sample, cal_der_loss=cal_der_loss, atom_to_residue=atom_to_residue)
+        protein_graph.ndata["node_s"] = torch.cat(
+            (protein_node_s, residue_embeddings), axis=1
+        )
+        return self.model(
+            protein_graph,
+            ligand_graph,
+            complex_graph,
+            sample=sample,
+            cal_der_loss=cal_der_loss,
+            atom_to_residue=atom_to_residue,
+        )
 
     def _step(self, batch, batch_idx, prefix="train"):
         """Used in train/validation loop, independent of `forward`
@@ -766,17 +866,40 @@ class LitMultiStageHGVPModel(pl.LightningModule):
         if self.hparams.use_energy_decoder:
             cal_der_loss = False
             if prefix == "train":
-                if self.hparams.loss_der1_ratio > 0 or self.hparams.loss_der2_ratio > 0.0:
+                if (
+                    self.hparams.loss_der1_ratio > 0
+                    or self.hparams.loss_der2_ratio > 0.0
+                ):
                     cal_der_loss = True
             if self.hparams.is_hetero:
-                energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], batch["smiles_strings"], cal_der_loss, batch["atom_to_residue"])
+                energies, der1, der2 = self.forward(
+                    batch["protein_graph"],
+                    batch["ligand_graph"],
+                    batch["complex_graph"],
+                    batch["sample"],
+                    batch["smiles_strings"],
+                    cal_der_loss,
+                    batch["atom_to_residue"],
+                )
             else:
-                energies, der1, der2 = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], batch["sample"], batch["smiles_strings"], cal_der_loss)
+                energies, der1, der2 = self.forward(
+                    batch["protein_graph"],
+                    batch["ligand_graph"],
+                    batch["complex_graph"],
+                    batch["sample"],
+                    batch["smiles_strings"],
+                    cal_der_loss,
+                )
             g_preds = energies.sum(-1).unsqueeze(-1)
             g_targets = batch["g_targets"]
             loss = self._compute_loss(g_preds, g_targets, der1, der2)
         else:
-            logits, g_logits = self.forward(batch["protein_graph"], batch["ligand_graph"], batch["complex_graph"], smiles_strings=batch["smiles_strings"])
+            logits, g_logits = self.forward(
+                batch["protein_graph"],
+                batch["ligand_graph"],
+                batch["complex_graph"],
+                smiles_strings=batch["smiles_strings"],
+            )
             g_targets = batch["g_targets"]
             loss = self._compute_loss(g_logits, g_targets)
         self.log("{}_loss".format(prefix), loss, batch_size=g_targets.shape[0])
