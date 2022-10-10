@@ -83,7 +83,7 @@ class GNNFeaturizer(BaseResidueFeaturizer):
 
     @property
     def output_size(self) -> int:
-        return self.gnn_model.config.d_model
+        return self.gnn_model.gnn_layers[-1].mlp.out_features
 
 class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
     """
@@ -137,7 +137,7 @@ class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
 
     @property
     def output_size(self) -> int:
-        return self.gnn_model.gnn_layers[-1].mlp.out_features
+        return self.model.config.d_model
 
 
 def get_residue_featurizer(name=""):
@@ -163,7 +163,7 @@ def get_residue_featurizer(name=""):
         requires_grad = True if "grad" in name else False
         name = name.replace("-grad", "")
         name = name.replace("-", "_")
-        name = name.lower()
+        name = name.lower
         assert name in gnn_names
         gnn_model = load_pretrained(name)
         print(gnn_model)
