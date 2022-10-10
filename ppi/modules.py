@@ -704,29 +704,29 @@ class MultiStageGVPModel(nn.Module):
         ## Decoder
         if use_energy_decoder:
             if self.is_hetero:
-                self.atomic_decomposition_s = nn.ModuleDict(
-                    {
-                        atomic_key: nn.Sequential(
-                            nn.Linear(ns_c, 2 * ns_c),
-                            nn.ReLU(inplace=True),
-                            nn.Dropout(p=drop_rate),
-                            nn.Linear(2 * ns_c, ns_c),
-                        )
-                        for atomic_key in ATOMIC_KEYS + ["Other"]
-                    }
-                )
+                # self.atomic_decomposition_s = nn.ModuleDict(
+                #     {
+                #         atomic_key: nn.Sequential(
+                #             nn.Linear(ns_c, 2 * ns_c),
+                #             nn.ReLU(inplace=True),
+                #             nn.Dropout(p=drop_rate),
+                #             nn.Linear(2 * ns_c, ns_c),
+                #         )
+                #         for atomic_key in ATOMIC_KEYS + ["Other"]
+                #     }
+                # )
 
-                self.atomic_decomposition_v = nn.ModuleDict(
-                    {
-                        atomic_key: nn.Sequential(
-                            nn.Linear(nv_c, 2 * nv_c),
-                            nn.ReLU(inplace=True),
-                            nn.Dropout(p=drop_rate),
-                            nn.Linear(2 * nv_c, nv_c),
-                        )
-                        for atomic_key in ATOMIC_KEYS + ["Other"]
-                    }
-                )
+                # self.atomic_decomposition_v = nn.ModuleDict(
+                #     {
+                #         atomic_key: nn.Sequential(
+                #             nn.Linear(nv_c, 2 * nv_c),
+                #             nn.ReLU(inplace=True),
+                #             nn.Dropout(p=drop_rate),
+                #             nn.Linear(2 * nv_c, nv_c),
+                #         )
+                #         for atomic_key in ATOMIC_KEYS + ["Other"]
+                #     }
+                # )
 
             self.decoder = EnergyDecoder(
                 ns_c,
@@ -903,18 +903,18 @@ class MultiStageGVPModel(nn.Module):
                     k = tuple([round(j, 2) for j in coords.tolist()])
                     residue_idx, atom_id, res_name = residue_lookup[k]
                     # atom_type = atom_id[0]
-                    if atom_id in ATOMIC_KEYS:
-                        protein_atom_s = self.atomic_decomposition_s[atom_id](
-                            protein_s[residue_idx, :]
-                        )
-                        protein_atom_v = self.atomic_decomposition_v[atom_id](
-                            protein_v[residue_idx, :].permute(1, 0)
-                        )
-                    else:
-                        protein_atom_s = self.atomic_decomposition_s['Other'](protein_s[residue_idx, :])
-                        protein_atom_v = self.atomic_decomposition_v['Other'](protein_v[residue_idx, :].permute(1, 0))
-                    # protein_atom_s = protein_s[residue_idx, :]
-                    # protein_atom_v = protein_v[residue_idx, :]
+                    # if atom_id in ATOMIC_KEYS:
+                    #     protein_atom_s = self.atomic_decomposition_s[atom_id](
+                    #         protein_s[residue_idx, :]
+                    #     )
+                    #     protein_atom_v = self.atomic_decomposition_v[atom_id](
+                    #         protein_v[residue_idx, :].permute(1, 0)
+                    #     )
+                    # else:
+                    #     protein_atom_s = self.atomic_decomposition_s['Other'](protein_s[residue_idx, :])
+                    #     protein_atom_v = self.atomic_decomposition_v['Other'](protein_v[residue_idx, :].permute(1, 0))
+                    protein_atom_s = protein_s[residue_idx, :]
+                    protein_atom_v = protein_v[residue_idx, :]
                     protein_atom_s_list.append(protein_atom_s)
                     protein_atom_v_list.append(protein_atom_v.permute(1, 0))
                     num_atoms += 1
