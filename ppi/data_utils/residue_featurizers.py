@@ -1,6 +1,7 @@
 """
 Utils for featurizing a small molecule (amino acid residue) from their structures.
 """
+import dgl
 from typing import Union, List
 from transformers import T5Tokenizer, T5EncoderModel
 import torch
