@@ -81,6 +81,10 @@ class GNNFeaturizer(BaseResidueFeaturizer):
         assert self.requires_grad
         return self._featurize(smiles)
 
+    @property
+    def output_size(self) -> int:
+        return self.gnn_model.config.d_model
+
 class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
     """
     Use MolT5 encodings as residue features.
@@ -161,6 +165,7 @@ def get_residue_featurizer(name=""):
         name = name.replace("-", "_")
         assert name in gnn_names
         gnn_model = load_pretrained(name)
+        print(gnn_model)
         residue_featurizer = GNNFeaturizer(gnn_model, requires_grad)
     else:
         raise NotImplementedError
