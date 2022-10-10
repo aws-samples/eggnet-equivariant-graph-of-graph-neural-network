@@ -61,10 +61,11 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
     to featurize the graph as a vector.
     """
 
-    def __init__(self, gin_model, readout='attention', requires_grad=False):
+    def __init__(self, gin_model, readout='attention', requires_grad=False, device="cpu"):
         nn.Module.__init__(self)
         BaseResidueFeaturizer.__init__(self)
-        self.gin_model = gin_model
+        self.device = device
+        self.gin_model = gin_model.to(self.device)
         self.requires_grad = requires_grad
 
         self.emb_dim = gin_model.node_embeddings[0].embedding_dim
@@ -98,10 +99,11 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
                                canonical_atom_order=False)
             graphs.append(graph)
         bg = dgl.batch(graphs)
-        nfeats = [bg.ndata.pop('atomic_number'),
-                  bg.ndata.pop('chirality_type')]
-        efeats = [bg.edata.pop('bond_type'),
-                  bg.edata.pop('bond_direction_type')]
+        bg = bg.to(self.device)
+        nfeats = [bg.ndata.pop('atomic_number').to(self.device),
+                  bg.ndata.pop('chirality_type').to(self.device)]
+        efeats = [bg.edata.pop('bond_type').to(self.device),
+                  bg.edata.pop('bond_direction_type').to(self.device)]
         if not self.requires_grad:
             with torch.no_grad():
                 node_feats = self.gin_model(bg, nfeats, efeats)
@@ -176,7 +178,7 @@ class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
         return self.model.config.d_model
 
 
-def get_residue_featurizer(name=""):
+def get_residue_featurizer(name="", device="cpu"):
     """
     Handles initializing the residue featurizer.
     """
@@ -205,7 +207,10 @@ def get_residue_featurizer(name=""):
         assert name in gin_names
         gin_model = load_pretrained(name)
         print(gin_model)
-        residue_featurizer = GINFeaturizer(gin_model=gin_model, readout=readout, requires_grad=requires_grad)
+        residue_featurizer = GINFeaturizer(gin_model=gin_model, 
+                                            readout=readout, 
+                                            requires_grad=requires_grad, 
+                                            device=device)
     else:
         raise NotImplementedError
     return residue_featurizer

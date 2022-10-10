@@ -595,7 +595,7 @@ class LitMultiStageHGVPModel(pl.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
         self.residue_featurizer = get_residue_featurizer(
-            kwargs["residue_featurizer_name"]
+            kwargs["residue_featurizer_name"], device=self.device
         )
          # lazy init for model that requires an input datum
         if kwargs.get("g", None):
