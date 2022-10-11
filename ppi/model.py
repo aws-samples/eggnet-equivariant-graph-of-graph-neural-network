@@ -41,6 +41,7 @@ class LitGVPModel(pl.LightningModule):
             "seq_embedding",
             "use_energy_decoder",
             "intra_mol_energy",
+            "energy_agg_type",
             "vdw_N",
             "max_vdw_interaction",
             "min_vdw_interaction",
@@ -123,6 +124,12 @@ class LitGVPModel(pl.LightningModule):
             help="min loss der2",
             type=float,
             default=-20.0,
+        )
+        parser.add_argument(
+            "--energy_agg_type",
+            help="type of energy aggregator in the format of {agg_type}_{bn:0/1}",
+            type=str,
+            default="0_1",
         )
         parser.set_defaults(residual=False, seq_embedding=False)
         return parent_parser

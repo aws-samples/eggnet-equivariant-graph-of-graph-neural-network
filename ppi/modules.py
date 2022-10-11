@@ -234,6 +234,88 @@ class GVPEncoder(nn.Module):
         return out  # shape: [n_nodes, ns]
 
 
+class EnergyAggregator(nn.Module):
+    """
+    Module to aggregate three sources of energies (E_int, E_A, E_B).
+    """
+
+    def __init__(self, agg_type=3, batchnorm=False):
+        """
+        Args:
+            agg_type:
+                - 3: weighting on the three sources
+                - 12: weighting on the 3 sources * 4 types
+                - 0: equal weights
+        """
+        super(EnergyAggregator, self).__init__()
+        self.agg_type = agg_type
+        self.batchnorm = batchnorm
+        if self.agg_type != 0:
+            self.weights = nn.Linear(self.agg_type, 1, bias=False)
+            if self.batchnorm:
+                self.bn = nn.BatchNorm1d(self.agg_type)
+
+    def forward(
+        self,
+        energies,
+        der1,
+        der2,
+        energies_l,
+        der1_l,
+        der2_l,
+        energies_t,
+        der1_t,
+        der2_t,
+    ):
+        if self.agg_type == 0:
+            energies_agg = energies + energies_l + energies_t
+            der1_agg = der1 + der1_l + der1_t
+            der2_agg = der2 + der2_l + der2_t
+        else:
+            if self.agg_type == 3:
+                if self.batchnorm:
+                    energies_agg = torch.stack(
+                        [energies, energies_l, energies_t], axis=1
+                    )
+                    energies_agg = self.bn(energies_agg)  # shape: [bs, 3, 4]
+                    energies_agg = self.weights(
+                        energies_agg.transpose(1, 2)
+                    ).squeeze(-1)
+                    # shape: [bs, 4]
+                else:
+                    energies_agg = torch.stack(
+                        [energies, energies_l, energies_t], axis=-1
+                    )  # shape: [bs, 4, 3]
+                    energies_agg = self.weights(energies_agg).squeeze(-1)
+                    # shape: [bs, 4]
+                # aggregate scalers
+                der1_agg = self.weights(
+                    torch.stack([der1, der1_l, der1_t])
+                )  # shape: [1]
+                der2_agg = self.weights(
+                    torch.stack([der2, der2_l, der2_t])
+                )  # shape: [1]
+            elif self.agg_type == 12:
+                energies_agg = torch.cat(
+                    [energies, energies_l, energies_t], axis=-1
+                )
+                if self.batchnorm:
+                    energies_agg = self.bn(energies_agg)
+                energies_agg = self.weights(energies_agg).squeeze(
+                    -1
+                )  # shape: [bs, 1]
+                der1_agg = torch.cat(
+                    [der1.repeat(4), der1_l.repeat(4), der1_t.repeat(4)]
+                )
+                der1_agg = self.weights(der1_agg)  # shape: [1]
+                der2_agg = torch.cat(
+                    [der2.repeat(4), der2_l.repeat(4), der2_t.repeat(4)]
+                )
+                der2_agg = self.weights(der2_agg)  # shape: [1]
+
+        return energies_agg, der1_agg, der2_agg
+
+
 class GVPModel(nn.Module):
     """GVP-GNN Model (structure-only) modified from `MQAModel`:
     https://github.com/drorlab/gvp-pytorch/blob/main/gvp/model.py
@@ -252,6 +334,7 @@ class GVPModel(nn.Module):
         seq_embedding=True,
         use_energy_decoder=False,
         intra_mol_energy=False,
+        energy_agg_type="0_1",
         vdw_N=6.0,
         max_vdw_interaction=0.0356,
         min_vdw_interaction=0.0178,
@@ -315,8 +398,12 @@ class GVPModel(nn.Module):
                     dev_vdw_radius=dev_vdw_radius,
                     no_rotor_penalty=no_rotor_penalty,
                 )
-                # used for weighted sum of 3 sources of energies
-                self.energy_weights = nn.Linear(3 * 4, 1, bias=False)
+                # used for aggregating 3 sources of energies
+                agg_type = int(energy_agg_type.split("_")[0])
+                batchnorm = bool(int(energy_agg_type.split("_")[1]))
+                self.energy_aggregator = EnergyAggregator(
+                    agg_type=agg_type, batchnorm=batchnorm
+                )
         else:
             self.decoder = nn.Sequential(
                 nn.Linear(ns, 2 * ns),
@@ -405,22 +492,18 @@ class GVPModel(nn.Module):
                     DM_min=DM_min,
                     cal_der_loss=cal_der_loss,
                 )
-                # weighted sum of 3 * 4 energies
-                energies = torch.cat(
-                    [energies, energies_l, energies_t], axis=-1
+                # aggregate energies
+                energies, der1, der2 = self.energy_aggregator(
+                    energies,
+                    der1,
+                    der2,
+                    energies_l,
+                    der1_l,
+                    der2_l,
+                    energies_t,
+                    der1_t,
+                    der2_t,
                 )
-                # shape: [bs, 4 types of interactions * 3]
-                energies = self.energy_weights(energies)
-                der1 = self.energy_weights(
-                    torch.cat(
-                        [der1.repeat(4), der1_l.repeat(4), der1_t.repeat(4)]
-                    )
-                ).squeeze(-1)
-                der2 = self.energy_weights(
-                    torch.cat(
-                        [der2.repeat(4), der2_l.repeat(4), der2_t.repeat(4)]
-                    )
-                ).squeeze(-1)
             return energies, der1, der2
         else:
             # aggregate node vectors to graph
