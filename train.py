@@ -446,7 +446,7 @@ def evaluate_graph_regression(
             for key, val in batch.items():
                 if key not in ("sample", "atom_to_residue", "smiles_strings"):
                     batch[key] = val.to(device)
-            if model_name == "gvp":
+            if model_name in ("gvp", "hgvp"):
                 batch["graph"] = batch["graph"].to(device)
                 if use_energy_decoder:
                     batch["sample"] = {
