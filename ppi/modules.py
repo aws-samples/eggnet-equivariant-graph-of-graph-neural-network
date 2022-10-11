@@ -301,9 +301,7 @@ class EnergyAggregator(nn.Module):
                 )
                 if self.batchnorm:
                     energies_agg = self.bn(energies_agg)
-                energies_agg = self.weights(energies_agg).squeeze(
-                    -1
-                )  # shape: [bs, 1]
+                energies_agg = self.weights(energies_agg)  # shape: [bs, 1]
                 der1_agg = torch.cat(
                     [der1.repeat(4), der1_l.repeat(4), der1_t.repeat(4)]
                 )
