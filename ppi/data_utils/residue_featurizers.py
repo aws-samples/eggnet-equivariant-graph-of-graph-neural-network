@@ -93,7 +93,9 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         self.gin_model = self.gin_model.to(device)
         self.readout = self.readout.to(device)
         graphs = []
+        single_str = False
         if isinstance(smiles, str):
+            single_str = True
             smiles = [smiles]
         for smi in smiles:
             mol = Chem.MolFromSmiles(smi)
@@ -115,7 +117,10 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         else:
             node_feats = self.gin_model(bg, nfeats, efeats)
             graph_feats = self.readout(bg, node_feats)
-        return graph_feats
+        if single_str:
+            return graph_feats.squeeze(0)
+        else:
+            return graph_feats
 
     def forward(self, smiles: str, device="cpu") -> torch.tensor:
         """Expose this method when we want to unfreeze the network,
