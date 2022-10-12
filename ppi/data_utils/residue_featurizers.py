@@ -192,7 +192,7 @@ class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
         # average over positions:
         return last_hidden_states.mean(axis=1).squeeze(0)
 
-    def forward(self, smiles: str) -> torch.tensor:
+    def forward(self, smiles: str, device="cpu") -> torch.tensor:
         """Expose this method when we want to unfreeze the network,
         training jointly with higher level GNN"""
         assert self.requires_grad
