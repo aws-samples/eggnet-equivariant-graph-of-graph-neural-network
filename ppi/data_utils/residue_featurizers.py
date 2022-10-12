@@ -114,7 +114,6 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
                 node_feats = self.gin_model(g, nfeats, efeats)
                 graph_feats = self.readout(g, node_feats)
             output_vec = graph_feats.squeeze(0)
-            print(output_vec.shape)
             return output_vec
         else:
             for smi in smiles:
