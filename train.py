@@ -462,9 +462,6 @@ def evaluate_graph_regression(
                         key: val.to(device)
                         for key, val in batch["sample"].items()
                     }
-                    for key, val in batch.items():
-                        if key not in ["sample", "atom_to_residue"]:
-                            batch[key] = val.to(device)
                     if is_hetero:
                         energies, _, _ = model(
                             batch["protein_graph"],
