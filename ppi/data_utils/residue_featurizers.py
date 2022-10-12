@@ -118,9 +118,7 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
             node_feats = self.gin_model(bg, nfeats, efeats)
             graph_feats = self.readout(bg, node_feats)
         if single_str:
-            print(type(graph_feats))
-            print(graph_feats.shape)
-            return torch.flatten(graph_feats)
+            graph_feats.unsqueeze(0)
         else:
             return graph_feats
 
