@@ -93,33 +93,46 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         self.gin_model = self.gin_model.to(device)
         self.readout = self.readout.to(device)
         graphs = []
-        single_str = False
         if isinstance(smiles, str):
-            single_str = True
-            smiles = [smiles]
-        for smi in smiles:
             mol = Chem.MolFromSmiles(smi)
-            graph = mol_to_bigraph(mol, add_self_loop=True,
-                               node_featurizer=PretrainAtomFeaturizer(),
-                               edge_featurizer=PretrainBondFeaturizer(),
-                               canonical_atom_order=False)
-            graphs.append(graph)
-        bg = dgl.batch(graphs)
-        bg = bg.to(device)
-        nfeats = [bg.ndata.pop('atomic_number').to(device),
-                  bg.ndata.pop('chirality_type').to(device)]
-        efeats = [bg.edata.pop('bond_type').to(device),
-                  bg.edata.pop('bond_direction_type').to(device)]
-        if not self.requires_grad:
-            with torch.no_grad():
+            g = mol_to_bigraph(mol, add_self_loop=True,
+                                node_featurizer=PretrainAtomFeaturizer(),
+                                edge_featurizer=PretrainBondFeaturizer(),
+                                canonical_atom_order=False)
+            g = g.to(device)
+            nfeats = [g.ndata.pop('atomic_number').to(device),
+                    g.ndata.pop('chirality_type').to(device)]
+            efeats = [g.edata.pop('bond_type').to(device),
+                    g.edata.pop('bond_direction_type').to(device)]
+            if not self.requires_grad:
+                with torch.no_grad():
+                    node_feats = self.gin_model(g, nfeats, efeats)
+                    graph_feats = self.readout(g, node_feats)
+            else:
+                node_feats = self.gin_model(g, nfeats, efeats)
+                graph_feats = self.readout(g, node_feats)
+            return graph_feats
+        else:
+            for smi in smiles:
+                mol = Chem.MolFromSmiles(smi)
+                graph = mol_to_bigraph(mol, add_self_loop=True,
+                                node_featurizer=PretrainAtomFeaturizer(),
+                                edge_featurizer=PretrainBondFeaturizer(),
+                                canonical_atom_order=False)
+                graphs.append(graph)
+            bg = dgl.batch(graphs)
+            bg = bg.to(device)
+            nfeats = [bg.ndata.pop('atomic_number').to(device),
+                    bg.ndata.pop('chirality_type').to(device)]
+            efeats = [bg.edata.pop('bond_type').to(device),
+                    bg.edata.pop('bond_direction_type').to(device)]
+            if not self.requires_grad:
+                with torch.no_grad():
+                    node_feats = self.gin_model(bg, nfeats, efeats)
+                    graph_feats = self.readout(bg, node_feats)
+            else:
                 node_feats = self.gin_model(bg, nfeats, efeats)
                 graph_feats = self.readout(bg, node_feats)
-        else:
-            node_feats = self.gin_model(bg, nfeats, efeats)
-            graph_feats = self.readout(bg, node_feats)
-        if single_str:
-            return graph_feats.squeeze(0)
-        else:
             return graph_feats
 
     def forward(self, smiles: str, device="cpu") -> torch.tensor:
