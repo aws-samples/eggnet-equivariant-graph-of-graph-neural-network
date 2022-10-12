@@ -91,6 +91,8 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
 
     def _featurize(self, smiles: Union[str, List[str]], device="cpu") -> torch.tensor:
         self.gin_model = self.gin_model.to(device)
+        if not self.requires_grad:
+            self.gin_model.eval()
         self.readout = self.readout.to(device)
         graphs = []
         if isinstance(smiles, str):
