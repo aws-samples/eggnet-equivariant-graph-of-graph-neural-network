@@ -86,7 +86,8 @@ python train.py --accelerator gpu \
     --residue_featurizer_name MolT5-small-grad \
     --use_energy_decoder \
     --is_hetero \
-    --data_dir $pdbbind_data
+    --data_dir $pdbbind_data \
+    --bs 4
 
 # row9: pretrained GNN joint training	MS-GVP	E_int
 python train.py --accelerator gpu \
@@ -99,5 +100,5 @@ python train.py --accelerator gpu \
     --residue_featurizer_name MolT5-small-grad \
     --use_energy_decoder \
     --is_hetero \
-    --data_dir $pdbbind_data
-    
+    --data_dir $pdbbind_data \
+    --bs 4
