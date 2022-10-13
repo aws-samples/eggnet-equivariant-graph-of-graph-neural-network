@@ -848,7 +848,7 @@ class LitMultiStageHGVPModel(pl.LightningModule):
         atom_to_residue=None,
     ):
         protein_node_s = protein_graph.ndata["node_s"]
-        residue_embeddings = self.residue_featurizer(smiles_strings)
+        residue_embeddings = self.residue_featurizer(smiles_strings, device=self.device)
         protein_graph.ndata["node_s"] = torch.cat(
             (protein_node_s, residue_embeddings), axis=1
         )
