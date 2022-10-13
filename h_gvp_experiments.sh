@@ -400,7 +400,7 @@ python train.py --accelerator gpu \
 python evaluate_casf2016.py --model_name gvp \
     --num_workers 8 \
     --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/casf2016_processed \
-    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_MolT5/lightning_logs/version_2 \
+    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5/lightning_logs/version_19 \
     --residue_featurizer_name MolT5-small \
     --use_energy_decoder \
     --intra_mol_energy \
@@ -431,3 +431,349 @@ python train.py --accelerator gpu \
     --node_h_dim 200 32 \
     --edge_h_dim 64 2 \
     --persistent_workers True
+
+## ssGVP with 3 energies (weighted)
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --intra_mol_energy \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=10.0 \
+    --loss_der2_ratio=10.0 \
+    --min_loss_der2=-20.0 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --persistent_workers True
+
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --intra_mol_energy \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=10.0 \
+    --loss_der2_ratio=10.0 \
+    --min_loss_der2=-20.0 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --persistent_workers True \
+    --energy_agg_type 3_1
+# v14
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --intra_mol_energy \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=10.0 \
+    --loss_der2_ratio=10.0 \
+    --min_loss_der2=-20.0 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --persistent_workers True \
+    --energy_agg_type 12_1
+# v15
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --intra_mol_energy \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=10.0 \
+    --loss_der2_ratio=10.0 \
+    --min_loss_der2=-20.0 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --persistent_workers True \
+    --energy_agg_type 12_0
+# v16
+CUDA_VISIBLE_DEVICES=4,5,6,7 python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --intra_mol_energy \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=10.0 \
+    --loss_der2_ratio=10.0 \
+    --min_loss_der2=-20.0 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --persistent_workers True \
+    --energy_agg_type 3_0
+# v17
+CUDA_VISIBLE_DEVICES=4,5,6,7 python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --intra_mol_energy \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=0.0 \
+    --loss_der2_ratio=0.0 \
+    --min_loss_der2=-20.0 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --persistent_workers True \
+    --energy_agg_type 3_0
+# v18
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --intra_mol_energy \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=0.0 \
+    --loss_der2_ratio=0.0 \
+    --min_loss_der2=-20.0 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --persistent_workers True \
+    --energy_agg_type 3_1
+
+# v19 load weights from the best 1 energy model
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --intra_mol_energy \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=10.0 \
+    --loss_der2_ratio=10.0 \
+    --min_loss_der2=-20.0 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --persistent_workers True \
+    --energy_agg_type 3_1 \
+    --pretrained_weights /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_energy_MolT5/lightning_logs/version_5/checkpoints/epoch=647-step=36936.ckpt
+
+# v20 load weights from the best 1 energy model, 0's on der losses
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --intra_mol_energy \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=0.0 \
+    --loss_der2_ratio=0.0 \
+    --min_loss_der2=-20.0 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --persistent_workers True \
+    --energy_agg_type 3_1 \
+    --pretrained_weights /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_energy_MolT5/lightning_logs/version_5/checkpoints/epoch=647-step=36936.ckpt
+
+## ssGVP with 3 energies (weighted) on full PDBBind complexes inputs
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 1000 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PDBBind/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --intra_mol_energy \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=10.0 \
+    --loss_der2_ratio=10.0 \
+    --min_loss_der2=-20.0 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_intact_GVP_3energies_w_MolT5 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --persistent_workers True    
+
+python evaluate_casf2016.py --model_name gvp \
+    --num_workers 8 \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/casf2016_processed \
+    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5/lightning_logs/version_17 \
+    --residue_featurizer_name MolT5-small \
+    --use_energy_decoder \
+    --intra_mol_energy \
+    --is_hetero \
+    --bs 32 
+
+# Continued training from checkpoint
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 500 \
+    --precision 16 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name gvp \
+    --residue_featurizer_name MolT5-small \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --intra_mol_energy \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 16 \
+    --early_stopping_patience 500 \
+    --loss_der1_ratio=10.0 \
+    --loss_der2_ratio=10.0 \
+    --min_loss_der2=-20.0 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --persistent_workers True \
+    --pretrained_weights /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5/lightning_logs/version_5/checkpoints/epoch=337-step=19266.ckpt
+
+
+python evaluate_casf2016.py --model_name gvp \
+    --num_workers 8 \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/casf2016_processed \
+    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_3energies_w_MolT5/lightning_logs/version_6/checkpoints/last.ckpt \
+    --residue_featurizer_name MolT5-small \
+    --use_energy_decoder \
+    --intra_mol_energy \
+    --is_hetero \
+    --bs 32
+
+## ssGVP with energy and end-to-end training
+python train.py --accelerator gpu \
+    --devices 4 \
+    --max_epochs 500 \
+    --precision 32 \
+    --dataset_name PDBBind \
+    --input_type complex \
+    --model_name hgvp \
+    --residue_featurizer_name MolT5-small-grad \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring \
+    --use_energy_decoder \
+    --is_hetero \
+    --num_workers 8 \
+    --lr 1e-4 \
+    --bs 4 \
+    --early_stopping_patience 50 \
+    --loss_der1_ratio=10.0 \
+    --loss_der2_ratio=10.0 \
+    --min_loss_der2=-20.0 \
+    --num_layers 3 \
+    --node_h_dim 200 32 \
+    --edge_h_dim 64 2 \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_energy_MolT5_grad
+
+python evaluate_casf2016.py --model_name hgvp \
+    --num_workers 8 \
+    --data_dir /home/ec2-user/SageMaker/efs/data/PIGNet/data/casf2016_processed \
+    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_energy_MolT5_grad/lightning_logs/version_0 \
+    --residue_featurizer_name MolT5-small-grad \
+    --use_energy_decoder \
+    --is_hetero \
+    --bs 32
+
