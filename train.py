@@ -618,19 +618,18 @@ def main(args):
     # train
     trainer.fit(model, train_loader, valid_loader)
     print("Training finished")
-    print(
-        "checkpoint_callback.best_model_path:",
-        checkpoint_callback.best_model_path,
-    )
     # 5. Evaluation
     # load the best model
-    model = model.load_from_checkpoint(
-        checkpoint_path=checkpoint_callback.best_model_path,
-    )
+    if checkpoint_callback.best_model_path:
+        print(
+            "checkpoint_callback.best_model_path:",
+            checkpoint_callback.best_model_path,
+        )
+        model = model.load_from_checkpoint(
+            checkpoint_path=checkpoint_callback.best_model_path,
+        )
     print("Testing performance on test set")
-    if args.dataset_name == "PepBDB":
-        scores = evaluate_node_classification(model, test_loader)
-    elif args.dataset_name == "PDBBind":
+    if args.dataset_name == "PDBBind":
         scores = evaluate_graph_regression(
             model,
             test_loader,
