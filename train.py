@@ -526,10 +526,6 @@ def evaluate_graph_regression(
             preds = preds.to("cpu")
             targets = batch["g_targets"].to("cpu")
 
-            print(model.num_outputs)
-            print(preds.shape)
-            print(targets.shape)
-
             r2 = R2Score(preds, targets)
             rho = SpearmanCorrCoef(preds, targets)
             mse = MSE(preds, targets)
