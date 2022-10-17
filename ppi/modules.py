@@ -806,6 +806,11 @@ class MultiStageGVPModel(nn.Module):
         self.skip_proj_s = nn.Linear(complex_node_in_dim[0], ns_c, bias=False)
         self.skip_proj_v = nn.Linear(complex_node_in_dim[1], nv_c, bias=False)
 
+        ## GVP skip projection layer
+        self.W_out_skip = nn.Sequential(
+            LayerNorm(complex_node_in_dim), GVP(complex_node_in_dim, (ns_c, 0))
+        )
+
         ## Decoder
         if use_energy_decoder:
             # if self.is_hetero:
@@ -1076,7 +1081,9 @@ class MultiStageGVPModel(nn.Module):
             out_c = self.W_out_c(h_V_out_c)
 
         # Apply skip projections to Stage 1 output and subtract
-        out_c = out_c - self.skip_proj_s(stage1_node_hidden_s)
+        # out_c = out_c - self.skip_proj_s(stage1_node_hidden_s)
+        stage1_node_hidden = (stage1_node_hidden_s, stage1_node_hidden_v)
+        out_c = out_c - self.W_out_skip(stage1_node_hidden)
 
         ## Decoder
         if self.use_energy_decoder:
