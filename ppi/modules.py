@@ -802,6 +802,10 @@ class MultiStageGVPModel(nn.Module):
             LayerNorm(complex_node_h_dim), GVP(complex_node_h_dim, (ns_c, 0))
         )
 
+        ## Basic skip projection layers
+        self.skip_proj_s = nn.Linear(complex_node_in_dim[0], ns_c, bias=False)
+        self.skip_proj_v = nn.Linear(complex_node_in_dim[1], nv_c, bias=False)
+
         ## Decoder
         if use_energy_decoder:
             # if self.is_hetero:
@@ -1030,11 +1034,11 @@ class MultiStageGVPModel(nn.Module):
         h_V_s = [val for pair in zip(h_V_p_s, h_V_l_s) for val in pair]
         h_V_v = [val for pair in zip(h_V_p_v, h_V_l_v) for val in pair]
 
-        stage1_hidden_s = torch.cat(h_V_s, dim=0)
-        stage1_hidden_v = torch.cat(h_V_v, dim=0)
+        stage1_node_hidden_s = torch.cat(h_V_s, dim=0)
+        stage1_node_hidden_v = torch.cat(h_V_v, dim=0)
 
-        complex_graph.ndata["node_s"] = stage1_hidden_s
-        complex_graph.ndata["node_v"] = stage1_hidden_v
+        complex_graph.ndata["node_s"] = stage1_node_hidden_s
+        complex_graph.ndata["node_v"] = stage1_node_hidden_v
 
         ## Complex branch
         h_V_c = (complex_graph.ndata["node_s"], complex_graph.ndata["node_v"])
@@ -1070,6 +1074,9 @@ class MultiStageGVPModel(nn.Module):
                 torch.cat([h_V_c[1] for h_V_c in h_V_out_c], dim=-2),
             )
             out_c = self.W_out_c(h_V_out_c)
+
+        # Apply skip projections to Stage 1 output and subtract
+        out_c -= self.skip_proj_s(stage1_node_hidden_s)
 
         ## Decoder
         if self.use_energy_decoder:
