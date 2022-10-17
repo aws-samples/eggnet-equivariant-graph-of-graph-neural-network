@@ -1076,7 +1076,7 @@ class MultiStageGVPModel(nn.Module):
             out_c = self.W_out_c(h_V_out_c)
 
         # Apply skip projections to Stage 1 output and subtract
-        out_c -= self.skip_proj_s(stage1_node_hidden_s)
+        out_c = out_c - self.skip_proj_s(stage1_node_hidden_s)
 
         ## Decoder
         if self.use_energy_decoder:
