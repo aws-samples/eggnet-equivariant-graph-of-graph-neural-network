@@ -453,9 +453,8 @@ def evaluate_graph_regression(
                         key: val.to(device)
                         for key, val in batch["sample"].items()
                     }
-                    # energies, _, _ = model(batch)
-                    # preds = energies.sum(-1).unsqueeze(-1)
-                    _, preds = model(batch)
+                    energies, _, _ = model(batch)
+                    preds = energies.sum(-1).unsqueeze(-1)
                 else:
                     _, preds = model(batch)
             elif model_name == "multistage-gvp":
