@@ -293,8 +293,8 @@ def mol_to_feature(
         "target_vdw_radii": target_vdw_radii,
         "ligand_non_metal": ligand_non_metal,
         "target_non_metal": target_non_metal,
-        # "target_h": target_h,
-        # "ligand_h": ligand_h
+        "ligand_h": ligand_h,
+        "target_h": target_h,
     }
     if compute_full:
         sample["ligand_interaction_indice"] = get_interaction_indices(
