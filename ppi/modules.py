@@ -1084,6 +1084,7 @@ class MultiStageGVPModel(nn.Module):
         out_c_s = h_V_out_c[0] if self.residual else h_V_c[0] 
         out_c_v = h_V_out_c[1] if self.residual else h_V_c[1] 
         out_c_s = out_c_s - self.skip_proj_s(stage1_node_hidden_s)
+        print(out_c_v.shape)
         out_c_v = out_c_v - self.skip_proj_v(stage1_node_hidden_v)
         out_c = self.W_out_c((out_c_s, out_c_v))
         # stage1_node_hidden = (stage1_node_hidden_s, stage1_node_hidden_v)
