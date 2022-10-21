@@ -417,7 +417,7 @@ class GVPModel(nn.Module):
             )
         
         ## Basic skip projection layer
-        self.skip_proj = nn.Linear(node_in_dim, ns, bias=False)
+        self.skip_proj = nn.Linear(node_in_dim[0], ns, bias=False)
 
     def forward(
         self,
