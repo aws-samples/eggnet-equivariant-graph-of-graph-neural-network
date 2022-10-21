@@ -415,6 +415,9 @@ class GVPModel(nn.Module):
                 nn.Dropout(p=drop_rate),
                 nn.Linear(2 * ns, self.num_outputs),
             )
+        
+        ## Basic skip projection layer
+        self.skip_proj = nn.Linear(node_in_dim, ns, bias=False)
 
     def forward(
         self,
@@ -430,7 +433,7 @@ class GVPModel(nn.Module):
         Returns:
             (logits, g_logits)
         """
-        out = self.gvp_encoder(g)  # shape: [n_nodes, ns]
+        out = self.gvp_encoder(g) - self.skip_proj(g.ndata["node_s"])  # shape: [n_nodes, ns]
         # aggregate node vectors to graph
         g.ndata["out"] = out
         ## Decoder
