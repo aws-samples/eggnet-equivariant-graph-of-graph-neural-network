@@ -538,7 +538,7 @@ def evaluate_graph_regression(
 
 
 def main(args):
-    pl.seed_everything(42, workers=True)
+    pl.seed_everything(args.random_seed, workers=True)
     # 1. Load data
     train_dataset, valid_dataset, test_dataset = get_datasets(
         name=args.dataset_name,
@@ -614,6 +614,8 @@ def main(args):
         callbacks=[early_stop_callback, checkpoint_callback],
     )
     log_dir = trainer.log_dir
+    # save train args
+    json.dump(dict_args, open(os.path.join(log_dir, "train_args.json"), "w"))
     # train
     trainer.fit(model, train_loader, valid_loader)
     print("Training finished")
@@ -663,6 +665,9 @@ if __name__ == "__main__":
     parser = MODEL_CONSTRUCTORS[model_name].add_model_specific_args(parser)
 
     # Additional params
+    parser.add_argument(
+        "--random_seed", help="global random seed", type=int, default=42
+    )
     # dataset params
     parser.add_argument(
         "--dataset_name",
