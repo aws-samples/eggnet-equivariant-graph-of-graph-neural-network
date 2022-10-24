@@ -463,9 +463,6 @@ def evaluate_graph_regression(
                         key: val.to(device)
                         for key, val in batch["sample"].items()
                     }
-                    for key, val in batch.items():
-                        if key not in ["sample", "atom_to_residue"]:
-                            batch[key] = val.to(device)
                     if is_hetero:
                         energies, _, _ = model(
                             batch["protein_graph"],
@@ -541,7 +538,7 @@ def evaluate_graph_regression(
 
 
 def main(args):
-    pl.seed_everything(42, workers=True)
+    pl.seed_everything(args.random_seed, workers=True)
     # 1. Load data
     train_dataset, valid_dataset, test_dataset = get_datasets(
         name=args.dataset_name,
@@ -617,22 +614,23 @@ def main(args):
         callbacks=[early_stop_callback, checkpoint_callback],
     )
     log_dir = trainer.log_dir
+    # save train args
+    json.dump(dict_args, open(os.path.join(log_dir, "train_args.json"), "w"))
     # train
     trainer.fit(model, train_loader, valid_loader)
     print("Training finished")
-    print(
-        "checkpoint_callback.best_model_path:",
-        checkpoint_callback.best_model_path,
-    )
     # 5. Evaluation
     # load the best model
-    model = model.load_from_checkpoint(
-        checkpoint_path=checkpoint_callback.best_model_path,
-    )
+    if checkpoint_callback.best_model_path:
+        print(
+            "checkpoint_callback.best_model_path:",
+            checkpoint_callback.best_model_path,
+        )
+        model = model.load_from_checkpoint(
+            checkpoint_path=checkpoint_callback.best_model_path,
+        )
     print("Testing performance on test set")
-    if args.dataset_name == "PepBDB":
-        scores = evaluate_node_classification(model, test_loader)
-    elif args.dataset_name == "PDBBind":
+    if args.dataset_name == "PDBBind":
         scores = evaluate_graph_regression(
             model,
             test_loader,
@@ -667,6 +665,9 @@ if __name__ == "__main__":
     parser = MODEL_CONSTRUCTORS[model_name].add_model_specific_args(parser)
 
     # Additional params
+    parser.add_argument(
+        "--random_seed", help="global random seed", type=int, default=42
+    )
     # dataset params
     parser.add_argument(
         "--dataset_name",

@@ -5,7 +5,7 @@ conda activate pytorch_p38
 # global variables shared across all tests:
 n_gpus=4 
 pdbbind_data=/home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring
-residue_featurizer_name=MolT5-small # to change this to pretrained GNN residue featurizer
+residue_featurizer_name=gin-supervised-contextpred-mean # to change this to pretrained GNN residue featurizer
 
 # row2: pretrained GNN	GVP	None
 python train.py --accelerator gpu \
@@ -15,6 +15,7 @@ python train.py --accelerator gpu \
     --precision 16 \
     --dataset_name PDBBind \
     --input_type complex \
+    --residual \
     --residue_featurizer_name $residue_featurizer_name \
     --data_dir $pdbbind_data
 
@@ -26,6 +27,7 @@ python train.py --accelerator gpu \
     --precision 16 \
     --dataset_name PDBBind \
     --input_type multistage-hetero \
+    --residual \
     --residue_featurizer_name $residue_featurizer_name \
     --data_dir $pdbbind_data
 
@@ -37,6 +39,7 @@ python train.py --accelerator gpu \
     --precision 32 \
     --dataset_name PDBBind \
     --input_type complex \
+    --residual \
     --residue_featurizer_name $residue_featurizer_name-grad \
     --data_dir $pdbbind_data
 
@@ -49,6 +52,7 @@ python train.py --accelerator gpu \
     --dataset_name PDBBind \
     --input_type multistage-hetero \
     --is_hetero \
+    --residual \
     --residue_featurizer_name $residue_featurizer_name-grad \
     --data_dir $pdbbind_data
 
@@ -60,6 +64,7 @@ python train.py --accelerator gpu \
     --precision 16 \
     --dataset_name PDBBind \
     --input_type complex \
+    --residual \
     --residue_featurizer_name $residue_featurizer_name \
     --use_energy_decoder \
     --is_hetero \
@@ -73,6 +78,7 @@ python train.py --accelerator gpu \
     --precision 16 \
     --dataset_name PDBBind \
     --input_type multistage-hetero \
+    --residual \
     --residue_featurizer_name $residue_featurizer_name \
     --use_energy_decoder \
     --is_hetero \
@@ -86,11 +92,11 @@ python train.py --accelerator gpu \
     --precision 32 \
     --dataset_name PDBBind \
     --input_type complex \
+    --residual \
     --residue_featurizer_name $residue_featurizer_name-grad \
     --use_energy_decoder \
     --is_hetero \
-    --data_dir $pdbbind_data \
-    --bs 4
+    --data_dir $pdbbind_data
 
 # row9: pretrained GNN joint training	MS-GVP	E_int
 python train.py --accelerator gpu \
@@ -100,8 +106,9 @@ python train.py --accelerator gpu \
     --precision 32 \
     --dataset_name PDBBind \
     --input_type multistage-hetero \
+    --residual \
     --residue_featurizer_name $residue_featurizer_name-grad \
     --use_energy_decoder \
     --is_hetero \
     --data_dir $pdbbind_data \
-    --bs 4
+    --bs 8

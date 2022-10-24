@@ -67,6 +67,8 @@ INTER_PHYS_KEYS = [
     "target_vdw_radii",
     "ligand_non_metal",
     "target_non_metal",
+    "ligand_h",
+    "target_h",
 ]
 TARGET_PHYS_KEYS = [
     "target_interaction_indice",
@@ -77,6 +79,8 @@ TARGET_PHYS_KEYS = [
     "target_vdw_radii",
     "target_non_metal",
     "target_non_metal",
+    "ligand_h",
+    "target_h",
 ]
 LIGAND_PHYS_KEYS = [
     "ligand_interaction_indice",
@@ -87,6 +91,8 @@ LIGAND_PHYS_KEYS = [
     "ligand_vdw_radii",
     "ligand_non_metal",
     "ligand_non_metal",
+    "ligand_h",
+    "target_h",
 ]
 
 
@@ -194,6 +200,8 @@ class GVPEncoder(nn.Module):
         self.W_out = nn.Sequential(
             LayerNorm(node_h_dim), GVP(node_h_dim, (ns, 0))
         )
+        # update the output node dims for subsequent modules
+        self.node_out_dim = node_h_dim
 
     def forward(self, g):
         """Helper function to perform GVP network forward pass.
@@ -368,7 +376,7 @@ class GVPModel(nn.Module):
         self.num_outputs = num_outputs
         self.use_energy_decoder = use_energy_decoder
         self.intra_mol_energy = intra_mol_energy
-        ns, nv = node_h_dim
+        ns, nv = self.gvp_encoder.node_out_dim
         ## Decoder
         if use_energy_decoder:
             self.decoder = EnergyDecoder(
@@ -796,32 +804,41 @@ class MultiStageGVPModel(nn.Module):
             LayerNorm(complex_node_h_dim), GVP(complex_node_h_dim, (ns_c, 0))
         )
 
+        ## Basic skip projection layers
+        self.skip_proj_s = nn.Linear(complex_node_in_dim[0], ns_c, bias=False)
+        self.skip_proj_v = nn.Linear(complex_node_in_dim[1], nv_c, bias=False)
+
+        ## GVP skip projection layer
+        self.W_out_skip = nn.Sequential(
+            LayerNorm(complex_node_in_dim), GVP(complex_node_in_dim, (ns_c, 0))
+        )
+
         ## Decoder
         if use_energy_decoder:
-            if self.is_hetero:
-                self.atomic_decomposition_s = nn.ModuleDict(
-                    {
-                        atomic_key: nn.Sequential(
-                            nn.Linear(ns_c, 2 * ns_c),
-                            nn.ReLU(inplace=True),
-                            nn.Dropout(p=drop_rate),
-                            nn.Linear(2 * ns_c, ns_c),
-                        )
-                        for atomic_key in ATOMIC_KEYS + ["Other"]
-                    }
-                )
+            # if self.is_hetero:
+            # self.atomic_decomposition_s = nn.ModuleDict(
+            #     {
+            #         atomic_key: nn.Sequential(
+            #             nn.Linear(ns_c, 2 * ns_c),
+            #             nn.ReLU(inplace=True),
+            #             nn.Dropout(p=drop_rate),
+            #             nn.Linear(2 * ns_c, ns_c),
+            #         )
+            #         for atomic_key in ATOMIC_KEYS + ["Other"]
+            #     }
+            # )
 
-                self.atomic_decomposition_v = nn.ModuleDict(
-                    {
-                        atomic_key: nn.Sequential(
-                            nn.Linear(nv_c, 2 * nv_c),
-                            nn.ReLU(inplace=True),
-                            nn.Dropout(p=drop_rate),
-                            nn.Linear(2 * nv_c, nv_c),
-                        )
-                        for atomic_key in ATOMIC_KEYS + ["Other"]
-                    }
-                )
+            # self.atomic_decomposition_v = nn.ModuleDict(
+            #     {
+            #         atomic_key: nn.Sequential(
+            #             nn.Linear(nv_c, 2 * nv_c),
+            #             nn.ReLU(inplace=True),
+            #             nn.Dropout(p=drop_rate),
+            #             nn.Linear(2 * nv_c, nv_c),
+            #         )
+            #         for atomic_key in ATOMIC_KEYS + ["Other"]
+            #     }
+            # )
 
             self.decoder = EnergyDecoder(
                 ns_c,
@@ -998,24 +1015,21 @@ class MultiStageGVPModel(nn.Module):
                     k = tuple([round(j, 2) for j in coords.tolist()])
                     residue_idx, atom_id, res_name = residue_lookup[k]
                     # atom_type = atom_id[0]
-                    if atom_id in ATOMIC_KEYS:
-                        protein_atom_s = self.atomic_decomposition_s[atom_id](
-                            protein_s[residue_idx, :]
-                        )
-                        protein_atom_v = self.atomic_decomposition_v[atom_id](
-                            protein_v[residue_idx, :].permute(1, 0)
-                        )
-                    else:
-                        protein_atom_s = self.atomic_decomposition_s["Other"](
-                            protein_s[residue_idx, :]
-                        )
-                        protein_atom_v = self.atomic_decomposition_v["Other"](
-                            protein_v[residue_idx, :].permute(1, 0)
-                        )
-                    # protein_atom_s = protein_s[residue_idx, :]
-                    # protein_atom_v = protein_v[residue_idx, :]
+                    # if atom_id in ATOMIC_KEYS:
+                    #     protein_atom_s = self.atomic_decomposition_s[atom_id](
+                    #         protein_s[residue_idx, :]
+                    #     )
+                    #     protein_atom_v = self.atomic_decomposition_v[atom_id](
+                    #         protein_v[residue_idx, :].permute(1, 0)
+                    #     )
+                    # else:
+                    #     protein_atom_s = self.atomic_decomposition_s['Other'](protein_s[residue_idx, :])
+                    #     protein_atom_v = self.atomic_decomposition_v['Other'](protein_v[residue_idx, :].permute(1, 0))
+                    protein_atom_s = protein_s[residue_idx, :]
+                    protein_atom_v = protein_v[residue_idx, :]
                     protein_atom_s_list.append(protein_atom_s)
-                    protein_atom_v_list.append(protein_atom_v.permute(1, 0))
+                    protein_atom_v_list.append(protein_atom_v)
+                    # protein_atom_v_list.append(protein_atom_v.permute(1, 0))
                     num_atoms += 1
                 h_V_p_s_temp.append(torch.stack(protein_atom_s_list))
                 h_V_p_v_temp.append(torch.stack(protein_atom_v_list))
@@ -1027,8 +1041,11 @@ class MultiStageGVPModel(nn.Module):
         h_V_s = [val for pair in zip(h_V_p_s, h_V_l_s) for val in pair]
         h_V_v = [val for pair in zip(h_V_p_v, h_V_l_v) for val in pair]
 
-        complex_graph.ndata["node_s"] = torch.cat(h_V_s, dim=0)
-        complex_graph.ndata["node_v"] = torch.cat(h_V_v, dim=0)
+        stage1_node_hidden_s = torch.cat(h_V_s, dim=0)
+        stage1_node_hidden_v = torch.cat(h_V_v, dim=0)
+
+        complex_graph.ndata["node_s"] = stage1_node_hidden_s
+        complex_graph.ndata["node_v"] = stage1_node_hidden_v
 
         ## Complex branch
         h_V_c = (complex_graph.ndata["node_s"], complex_graph.ndata["node_v"])
@@ -1064,6 +1081,17 @@ class MultiStageGVPModel(nn.Module):
                 torch.cat([h_V_c[1] for h_V_c in h_V_out_c], dim=-2),
             )
             out_c = self.W_out_c(h_V_out_c)
+
+        # Apply skip projections to Stage 1 output and subtract
+        out_c_s = h_V_out_c[0] if self.residual else h_V_c[0]
+        out_c_v = h_V_out_c[1] if self.residual else h_V_c[1]
+        out_c_s = out_c_s - self.skip_proj_s(stage1_node_hidden_s)
+        out_c_v = out_c_v - self.skip_proj_v(
+            stage1_node_hidden_v.permute(0, 2, 1)
+        ).permute(0, 2, 1)
+        out_c = self.W_out_c((out_c_s, out_c_v))
+        # stage1_node_hidden = (stage1_node_hidden_s, stage1_node_hidden_v)
+        # out_c = out_c - self.W_out_skip(stage1_node_hidden)
 
         ## Decoder
         if self.use_energy_decoder:
@@ -1287,6 +1315,8 @@ class EnergyDecoder(nn.Module):
             target_vdw_radii,
             ligand_non_metal,
             target_non_metal,
+            _,
+            _,
         ) = sample
 
         # distance matrix
