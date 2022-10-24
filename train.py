@@ -614,11 +614,11 @@ def main(args):
         callbacks=[early_stop_callback, checkpoint_callback],
     )
     log_dir = trainer.log_dir
-    # save train args
-    json.dump(dict_args, open(os.path.join(log_dir, "train_args.json"), "w"))
     # train
     trainer.fit(model, train_loader, valid_loader)
     print("Training finished")
+    # save train args
+    json.dump(dict_args, open(os.path.join(log_dir, "train_args.json"), "w"))
     # 5. Evaluation
     # load the best model
     if checkpoint_callback.best_model_path:
