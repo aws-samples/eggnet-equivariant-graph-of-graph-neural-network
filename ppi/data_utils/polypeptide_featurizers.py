@@ -1104,19 +1104,9 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
     """
 
     def __init__(
-        self, residue_featurizer, molecular_featurizers="canonical", **kwargs
+        self, residue_featurizer, **kwargs
     ):
         self.residue_featurizer = residue_featurizer
-        if molecular_featurizers == "canonical":
-            self.node_featurizer = CanonicalAtomFeaturizer()
-            self.edge_featurizer = CanonicalBondFeaturizer()
-            self.add_self_loop = False
-        elif molecular_featurizers == "pretrained":
-            self.node_featurizer = PretrainAtomFeaturizer()
-            self.edge_featurizer = PretrainBondFeaturizer()
-            self.add_self_loop = True
-        else:
-            raise NotImplementedError()
         super(
             PIGNetHeteroBigraphComplexFeaturizerForEnergyModel, self
         ).__init__(**kwargs)
@@ -1139,14 +1129,6 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
             protein_complex["protein_residues"],
         )
         sample = mol_to_feature(ligand_mol=ligand, target_mol=protein_atoms)
-
-        ligand = Chem.RemoveHs(ligand)
-        ligand_graph = mol_to_bigraph(
-            mol=ligand,
-            node_featurizer=self.node_featurizer,
-            edge_featurizer=self.edge_featurizer,
-            add_self_loop=self.add_self_loop,
-        )
 
         protein_residue_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
@@ -1176,7 +1158,7 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
             residues = (
                 torch.stack(
                     [
-                        self.residue_featurizer.featurize(smiles)
+                        self.residue_featurizer.featurize(smiles)[0]
                         for smiles in smiles_strings
                     ]
                 )
@@ -1228,12 +1210,28 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
             ligand.GetConformers()[0].GetPositions(), dtype=torch.float32
         )
 
+        ligand_smiles = Chem.MolToSmiles(ligand)
+        ligand = Chem.RemoveHs(ligand)
+        ligand_graph = mol_to_bigraph(
+            mol=ligand,
+            node_featurizer=self.node_featurizer,
+            edge_featurizer=self.edge_featurizer,
+            add_self_loop=self.add_self_loop,
+        )
+
+        if self.residue_featurizer:
+            atoms = self.residue_featurizer.featurize(ligand_smiles)[1].to(self.device).to(torch.long)
+
         ligand_vectors = (
             ligand_coords[ligand_graph.edges()[0].long()]
             - ligand_coords[ligand_graph.edges()[1].long()]
         )
         # ligand node features
-        ligand_graph.ndata["node_s"] = ligand_graph.ndata["h"]
+        if self.residue_featurizer:
+            node_s = torch.cat([ligand_graph.ndata["h"], atoms], dim=-1)
+        else:
+            node_s = ligand_graph.ndata["h"]
+        ligand_graph.ndata["node_s"] = node_s
         ligand_graph.ndata["node_v"] = ligand_coords.unsqueeze(-2)
         # ligand edge features
         ligand_graph.edata["edge_s"] = ligand_graph.edata["e"]
@@ -1330,4 +1328,5 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
                 sample,
                 atom_to_residue,
                 smiles_strings,
+                ligand_smiles
             )

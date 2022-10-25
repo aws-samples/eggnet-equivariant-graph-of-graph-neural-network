@@ -846,11 +846,17 @@ class LitMultiStageHGVPModel(pl.LightningModule):
         smiles_strings=None,
         cal_der_loss=False,
         atom_to_residue=None,
+        ligand_smiles=None
     ):
         protein_node_s = protein_graph.ndata["node_s"]
-        residue_embeddings = self.residue_featurizer(smiles_strings, device=self.device)
+        residue_embeddings, _ = self.residue_featurizer(smiles_strings, device=self.device)
         protein_graph.ndata["node_s"] = torch.cat(
             (protein_node_s, residue_embeddings), axis=1
+        )
+        _, atom_embeddings = self.residue_featurizer(ligand_smiles, device=self.device)
+        ligand_node_s = ligand_graph.ndata["node_s"]
+        ligand_graph.ndata["node_s"] = torch.cat(
+            (ligand_node_s, atom_embeddings), axis=1
         )
         return self.model(
             protein_graph,
@@ -887,6 +893,7 @@ class LitMultiStageHGVPModel(pl.LightningModule):
                     batch["smiles_strings"],
                     cal_der_loss,
                     batch["atom_to_residue"],
+                    batch["ligand_smiles"]
                 )
             else:
                 energies, der1, der2 = self.forward(
@@ -896,6 +903,7 @@ class LitMultiStageHGVPModel(pl.LightningModule):
                     batch["sample"],
                     batch["smiles_strings"],
                     cal_der_loss,
+                    batch["ligand_smiles"]
                 )
             g_preds = energies.sum(-1).unsqueeze(-1)
             g_targets = batch["g_targets"]
@@ -906,6 +914,7 @@ class LitMultiStageHGVPModel(pl.LightningModule):
                 batch["ligand_graph"],
                 batch["complex_graph"],
                 smiles_strings=batch["smiles_strings"],
+                ligand_smiles = batch["ligand_smiles"]
             )
             g_targets = batch["g_targets"]
             loss = self._compute_loss(g_logits, g_targets)
