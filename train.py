@@ -107,6 +107,7 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
         )
 
         model = MODEL_CONSTRUCTORS[model_name](
+            g=datum,
             protein_node_in_dim=protein_node_in_dim,
             protein_edge_in_dim=protein_edge_in_dim,
             ligand_node_in_dim=ligand_node_in_dim,

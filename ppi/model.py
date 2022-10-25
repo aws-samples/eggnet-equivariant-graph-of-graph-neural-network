@@ -686,26 +686,17 @@ class LitMultiStageHGVPModel(pl.LightningModule):
         )
         # lazy init for model that requires an input datum
         if kwargs.get("g", None):
-            protein_node_in_dim, protein_edge_in_dim = infer_input_dim(
+            node_in_dim, edge_in_dim = infer_input_dim(
                 kwargs["g"]
             )
-            protein_node_in_dim = (
-                protein_node_in_dim[0] + self.residue_featurizer.output_size,
-                protein_node_in_dim[1],
+            node_in_dim = (
+                node_in_dim[0] + self.residue_featurizer.output_size,
+                node_in_dim[1],
             )
-            kwargs["protein_node_in_dim"] = protein_node_in_dim
-            kwargs["protein_edge_in_dim"] = protein_edge_in_dim
-
-        if kwargs.get("g", None):
-            ligand_node_in_dim, ligand_edge_in_dim = infer_input_dim(
-                kwargs["g"]
-            )
-            ligand_node_in_dim = (
-                ligand_node_in_dim[0] + self.residue_featurizer.output_size,
-                ligand_node_in_dim[1],
-            )
-            kwargs["ligand_node_in_dim"] = ligand_node_in_dim
-            kwargs["ligand_edge_in_dim"] = ligand_edge_in_dim
+            kwargs["protein_node_in_dim"] = node_in_dim
+            kwargs["protein_edge_in_dim"] = edge_in_dim
+            kwargs["ligand_node_in_dim"] = node_in_dim
+            kwargs["ligand_edge_in_dim"] = edge_in_dim
 
         hparams = [
             "lr",
