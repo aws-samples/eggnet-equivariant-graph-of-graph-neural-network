@@ -332,7 +332,7 @@ class LitHGVPModel(pl.LightningModule):
     def forward(self, batch, cal_der_loss=False):
         bg, smiles_strings = batch["graph"], batch["smiles_strings"]
         node_s = bg.ndata["node_s"]
-        residue_embeddings = self.residue_featurizer(smiles_strings, device=self.device)
+        residue_embeddings, _ = self.residue_featurizer(smiles_strings, device=self.device)
         bg.ndata["node_s"] = torch.cat((node_s, residue_embeddings), axis=1)
         if self.hparams.use_energy_decoder:
             return self.model(
