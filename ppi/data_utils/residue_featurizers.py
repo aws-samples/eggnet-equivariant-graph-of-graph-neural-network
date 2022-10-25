@@ -113,8 +113,9 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
             else:
                 node_feats = self.gin_model(g, nfeats, efeats)
                 graph_feats = self.readout(g, node_feats)
-            output_vec = graph_feats.squeeze(0)
-            return output_vec
+            output_vec_graph = graph_feats.squeeze(0)
+            output_vec_nodes = node_feats.squeeze(0)
+            return output_vec_graph, output_vec_nodes
         else:
             for smi in smiles:
                 mol = Chem.MolFromSmiles(smi)

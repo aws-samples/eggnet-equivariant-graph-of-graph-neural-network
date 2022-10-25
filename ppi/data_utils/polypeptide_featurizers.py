@@ -1158,18 +1158,13 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         # in the same order with the nodes in the graph
         smiles_strings = residue_smiles
         if self.residue_featurizer:
-            # residues = (
-            #     torch.stack(
-            #         [self.residue_featurizer.featurize(smiles) for smiles in smiles_strings]
-            #     )
-            #     .to(self.device)
-            #     .to(torch.long)
-            # )
-            res_feats = []
-            for smiles in smiles_strings:
-                residue_features, _ = self.residue_featurizer.featurize(smiles)
-                res_feats.append(residue_features)
-            residues = torch.stack(res_feats).to(self.device).to(torch.long)
+            residues = (
+                torch.stack(
+                    [self.residue_featurizer.featurize(smiles)[0] for smiles in smiles_strings]
+                )
+                .to(self.device)
+                .to(torch.long)
+            )
             
             # shape: [seq_len + 1, d_embed]
 
