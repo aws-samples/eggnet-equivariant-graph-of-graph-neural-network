@@ -485,7 +485,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
                 (dgl.graph, list_of_node_smiles_strings)
         """
         ligand, protein = protein_complex["ligand"], protein_complex["protein"]
-        ligand = Chem.RemoveHs(ligand)
+        # ligand = Chem.RemoveHs(ligand)
 
         protein_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
