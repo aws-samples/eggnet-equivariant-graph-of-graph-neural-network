@@ -110,6 +110,7 @@ def predict(
                             cal_der_loss=False,
                             atom_to_residue=batch["atom_to_residue"],
                             smiles_strings=batch["smiles_strings"],
+                            ligand_smiles=batch["ligand_smiles"]
                         )
                     else:
                         energies, _, _ = model(
@@ -119,6 +120,7 @@ def predict(
                             batch["sample"],
                             cal_der_loss=False,
                             smiles_strings=batch["smiles_strings"],
+                            ligand_smiles=batch["ligand_smiles"]
                         )
                     preds = energies.sum(-1).unsqueeze(-1)
                 else:
@@ -127,6 +129,7 @@ def predict(
                         batch["ligand_graph"],
                         batch["complex_graph"],
                         smiles_strings=batch["smiles_strings"],
+                        ligand_smiles=batch["ligand_smiles"]
                     )
             else:
                 raise NotImplementedError
