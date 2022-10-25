@@ -206,7 +206,7 @@ def get_datasets(
     else:
         residue_featurizer = get_residue_featurizer(residue_featurizer_name)
     # initialize complex featurizer based on dataset type
-    if name == "Propedia":
+    if name in ("Propedia", "ProtCID"):
         featurizer = NoncanonicalComplexFeaturizer(residue_featurizer)
         # load Propedia metadata
         if input_type == "complex":
@@ -284,10 +284,6 @@ def get_datasets(
                     compute_energy=use_energy_decoder,
                     intra_mol_energy=intra_mol_energy,
                 )
-
-                return train_dataset, valid_dataset, test_dataset
-            else:
-                return test_dataset
         elif input_type == "multistage-hetero":
             if use_energy_decoder:
                 featurizer = (
@@ -314,10 +310,6 @@ def get_datasets(
                             train_keys[n_train:], data_dir, id_to_y, featurizer
                         )
                     )
-
-                    return train_dataset, valid_dataset, test_dataset
-                else:
-                    return test_dataset
             else:
                 featurizer = PIGNetHeteroBigraphComplexFeaturizer(
                     residue_featurizer=residue_featurizer
@@ -337,10 +329,6 @@ def get_datasets(
                     valid_dataset = PIGNetHeteroBigraphComplexDataset(
                         train_keys[n_train:], data_dir, id_to_y, featurizer
                     )
-
-                    return train_dataset, valid_dataset, test_dataset
-                else:
-                    return test_dataset
         elif input_type == "multistage-geometric":
             if use_energy_decoder:
                 featurizer = PIGNetAtomicBigraphGeometricComplexFeaturizer(
@@ -361,10 +349,6 @@ def get_datasets(
                     valid_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
                         train_keys[n_train:], data_dir, id_to_y, featurizer
                     )
-
-                    return train_dataset, valid_dataset, test_dataset
-                else:
-                    return test_dataset
             else:
                 featurizer = PIGNetAtomicBigraphGeometricComplexFeaturizer(
                     residue_featurizer=None
@@ -384,10 +368,6 @@ def get_datasets(
                     valid_dataset = PIGNetAtomicBigraphComplexDataset(
                         train_keys[n_train:], data_dir, id_to_y, featurizer
                     )
-
-                    return train_dataset, valid_dataset, test_dataset
-                else:
-                    return test_dataset
         elif input_type == "multistage-physical":
             if use_energy_decoder:
                 featurizer = PIGNetAtomicBigraphPhysicalComplexFeaturizer(
@@ -408,10 +388,6 @@ def get_datasets(
                     valid_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
                         train_keys[n_train:], data_dir, id_to_y, featurizer
                     )
-
-                    return train_dataset, valid_dataset, test_dataset
-                else:
-                    return test_dataset
             else:
                 featurizer = PIGNetAtomicBigraphPhysicalComplexFeaturizer(
                     residue_featurizer=None
@@ -432,12 +408,12 @@ def get_datasets(
                         train_keys[n_train:], data_dir, id_to_y, featurizer
                     )
 
-                    return train_dataset, valid_dataset, test_dataset
-                else:
-                    return test_dataset
         else:
             raise NotImplementedError
-
+    if not test_only:
+        return train_dataset, valid_dataset, test_dataset
+    else:
+        return test_dataset
 
 def evaluate_node_classification(model, data_loader):
     """Evaluate model on dataset and return metrics."""
