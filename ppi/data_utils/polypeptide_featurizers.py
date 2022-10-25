@@ -1187,8 +1187,6 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         orientations = self._orientations(ca_coords)
         sidechains = self._sidechains(protein_residue_coords)
 
-        print(residues.shape)
-
         if self.residue_featurizer:
             node_s = torch.cat([dihedrals, residues], dim=-1)
         else:
