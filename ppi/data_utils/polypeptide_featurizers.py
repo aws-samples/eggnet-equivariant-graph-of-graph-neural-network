@@ -1107,6 +1107,9 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         self, residue_featurizer, **kwargs
     ):
         self.residue_featurizer = residue_featurizer
+        self.node_featurizer = CanonicalAtomFeaturizer()
+        self.edge_featurizer = CanonicalBondFeaturizer()
+        self.add_self_loop = False
         super(
             PIGNetHeteroBigraphComplexFeaturizerForEnergyModel, self
         ).__init__(**kwargs)
