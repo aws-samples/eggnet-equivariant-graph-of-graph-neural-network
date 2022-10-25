@@ -13,7 +13,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 import dgl
 
 import torchmetrics
@@ -27,8 +27,7 @@ from ppi.model import (
     LitMultiStageHGVPModel,
 )
 from ppi.data import (
-    prepare_pepbdb_data_list,
-    PepBDBComplexDataset,
+    PDBComplexDataset,
     PIGNetComplexDataset,
     PIGNetAtomicBigraphComplexDataset,
     PIGNetHeteroBigraphComplexDataset,
@@ -37,8 +36,7 @@ from ppi.data import (
 )
 from ppi.data_utils import (
     get_residue_featurizer,
-    BaseFeaturizer,
-    NaturalComplexFeaturizer,
+    NoncanonicalComplexFeaturizer,
     PDBBindComplexFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizerForEnergyModel,
@@ -56,14 +54,25 @@ MODEL_CONSTRUCTORS = {
 }
 
 
-def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
+def init_model(
+    datum=None,
+    model_name="gvp",
+    num_outputs=1,
+    classify=False,
+    pos_weight=None,
+    **kwargs,
+):
     if model_name in ["gvp", "hgvp"]:
         kwargs["node_h_dim"] = tuple(kwargs["node_h_dim"])
         kwargs["edge_h_dim"] = tuple(kwargs["edge_h_dim"])
         print("node_h_dim:", kwargs["node_h_dim"])
         print("edge_h_dim:", kwargs["edge_h_dim"])
         model = MODEL_CONSTRUCTORS[model_name](
-            g=datum, num_outputs=num_outputs, **kwargs
+            g=datum,
+            num_outputs=num_outputs,
+            classify=classify,
+            pos_weight=pos_weight,
+            **kwargs,
         )
     elif model_name == "multistage-gvp":
         protein_graph = datum["protein_graph"]
@@ -113,7 +122,7 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
             ligand_edge_in_dim=ligand_edge_in_dim,
             complex_edge_in_dim=complex_edge_in_dim,
             num_outputs=num_outputs,
-            **kwargs
+            **kwargs,
         )
     elif model_name == "multistage-hgvp":
         protein_graph = datum["protein_graph"]
@@ -162,26 +171,31 @@ def init_model(datum=None, model_name="gvp", num_outputs=1, **kwargs):
             ligand_edge_in_dim=ligand_edge_in_dim,
             complex_edge_in_dim=complex_edge_in_dim,
             num_outputs=num_outputs,
-            **kwargs
+            **kwargs,
         )
     else:
         model = MODEL_CONSTRUCTORS[model_name](
             in_feats=datum.ndata["node_s"].shape[1],
             num_outputs=num_outputs,
-            **kwargs
+            classify=classify,
+            pos_weight=pos_weight,
+            **kwargs,
         )
 
     return model
 
 
 def get_datasets(
-    name="PepBDB",
+    name="PDBBind",
     input_type="complex",
     data_dir="",
     test_only=False,
     residue_featurizer_name="MACCS",
     use_energy_decoder=False,
     intra_mol_energy=False,
+    data_suffix="full",
+    binary_cutoff=None,
+    add_noise=0.0,
 ):
     # initialize residue featurizer
     if "grad" in residue_featurizer_name:
@@ -191,8 +205,40 @@ def get_datasets(
         residue_featurizer = None
     else:
         residue_featurizer = get_residue_featurizer(residue_featurizer_name)
-
-    if name == "PDBBind":
+    # initialize complex featurizer based on dataset type
+    if name == "Propedia":
+        featurizer = NoncanonicalComplexFeaturizer(residue_featurizer)
+        # load Propedia metadata
+        if input_type == "complex":
+            test_df = pd.read_csv(
+                os.path.join(data_dir, f"test_{data_suffix}.csv")
+            )
+            test_dataset = PDBComplexDataset(
+                test_df,
+                data_dir,
+                featurizer=featurizer,
+            )
+            if not test_only:
+                train_df = pd.read_csv(
+                    os.path.join(data_dir, f"train_{data_suffix}.csv")
+                )
+                n_train = int(0.8 * train_df.shape[0])
+                featurizer = NoncanonicalComplexFeaturizer(
+                    residue_featurizer, add_noise=add_noise
+                )
+                train_dataset = PDBComplexDataset(
+                    train_df.iloc[:n_train],
+                    data_dir,
+                    featurizer=featurizer,
+                )
+                valid_dataset = PDBComplexDataset(
+                    train_df.iloc[n_train:],
+                    data_dir,
+                    featurizer=featurizer,
+                )
+        elif input_type == "polypeptides":
+            raise NotImplementedError
+    elif name == "PDBBind":
         # PIGNet parsed PDBBind datasets
         # read labels
         with open(os.path.join(data_dir, "pdb_to_affinity.txt")) as f:
@@ -424,6 +470,95 @@ def evaluate_node_classification(model, data_loader):
     return results
 
 
+def predict_step(
+    model,
+    batch,
+    device,
+    model_name="gvp",
+    use_energy_decoder=False,
+    is_hetero=False,
+):
+    """Make prediction on one batch of data"""
+    # Move relevant tensors to GPU
+    for key, val in batch.items():
+        if key not in ("sample", "atom_to_residue", "smiles_strings"):
+            batch[key] = val.to(device)
+    if model_name in ("gvp", "hgvp"):
+        batch["graph"] = batch["graph"].to(device)
+        if use_energy_decoder:
+            batch["sample"] = {
+                key: val.to(device) for key, val in batch["sample"].items()
+            }
+            energies, _, _ = model(batch)
+            preds = energies.sum(-1).unsqueeze(-1)
+        else:
+            _, preds = model(batch)
+    elif model_name == "multistage-gvp":
+        if use_energy_decoder:
+            batch["sample"] = {
+                key: val.to(device) for key, val in batch["sample"].items()
+            }
+            if is_hetero:
+                energies, _, _ = model(
+                    batch["protein_graph"],
+                    batch["ligand_graph"],
+                    batch["complex_graph"],
+                    batch["sample"],
+                    cal_der_loss=False,
+                    atom_to_residue=batch["atom_to_residue"],
+                )
+            else:
+                energies, _, _ = model(
+                    batch["protein_graph"],
+                    batch["ligand_graph"],
+                    batch["complex_graph"],
+                    batch["sample"],
+                    cal_der_loss=False,
+                )
+            preds = energies.sum(-1).unsqueeze(-1)
+        else:
+            _, preds = model(
+                batch["protein_graph"],
+                batch["ligand_graph"],
+                batch["complex_graph"],
+            )
+    elif model_name == "multistage-hgvp":
+        if use_energy_decoder:
+            batch["sample"] = {
+                key: val.to(device) for key, val in batch["sample"].items()
+            }
+            if is_hetero:
+                energies, _, _ = model(
+                    batch["protein_graph"],
+                    batch["ligand_graph"],
+                    batch["complex_graph"],
+                    batch["sample"],
+                    cal_der_loss=False,
+                    atom_to_residue=batch["atom_to_residue"],
+                    smiles_strings=batch["smiles_strings"],
+                )
+            else:
+                energies, _, _ = model(
+                    batch["protein_graph"],
+                    batch["ligand_graph"],
+                    batch["complex_graph"],
+                    batch["sample"],
+                    cal_der_loss=False,
+                    smiles_strings=batch["smiles_strings"],
+                )
+            preds = energies.sum(-1).unsqueeze(-1)
+        else:
+            _, preds = model(
+                batch["protein_graph"],
+                batch["ligand_graph"],
+                batch["complex_graph"],
+                smiles_strings=batch["smiles_strings"],
+            )
+    else:
+        raise NotImplementedError
+    return preds
+
+
 def evaluate_graph_regression(
     model,
     data_loader,
@@ -442,86 +577,14 @@ def evaluate_graph_regression(
     MSE = torchmetrics.MeanSquaredError()
     with torch.no_grad():
         for batch in data_loader:
-            # Move relevant tensors to GPU
-            for key, val in batch.items():
-                if key not in ("sample", "atom_to_residue", "smiles_strings"):
-                    batch[key] = val.to(device)
-            if model_name in ("gvp", "hgvp"):
-                batch["graph"] = batch["graph"].to(device)
-                if use_energy_decoder:
-                    batch["sample"] = {
-                        key: val.to(device)
-                        for key, val in batch["sample"].items()
-                    }
-                    energies, _, _ = model(batch)
-                    preds = energies.sum(-1).unsqueeze(-1)
-                else:
-                    _, preds = model(batch)
-            elif model_name == "multistage-gvp":
-                if use_energy_decoder:
-                    batch["sample"] = {
-                        key: val.to(device)
-                        for key, val in batch["sample"].items()
-                    }
-                    if is_hetero:
-                        energies, _, _ = model(
-                            batch["protein_graph"],
-                            batch["ligand_graph"],
-                            batch["complex_graph"],
-                            batch["sample"],
-                            cal_der_loss=False,
-                            atom_to_residue=batch["atom_to_residue"],
-                        )
-                    else:
-                        energies, _, _ = model(
-                            batch["protein_graph"],
-                            batch["ligand_graph"],
-                            batch["complex_graph"],
-                            batch["sample"],
-                            cal_der_loss=False,
-                        )
-                    preds = energies.sum(-1).unsqueeze(-1)
-                else:
-                    _, preds = model(
-                        batch["protein_graph"],
-                        batch["ligand_graph"],
-                        batch["complex_graph"],
-                    )
-            elif model_name == "multistage-hgvp":
-                if use_energy_decoder:
-                    batch["sample"] = {
-                        key: val.to(device)
-                        for key, val in batch["sample"].items()
-                    }
-                    if is_hetero:
-                        energies, _, _ = model(
-                            batch["protein_graph"],
-                            batch["ligand_graph"],
-                            batch["complex_graph"],
-                            batch["sample"],
-                            cal_der_loss=False,
-                            atom_to_residue=batch["atom_to_residue"],
-                            smiles_strings=batch["smiles_strings"],
-                        )
-                    else:
-                        energies, _, _ = model(
-                            batch["protein_graph"],
-                            batch["ligand_graph"],
-                            batch["complex_graph"],
-                            batch["sample"],
-                            cal_der_loss=False,
-                            smiles_strings=batch["smiles_strings"],
-                        )
-                    preds = energies.sum(-1).unsqueeze(-1)
-                else:
-                    _, preds = model(
-                        batch["protein_graph"],
-                        batch["ligand_graph"],
-                        batch["complex_graph"],
-                        smiles_strings=batch["smiles_strings"],
-                    )
-            else:
-                raise NotImplementedError
+            preds = predict_step(
+                model,
+                batch,
+                device,
+                model_name=model_name,
+                use_energy_decoder=use_energy_decoder,
+                is_hetero=is_hetero,
+            )
             preds = preds.to("cpu")
             targets = batch["g_targets"].to("cpu")
 
@@ -537,6 +600,47 @@ def evaluate_graph_regression(
     return results
 
 
+def evaluate_graph_classification(
+    model,
+    data_loader,
+    model_name="gvp",
+    use_energy_decoder=False,
+    is_hetero=False,
+):
+    """Evaluate model on datasets and return metrics for graph-level
+    binary classification."""
+    # make predictions on test set
+    device = torch.device("cuda:0")
+    model = model.to(device)
+    model.eval()
+
+    AUROC = torchmetrics.AUROC()
+    AP = torchmetrics.AveragePrecision()
+    MCC = torchmetrics.MatthewsCorrCoef(num_classes=2)
+    with torch.no_grad():
+        for batch in data_loader:
+            preds = predict_step(
+                model,
+                batch,
+                device,
+                model_name=model_name,
+                use_energy_decoder=use_energy_decoder,
+                is_hetero=is_hetero,
+            )
+            preds = preds.to("cpu")
+            targets = batch["g_targets"].to("cpu").to(torch.int8)
+
+            auroc = AUROC(preds, targets)
+            ap = AP(preds, targets)
+            mcc = MCC(preds.sigmoid(), targets)
+    results = {
+        "AUROC": AUROC.compute().item(),
+        "AP": AP.compute().item(),
+        "MCC": MCC.compute().item(),
+    }
+    return results
+
+
 def main(args):
     pl.seed_everything(args.random_seed, workers=True)
     # 1. Load data
@@ -547,6 +651,9 @@ def main(args):
         residue_featurizer_name=args.residue_featurizer_name,
         use_energy_decoder=args.use_energy_decoder,
         intra_mol_energy=args.intra_mol_energy,
+        data_suffix=args.data_suffix,
+        binary_cutoff=args.binary_cutoff,
+        add_noise=args.add_noise,
     )
     print(
         "Data loaded:",
@@ -560,7 +667,7 @@ def main(args):
         batch_size=args.bs,
         shuffle=True,
         num_workers=args.num_workers,
-        collate_fn=train_dataset.collate_fn,
+        collate_fn=test_dataset.collate_fn,
         persistent_workers=args.persistent_workers,
     )
 
@@ -569,7 +676,7 @@ def main(args):
         batch_size=args.bs,
         shuffle=False,
         num_workers=args.num_workers,
-        collate_fn=train_dataset.collate_fn,
+        collate_fn=test_dataset.collate_fn,
         persistent_workers=args.persistent_workers,
     )
 
@@ -590,9 +697,18 @@ def main(args):
         else:
             raise NotImplementedError
     else:
-        datum = train_dataset[0][0]
+        datum = train_dataset[0]["graph"]
     dict_args = vars(args)
-    model = init_model(datum=datum, num_outputs=1, **dict_args)
+    pos_weight = getattr(train_dataset, "pos_weight", None)
+    classify = pos_weight is not None
+    model = init_model(
+        datum=datum,
+        num_outputs=1,
+        classify=classify,
+        pos_weight=pos_weight,
+        **dict_args,
+    )
+
     if args.pretrained_weights:
         # load pretrained weights
         checkpoint = torch.load(
@@ -631,15 +747,22 @@ def main(args):
         )
     print("Testing performance on test set")
     if args.dataset_name == "PDBBind":
-        scores = evaluate_graph_regression(
-            model,
-            test_loader,
-            model_name=args.model_name,
-            use_energy_decoder=args.use_energy_decoder,
-            is_hetero=args.is_hetero,
-        )
+        eval_func = evaluate_graph_regression
+    elif classify:
+        eval_func = evaluate_graph_classification
+
+    scores = eval_func(
+        model,
+        test_loader,
+        model_name=args.model_name,
+        use_energy_decoder=args.use_energy_decoder,
+        is_hetero=args.is_hetero,
+    )
     pprint(scores)
     # save scores to file
+    log_dir = os.path.join(
+        os.path.dirname(checkpoint_callback.best_model_path), "../"
+    )
     json.dump(
         scores,
         open(os.path.join(log_dir, "scores.json"), "w"),
@@ -686,6 +809,24 @@ if __name__ == "__main__":
         help="directory to dataset",
         type=str,
         default="",
+    )
+    parser.add_argument(
+        "--data_suffix",
+        help="used to distinguish different verions of the same dataset",
+        type=str,
+        default="full",
+    )
+    parser.add_argument(
+        "--binary_cutoff",
+        help="used to convert PDBBind to a binary classification problem",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
+        "--add_noise",
+        help="to add Gaussian noise to atom coordinates in train/valid sets",
+        type=float,
+        default=0.0,
     )
     # featurizer params
     parser.add_argument(

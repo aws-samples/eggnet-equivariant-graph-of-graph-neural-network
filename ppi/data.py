@@ -18,12 +18,14 @@ from tqdm import tqdm
 
 import numpy as np
 import pickle
+from Bio.PDB import PDBParser, MMCIFParser
 
 # custom modules
 from ppi.data_utils import (
     remove_nan_residues,
     mol_to_pdb_structure,
     residue_to_mol,
+    parse_structure,
 )
 
 
@@ -91,30 +93,25 @@ def tensor_collate_fn(batch: List[Any]) -> Dict[str, Any]:
 class BasePPIDataset(data.Dataset):
     """Dataset for the Base Protein Graph."""
 
-    def __init__(self, data_list, preprocess=False):
-        super(BasePPIDataset, self).__init__()
-
-        self.data_list = data_list
+    def __init__(self, preprocess=False):
+        self.processed_data = pd.Series([None] * len(self))
         if preprocess:
             print("Preprocessing data...")
             self._preprocess_all()
 
-    def __len__(self):
-        return len(self.data_list)
-
     def __getitem__(self, i):
-        if isinstance(self.data_list[i], dict):
+        if self.processed_data[i] is None:
             # if not processed, process this instance and update
-            self.data_list[i] = self._preprocess(self.data_list[i])
-        return self.data_list[i]
+            self.processed_data[i] = self._preprocess(i)
+        return self.processed_data[i]
 
     def _preprocess(self, complex):
         raise NotImplementedError
 
     def _preprocess_all(self):
         """Preprocess all the records in `data_list` with `_preprocess"""
-        for i in tqdm(range(len(self.data_list))):
-            self.data_list[i] = self._preprocess(self.data_list[i])
+        for i in tqdm(range(len(self.processed_data))):
+            self.processed_data[i] = self._preprocess(i)
 
 
 def prepare_pepbdb_data_list(parsed_structs: dict, df: pd.DataFrame) -> list:
@@ -268,6 +265,79 @@ class ComplexBatch(dict):
         return self
 
 
+class PDBComplexDataset(BasePPIDataset):
+    """
+    To work with Propedia and ProtCID data, where each individual sample is a
+    PDB complex file.
+    """
+
+    def __init__(
+        self,
+        meta_df: pd.DataFrame,
+        path_to_data_files: str,
+        featurizer: object,
+        **kwargs
+    ):
+        self.meta_df = meta_df
+        self.path = path_to_data_files
+        self.pdb_parser = PDBParser(
+            QUIET=True,
+            PERMISSIVE=True,
+        )
+        self.cif_parser = MMCIFParser(QUIET=True)
+        self.featurizer = featurizer
+        super(PDBComplexDataset, self).__init__(**kwargs)
+
+    def __len__(self) -> int:
+        return self.meta_df.shape[0]
+
+    def _preprocess(self, idx: int) -> Dict[str, Any]:
+        row = self.meta_df.iloc[idx]
+        structure = parse_structure(
+            self.pdb_parser,
+            self.cif_parser,
+            name=str(idx),
+            file_path=os.path.join(self.path, row["pdb_file"]),
+        )
+        for chain in structure.get_chains():
+            if chain.id == row["receptor_chain_id"]:
+                protein = chain
+            elif chain.id == row["ligand_chain_id"]:
+                ligand = chain
+        sample = self.featurizer.featurize(
+            {"ligand": ligand, "protein": protein}
+        )
+        sample["target"] = row["label"]
+        return sample
+
+    @property
+    def pos_weight(self) -> torch.Tensor:
+        """To compute the weight of the positive class, assuming binary
+        classification"""
+        class_sizes = self.meta_df["label"].value_counts()
+        pos_weights = np.mean(class_sizes) / class_sizes
+        pos_weights = torch.from_numpy(pos_weights.values.astype(np.float32))
+        return pos_weights[1] / pos_weights[0]
+
+    def collate_fn(self, samples):
+        """Collating protein complex graphs and graph-level targets."""
+        graphs = []
+        smiles_strings = []
+        g_targets = []
+        for rec in samples:
+            graphs.append(rec["graph"])
+            g_targets.append(rec["target"])
+            if "smiles_strings" in rec:
+                smiles_strings.extend(rec["smiles_strings"])
+        return {
+            "graph": dgl.batch(graphs),
+            "g_targets": torch.tensor(g_targets)
+            .to(torch.float32)
+            .unsqueeze(-1),
+            "smiles_strings": smiles_strings,
+        }
+
+
 class PIGNetComplexDataset(data.Dataset):
     """
     To work with preprocessed pickles sourced from PDBBind dataset by the
@@ -283,6 +353,7 @@ class PIGNetComplexDataset(data.Dataset):
         featurizer: object,
         compute_energy=False,
         intra_mol_energy=False,
+        binary_cutoff=None,
     ):
         self.keys = np.array(keys).astype(np.unicode_)
         self.data_dir = data_dir
@@ -291,6 +362,7 @@ class PIGNetComplexDataset(data.Dataset):
         self.processed_data = pd.Series([None] * len(self))
         self.compute_energy = compute_energy
         self.intra_mol_energy = intra_mol_energy
+        self.binary_cutoff = binary_cutoff
 
     def __len__(self) -> int:
         return len(self.keys)
@@ -323,7 +395,11 @@ class PIGNetComplexDataset(data.Dataset):
                 "protein": protein_pdb,
             }
         )
-        sample["affinity"] = self.id_to_y[key] * -1.36
+        if self.binary_cutoff is None:
+            sample["affinity"] = self.id_to_y[key] * -1.36
+        else:
+            # convert to a binary classification problem:
+            sample["affinity"] = self.id_to_y[key] >= self.binary_cutoff
         sample["key"] = key
         if self.compute_energy:
             if protein_mol is None:
@@ -333,6 +409,21 @@ class PIGNetComplexDataset(data.Dataset):
             )
             sample["physics"] = physics
         return sample
+
+    @property
+    def pos_weight(self) -> torch.Tensor:
+        """To compute the weight of the positive class, assuming binary
+        classification"""
+        if self.binary_cutoff is None:
+            return None
+        else:
+            affinities = self.id_to_y.loc[self.keys] > self.binary_cutoff
+            class_sizes = affinities.astype(int).value_counts()
+            pos_weights = np.mean(class_sizes) / class_sizes
+            pos_weights = torch.from_numpy(
+                pos_weights.values.astype(np.float32)
+            )
+            return pos_weights[1] / pos_weights[0]
 
     def collate_fn(self, samples):
         """Collating protein complex graphs and graph-level targets."""

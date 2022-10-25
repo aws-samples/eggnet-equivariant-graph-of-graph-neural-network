@@ -49,11 +49,17 @@ class LitGVPModel(pl.LightningModule):
             "loss_der1_ratio",
             "loss_der2_ratio",
             "min_loss_der2",
+            "classify",
         ]
 
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
         self.model = GVPModel(**model_kwargs)
         self.save_hyperparameters(*hparams)
+        self.classify = kwargs.get("classify", False)
+        if self.classify:
+            self.register_buffer(
+                "pos_weight", kwargs.get("pos_weight", torch.tensor(1.0))
+            )
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -135,17 +141,20 @@ class LitGVPModel(pl.LightningModule):
         return parent_parser
 
     def _compute_loss(self, logits, targets, loss_der1=0, loss_der2=0):
-        # regression
+        if self.classify:
+            loss = F.binary_cross_entropy_with_logits(
+                logits, targets, pos_weight=self.pos_weight
+            )
+        else:
+            loss = F.mse_loss(logits, targets)
         if self.hparams.use_energy_decoder:
             loss_all = 0.0
-            loss = F.mse_loss(logits, targets)
             loss_der2 = loss_der2.clamp(min=self.hparams.min_loss_der2)
             loss_all += loss
             loss_all += loss_der1.sum() * self.hparams.loss_der1_ratio
             loss_all += loss_der2.sum() * self.hparams.loss_der2_ratio
             return loss_all
         else:
-            loss = F.mse_loss(logits, targets)
             return loss
 
     def forward(self, batch):
@@ -238,10 +247,16 @@ class LitHGVPModel(pl.LightningModule):
             "loss_der1_ratio",
             "loss_der2_ratio",
             "min_loss_der2",
+            "classify",
         ]
         self.save_hyperparameters(*hparams)
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
         self.model = GVPModel(**model_kwargs)
+        self.classify = kwargs.get("classify", False)
+        if self.classify:
+            self.register_buffer(
+                "pos_weight", kwargs.get("pos_weight", torch.tensor(1.0))
+            )
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -316,23 +331,28 @@ class LitHGVPModel(pl.LightningModule):
         return parent_parser
 
     def _compute_loss(self, logits, targets, loss_der1=0, loss_der2=0):
-        # regression
+        if self.classify:
+            loss = F.binary_cross_entropy_with_logits(
+                logits, targets, pos_weight=self.pos_weight
+            )
+        else:
+            loss = F.mse_loss(logits, targets)
         if self.hparams.use_energy_decoder:
             loss_all = 0.0
-            loss = F.mse_loss(logits, targets)
             loss_der2 = loss_der2.clamp(min=self.hparams.min_loss_der2)
             loss_all += loss
             loss_all += loss_der1.sum() * self.hparams.loss_der1_ratio
             loss_all += loss_der2.sum() * self.hparams.loss_der2_ratio
             return loss_all
         else:
-            loss = F.mse_loss(logits, targets)
             return loss
 
     def forward(self, batch, cal_der_loss=False):
         bg, smiles_strings = batch["graph"], batch["smiles_strings"]
         node_s = bg.ndata["node_s"]
-        residue_embeddings = self.residue_featurizer(smiles_strings, device=self.device)
+        residue_embeddings = self.residue_featurizer(
+            smiles_strings, device=self.device
+        )
         bg.ndata["node_s"] = torch.cat((node_s, residue_embeddings), axis=1)
         if self.hparams.use_energy_decoder:
             return self.model(
@@ -848,7 +868,9 @@ class LitMultiStageHGVPModel(pl.LightningModule):
         atom_to_residue=None,
     ):
         protein_node_s = protein_graph.ndata["node_s"]
-        residue_embeddings = self.residue_featurizer(smiles_strings, device=self.device)
+        residue_embeddings = self.residue_featurizer(
+            smiles_strings, device=self.device
+        )
         protein_graph.ndata["node_s"] = torch.cat(
             (protein_node_s, residue_embeddings), axis=1
         )
