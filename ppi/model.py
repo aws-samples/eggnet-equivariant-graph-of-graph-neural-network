@@ -685,9 +685,9 @@ class LitMultiStageHGVPModel(pl.LightningModule):
             kwargs["residue_featurizer_name"], device=self.device
         )
         # lazy init for model that requires an input datum
-        if kwargs.get("g_protein", None):
+        if kwargs.get("g", None):
             protein_node_in_dim, protein_edge_in_dim = infer_input_dim(
-                kwargs["g_protein"]
+                kwargs["g"]
             )
             protein_node_in_dim = (
                 protein_node_in_dim[0] + self.residue_featurizer.output_size,
@@ -696,9 +696,9 @@ class LitMultiStageHGVPModel(pl.LightningModule):
             kwargs["protein_node_in_dim"] = protein_node_in_dim
             kwargs["protein_edge_in_dim"] = protein_edge_in_dim
 
-        if kwargs.get("g_ligand", None):
+        if kwargs.get("g", None):
             ligand_node_in_dim, ligand_edge_in_dim = infer_input_dim(
-                kwargs["g_ligand"]
+                kwargs["g"]
             )
             ligand_node_in_dim = (
                 ligand_node_in_dim[0] + self.residue_featurizer.output_size,
