@@ -779,7 +779,7 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         if self.residue_featurizer:
             return protein_graph, ligand_graph, complex_graph
         else:
-            return protein_graph, ligand_graph, complex_graph, smiles_strings
+            return protein_graph, ligand_graph, complex_graph, smiles_strings, ligand_smiles
 
 
 class PIGNetAtomicBigraphGeometricComplexFeaturizer(BaseFeaturizer):
