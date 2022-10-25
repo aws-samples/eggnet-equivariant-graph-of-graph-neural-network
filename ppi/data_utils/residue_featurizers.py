@@ -96,7 +96,9 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         self.readout = self.readout.to(device)
         graphs = []
         if isinstance(smiles, str):
+            print(smiles)
             mol = Chem.MolFromSmiles(smiles)
+            print(mol)
             g = mol_to_bigraph(mol, add_self_loop=True,
                                 node_featurizer=PretrainAtomFeaturizer(),
                                 edge_featurizer=PretrainBondFeaturizer(),
@@ -118,7 +120,9 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
             return output_vec_graph, output_vec_nodes
         else:
             for smi in smiles:
+                print(smi)
                 mol = Chem.MolFromSmiles(smi)
+                print(mol)
                 graph = mol_to_bigraph(mol, add_self_loop=True,
                                 node_featurizer=PretrainAtomFeaturizer(),
                                 edge_featurizer=PretrainBondFeaturizer(),
