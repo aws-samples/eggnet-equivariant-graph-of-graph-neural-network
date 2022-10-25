@@ -628,9 +628,8 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         Returns:
             dgl.graph instance representing with the protein complex information
         """
-        ligand, protein_atoms, protein_residues = (
+        ligand, protein_residues = (
             protein_complex["ligand"],
-            protein_complex["protein_atoms"],
             protein_complex["protein_residues"],
         )
         sample = mol_to_feature(ligand_mol=ligand, target_mol=protein_atoms)
