@@ -388,6 +388,8 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
         residue_smiles = []  # SMILES strings of residues in the protein
         for res in chain.get_residues():
             res_mol = utils.residue_to_mol(res)
+            if res_mol is None:  # skip invalid residues
+                continue
             residue_smiles.append(Chem.MolToSmiles(res_mol))
 
             if is_aa(res):
