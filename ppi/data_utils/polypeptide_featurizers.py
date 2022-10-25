@@ -630,7 +630,7 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
         """
         ligand, protein_residues = (
             protein_complex["ligand"],
-            protein_complex["protein_residues"],
+            protein_complex["protein"],
         )
         sample = mol_to_feature(ligand_mol=ligand, target_mol=protein_atoms)
 
