@@ -1160,7 +1160,7 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
         if self.residue_featurizer:
             residues = (
                 torch.stack(
-                    [self.residue_featurizer.featurize(smiles) for smiles in smiles_strings]
+                    [self.residue_featurizer.featurize(smiles)[0] for smiles in smiles_strings]
                 )
                 .to(self.device)
                 .to(torch.long)
