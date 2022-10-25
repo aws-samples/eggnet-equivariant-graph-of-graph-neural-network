@@ -632,7 +632,6 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
             protein_complex["ligand"],
             protein_complex["protein"],
         )
-        sample = mol_to_feature(ligand_mol=ligand, target_mol=protein_atoms)
 
         protein_residue_coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
