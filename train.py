@@ -443,7 +443,7 @@ def evaluate_graph_regression(
         for batch in data_loader:
             # Move relevant tensors to GPU
             for key, val in batch.items():
-                if key not in ("sample", "atom_to_residue", "smiles_strings"):
+                if key not in ("sample", "atom_to_residue", "smiles_strings", "ligand_smiles"):
                     batch[key] = val.to(device)
             if model_name in ("gvp", "hgvp"):
                 batch["graph"] = batch["graph"].to(device)
@@ -501,6 +501,7 @@ def evaluate_graph_regression(
                             cal_der_loss=False,
                             atom_to_residue=batch["atom_to_residue"],
                             smiles_strings=batch["smiles_strings"],
+                            ligand_smiles=batch["ligand_smiles"]
                         )
                     else:
                         energies, _, _ = model(
@@ -518,6 +519,7 @@ def evaluate_graph_regression(
                         batch["ligand_graph"],
                         batch["complex_graph"],
                         smiles_strings=batch["smiles_strings"],
+                        ligand_smiles=batch["ligand_smiles"]
                     )
             else:
                 raise NotImplementedError
