@@ -910,4 +910,5 @@ class PIGNetHeteroBigraphComplexDatasetForEnergyModel(data.Dataset):
             "atom_to_residue": atom_to_residues,
             "g_targets": torch.tensor(g_targets).unsqueeze(-1),
             "smiles_strings": smiles_strings,
+            "ligand_smiles": ligand_smiles
         }
