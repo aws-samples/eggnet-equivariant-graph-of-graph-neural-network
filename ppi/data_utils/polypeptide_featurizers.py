@@ -403,7 +403,7 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
 
             residues = torch.as_tensor(
                 [
-                    self.residue_featurizer(smiles)
+                    self.residue_featurizer(smiles)[0]
                     for smiles in protein1["residues"] + protein2["residues"]
                 ],
                 device=self.device,
@@ -537,7 +537,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
             residues = (
                 torch.stack(
                     [
-                        self.residue_featurizer.featurize(smiles)
+                        self.residue_featurizer.featurize(smiles)[0]
                         for smiles in smiles_strings
                     ]
                 )
