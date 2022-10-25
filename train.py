@@ -511,6 +511,7 @@ def evaluate_graph_regression(
                             batch["sample"],
                             cal_der_loss=False,
                             smiles_strings=batch["smiles_strings"],
+                            ligand_smiles=batch["ligand_smiles"]
                         )
                     preds = energies.sum(-1).unsqueeze(-1)
                 else:
