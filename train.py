@@ -221,7 +221,7 @@ def get_datasets(
             if not test_only:
                 train_df = pd.read_csv(
                     os.path.join(data_dir, f"train_{data_suffix}.csv")
-                )
+                ).sample(frac=1)
                 n_train = int(0.8 * train_df.shape[0])
                 featurizer = NoncanonicalComplexFeaturizer(
                     residue_featurizer, add_noise=add_noise
