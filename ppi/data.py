@@ -335,18 +335,24 @@ class PDBComplexDataset(BasePPIDataset):
         graphs = []
         smiles_strings = []
         g_targets = []
+        physics = []
         for rec in samples:
             graphs.append(rec["graph"])
             g_targets.append(rec["target"])
             if "smiles_strings" in rec:
                 smiles_strings.extend(rec["smiles_strings"])
-        return {
+            if self.compute_energy:
+                physics.append(rec["physics"])
+        res = {
             "graph": dgl.batch(graphs),
             "g_targets": torch.tensor(g_targets)
             .to(torch.float32)
             .unsqueeze(-1),
             "smiles_strings": smiles_strings,
         }
+        if self.compute_energy:
+            res["sample"] = tensor_collate_fn(physics)
+        return res
 
 
 class PIGNetComplexDataset(data.Dataset):
