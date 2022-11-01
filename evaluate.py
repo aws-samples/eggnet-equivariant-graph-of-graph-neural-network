@@ -31,7 +31,9 @@ def load_model_from_checkpoint(
         ckpt_file_path = checkpoint_path
     # load the model from checkpoint
     ModelConstructor = MODEL_CONSTRUCTORS[model_name]
-    model = ModelConstructor.load_from_checkpoint(ckpt_file_path)
+    model = ModelConstructor.load_from_checkpoint(
+        ckpt_file_path, classify=False
+    )
     return model
 
 
