@@ -207,7 +207,9 @@ def get_datasets(
         residue_featurizer = get_residue_featurizer(residue_featurizer_name)
     # initialize complex featurizer based on dataset type
     if name in ("Propedia", "ProtCID"):
-        featurizer = NoncanonicalComplexFeaturizer(residue_featurizer)
+        featurizer = NoncanonicalComplexFeaturizer(
+            residue_featurizer, count_atoms=use_energy_decoder
+        )
         # load Propedia metadata
         if input_type == "complex":
             test_df = pd.read_csv(
@@ -217,6 +219,8 @@ def get_datasets(
                 test_df,
                 data_dir,
                 featurizer=featurizer,
+                compute_energy=use_energy_decoder,
+                intra_mol_energy=intra_mol_energy,
             )
             if not test_only:
                 train_df = pd.read_csv(
@@ -224,17 +228,23 @@ def get_datasets(
                 ).sample(frac=1)
                 n_train = int(0.8 * train_df.shape[0])
                 featurizer = NoncanonicalComplexFeaturizer(
-                    residue_featurizer, add_noise=add_noise
+                    residue_featurizer,
+                    add_noise=add_noise,
+                    count_atoms=use_energy_decoder,
                 )
                 train_dataset = PDBComplexDataset(
                     train_df.iloc[:n_train],
                     data_dir,
                     featurizer=featurizer,
+                    compute_energy=use_energy_decoder,
+                    intra_mol_energy=intra_mol_energy,
                 )
                 valid_dataset = PDBComplexDataset(
                     train_df.iloc[n_train:],
                     data_dir,
                     featurizer=featurizer,
+                    compute_energy=use_energy_decoder,
+                    intra_mol_energy=intra_mol_energy,
                 )
         elif input_type == "polypeptides":
             raise NotImplementedError
@@ -414,6 +424,7 @@ def get_datasets(
         return train_dataset, valid_dataset, test_dataset
     else:
         return test_dataset
+
 
 def evaluate_node_classification(model, data_loader):
     """Evaluate model on dataset and return metrics."""
