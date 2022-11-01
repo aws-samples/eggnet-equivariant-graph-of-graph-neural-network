@@ -418,6 +418,18 @@ class GVPModel(nn.Module):
                 nn.Linear(2 * ns, self.num_outputs),
             )
 
+    def repeat_columns_by_n_atoms(self, h, n_atoms):
+        """Repeat the columns of tensor by the number of atoms
+        Args:
+            h: (d, num_residues)
+            n_atoms: (num_residues,), indicates the number of atoms from each residue
+        """
+        out_h_atoms = []
+        for i in torch.arange(len(n_atoms)):
+            out_h_i = h[:, [i]]
+            out_h_atoms.append(out_h_i.repeat(1, n_atoms[i]))
+        return torch.cat(out_h_atoms, axis=1)
+
     def forward(
         self,
         g,
@@ -447,17 +459,12 @@ class GVPModel(nn.Module):
                 protein_mask = graph.ndata["mask"] == 1
                 protein_out_h = graph.ndata["out"][protein_mask].permute(1, 0)
                 # repeat by number of atoms
-                ligand_out_h_atoms = ligand_out_h.repeat(
-                    1, graph.ndata["atom_counts"][ligand_mask]
+                ligand_out_h_atoms = self.repeat_columns_by_n_atoms(
+                    ligand_out_h, graph.ndata["atom_counts"][ligand_mask]
                 )
-                protein_n_atoms = graph.ndata["atom_counts"][protein_mask]
-                protein_out_h_atoms = []
-                for i in torch.arange(len(protein_n_atoms)):
-                    protein_out_h_i = protein_out_h[:, [i]]
-                    protein_out_h_atoms.append(
-                        protein_out_h_i.repeat(1, protein_n_atoms[i])
-                    )
-                protein_out_h_atoms = torch.cat(protein_out_h_atoms, axis=1)
+                protein_out_h_atoms = self.repeat_columns_by_n_atoms(
+                    protein_out_h, graph.ndata["atom_counts"][protein_mask]
+                )
                 out_ligand.append(ligand_out_h_atoms)
                 out_protein.append(protein_out_h_atoms)
 
