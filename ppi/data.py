@@ -276,6 +276,8 @@ class PDBComplexDataset(BasePPIDataset):
         meta_df: pd.DataFrame,
         path_to_data_files: str,
         featurizer: object,
+        compute_energy=False,
+        intra_mol_energy=False,
         **kwargs
     ):
         self.meta_df = meta_df
@@ -286,6 +288,8 @@ class PDBComplexDataset(BasePPIDataset):
         )
         self.cif_parser = MMCIFParser(QUIET=True)
         self.featurizer = featurizer
+        self.compute_energy = compute_energy
+        self.intra_mol_energy = intra_mol_energy
         super(PDBComplexDataset, self).__init__(**kwargs)
 
     def __len__(self) -> int:
@@ -308,6 +312,13 @@ class PDBComplexDataset(BasePPIDataset):
             {"ligand": ligand, "protein": protein}
         )
         sample["target"] = row["label"]
+        if self.compute_energy:
+            ligand_mol = residue_to_mol(ligand, sanitize=False)
+            protein_mol = residue_to_mol(protein, sanitize=False)
+            physics = mol_to_feature(
+                ligand_mol, protein_mol, compute_full=self.intra_mol_energy
+            )
+            sample["physics"] = physics
         return sample
 
     @property

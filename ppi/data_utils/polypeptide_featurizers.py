@@ -373,12 +373,21 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
         - residue_featurizer: a function mapping a smile string to a vector
     """
 
-    def __init__(self, residue_featurizer=None, add_noise=0.0, **kwargs):
+    def __init__(
+        self,
+        residue_featurizer=None,
+        add_noise=0.0,
+        count_atoms=False,
+        **kwargs
+    ):
         self.residue_featurizer = residue_featurizer
         self.add_noise = add_noise
+        self.count_atoms = count_atoms
         super(NoncanonicalComplexFeaturizer, self).__init__(**kwargs)
 
-    def extract_coords_and_smiles(self, chain, add_noise=0.0):
+    def extract_coords_and_smiles(
+        self, chain, add_noise=0.0, count_atoms=False
+    ):
         """Extract atom coordinates and smiles strings of residues from a PDB.chain.
         If the chain contains non-canonical residues:
             extract the centroid coordinate repeated 4 times
@@ -386,12 +395,15 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
         """
         coords = []
         residue_smiles = []  # SMILES strings of residues in the protein
+        if count_atoms:
+            atom_counts = []  # counts of atom for each node
         for res in chain.get_residues():
             res_mol = utils.residue_to_mol(res)
             if res_mol is None:  # skip invalid residues
                 continue
             residue_smiles.append(Chem.MolToSmiles(res_mol))
-
+            if count_atoms:
+                atom_counts.append(res_mol.GetNumAtoms())
             if is_aa(res):
                 atom_coords = utils.get_atom_coords(res)
             else:
@@ -412,7 +424,13 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
 
             coords.append(atom_coords)
         coords = torch.as_tensor(np.asarray(coords), dtype=torch.float32)
-        return coords, residue_smiles
+        res = {
+            "coords": coords,
+            "residue_smiles": residue_smiles,
+        }
+        if count_atoms:
+            res["atom_counts"] = atom_counts
+        return res
 
     def featurize(self, protein_complex: dict) -> dgl.DGLGraph:
         """Featurizes the protein complex information as a graph for the GNN
@@ -427,19 +445,23 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
             dgl.graph instance representing with the protein complex information
         """
         ligand, protein = protein_complex["ligand"], protein_complex["protein"]
-        (
-            protein_coords,
-            protein_residue_smiles,
-        ) = self.extract_coords_and_smiles(protein, add_noise=self.add_noise)
-        ligand_coords, ligand_residue_smiles = self.extract_coords_and_smiles(
-            ligand, add_noise=self.add_noise
+
+        d_protein = self.extract_coords_and_smiles(
+            protein, add_noise=self.add_noise, count_atoms=self.count_atoms
         )
+        # protein_coords, protein_residue_smiles
+        d_ligand = self.extract_coords_and_smiles(
+            ligand, add_noise=self.add_noise, count_atoms=self.count_atoms
+        )
+        # ligand_coords, ligand_residue_smiles
         # SMILES strings of AA residues and ligand
         # in the same order with the nodes in the graph
-        smiles_strings = protein_residue_smiles + ligand_residue_smiles
+        smiles_strings = (
+            d_protein["residue_smiles"] + d_ligand["residue_smiles"]
+        )
 
         # combine protein and ligand coordinates
-        coords = torch.cat((protein_coords, ligand_coords))
+        coords = torch.cat((d_protein["coords"], d_ligand["coords"]))
         X_ca = coords[:, 1]
         if self.residue_featurizer:
             residues = (
@@ -453,6 +475,16 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
                 .to(torch.long)
             )
             # shape: [seq_len1 + seq_len2, d_embed]
+        # combine atom counts from protein and ligand
+        if self.count_atoms:
+            atom_counts = d_protein["atom_counts"] + d_ligand["atom_counts"]
+            # a boolean mask to indicate nodes from proteins:
+            mask = torch.cat(
+                (
+                    torch.ones(d_protein["coords"].shape[0]),
+                    torch.zeros(d_ligand["coords"].shape[0]),
+                )
+            )
 
         # construct knn graph from C-alpha coordinates
         g = dgl.knn_graph(X_ca, k=min(self.top_k, X_ca.shape[0]))
@@ -484,11 +516,12 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
         # node features
         g.ndata["node_s"] = node_s
         g.ndata["node_v"] = node_v
+        if self.count_atoms:
+            g.ndata["atom_counts"] = torch.tensor(atom_counts)
+            g.ndata["mask"] = mask
         # edge features
         g.edata["edge_s"] = edge_s
         g.edata["edge_v"] = edge_v
-        # graph attrs
-        # setattr(g, "name", protein_complex["name"])
         if self.residue_featurizer:
             return {"graph": g}
         else:
