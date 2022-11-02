@@ -67,8 +67,6 @@ INTER_PHYS_KEYS = [
     "target_vdw_radii",
     "ligand_non_metal",
     "target_non_metal",
-    "ligand_h",
-    "target_h",
 ]
 TARGET_PHYS_KEYS = [
     "target_interaction_indice",
@@ -79,8 +77,6 @@ TARGET_PHYS_KEYS = [
     "target_vdw_radii",
     "target_non_metal",
     "target_non_metal",
-    "ligand_h",
-    "target_h",
 ]
 LIGAND_PHYS_KEYS = [
     "ligand_interaction_indice",
@@ -91,8 +87,6 @@ LIGAND_PHYS_KEYS = [
     "ligand_vdw_radii",
     "ligand_non_metal",
     "ligand_non_metal",
-    "ligand_h",
-    "target_h",
 ]
 
 
@@ -1322,8 +1316,6 @@ class EnergyDecoder(nn.Module):
             target_vdw_radii,
             ligand_non_metal,
             target_non_metal,
-            _,
-            _,
         ) = sample
 
         # distance matrix

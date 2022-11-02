@@ -245,8 +245,8 @@ def mol_to_feature(
             both inter and intra energies.
     """
     # Remove hydrogens
-    ligand_mol = Chem.RemoveHs(ligand_mol)
-    target_mol = Chem.RemoveHs(target_mol)
+    ligand_mol = Chem.RemoveHs(ligand_mol, sanitize=False)
+    target_mol = Chem.RemoveHs(target_mol, sanitize=False)
 
     # prepare ligand
     ligand_pos = np.array(ligand_mol.GetConformers()[0].GetPositions())
@@ -280,10 +280,6 @@ def mol_to_feature(
         [get_vdw_radius(atom) for atom in target_mol.GetAtoms()]
     )
 
-    # atom features
-    target_h = get_atom_feature(target_mol)
-    ligand_h = get_atom_feature(ligand_mol)
-
     sample = {
         "interaction_indice": interaction_indice,
         "ligand_pos": ligand_pos,
@@ -293,8 +289,6 @@ def mol_to_feature(
         "target_vdw_radii": target_vdw_radii,
         "ligand_non_metal": ligand_non_metal,
         "target_non_metal": target_non_metal,
-        "ligand_h": ligand_h,
-        "target_h": target_h,
     }
     if compute_full:
         sample["ligand_interaction_indice"] = get_interaction_indices(

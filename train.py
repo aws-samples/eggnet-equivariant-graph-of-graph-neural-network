@@ -196,6 +196,7 @@ def get_datasets(
     data_suffix="full",
     binary_cutoff=None,
     add_noise=0.0,
+    top_k=30,
 ):
     # initialize residue featurizer
     if "grad" in residue_featurizer_name:
@@ -208,7 +209,7 @@ def get_datasets(
     # initialize complex featurizer based on dataset type
     if name in ("Propedia", "ProtCID"):
         featurizer = NoncanonicalComplexFeaturizer(
-            residue_featurizer, count_atoms=use_energy_decoder
+            residue_featurizer, count_atoms=use_energy_decoder, top_k=top_k
         )
         # load Propedia metadata
         if input_type == "complex":
@@ -231,6 +232,7 @@ def get_datasets(
                     residue_featurizer,
                     add_noise=add_noise,
                     count_atoms=use_energy_decoder,
+                    top_k=top_k,
                 )
                 train_dataset = PDBComplexDataset(
                     train_df.iloc[:n_train],
@@ -262,7 +264,7 @@ def get_datasets(
         # featurizer for PDBBind
         if input_type == "complex":
             featurizer = PDBBindComplexFeaturizer(
-                residue_featurizer, count_atoms=use_energy_decoder
+                residue_featurizer, count_atoms=use_energy_decoder, top_k=top_k
             )
             test_dataset = PIGNetComplexDataset(
                 test_keys,
@@ -378,46 +380,6 @@ def get_datasets(
                     valid_dataset = PIGNetAtomicBigraphComplexDataset(
                         train_keys[n_train:], data_dir, id_to_y, featurizer
                     )
-        elif input_type == "multistage-physical":
-            if use_energy_decoder:
-                featurizer = PIGNetAtomicBigraphPhysicalComplexFeaturizer(
-                    residue_featurizer=None, return_physics=True
-                )
-                test_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                    test_keys, data_dir, id_to_y, featurizer
-                )
-                if not test_only:
-                    with open(
-                        os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
-                    ) as f:
-                        train_keys = pickle.load(f)
-                    n_train = int(0.8 * len(train_keys))
-                    train_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                        train_keys[:n_train], data_dir, id_to_y, featurizer
-                    )
-                    valid_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                        train_keys[n_train:], data_dir, id_to_y, featurizer
-                    )
-            else:
-                featurizer = PIGNetAtomicBigraphPhysicalComplexFeaturizer(
-                    residue_featurizer=None
-                )
-                test_dataset = PIGNetAtomicBigraphComplexDataset(
-                    test_keys, data_dir, id_to_y, featurizer
-                )
-                if not test_only:
-                    with open(
-                        os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
-                    ) as f:
-                        train_keys = pickle.load(f)
-                    n_train = int(0.8 * len(train_keys))
-                    train_dataset = PIGNetAtomicBigraphComplexDataset(
-                        train_keys[:n_train], data_dir, id_to_y, featurizer
-                    )
-                    valid_dataset = PIGNetAtomicBigraphComplexDataset(
-                        train_keys[n_train:], data_dir, id_to_y, featurizer
-                    )
-
         else:
             raise NotImplementedError
     if not test_only:
@@ -641,6 +603,7 @@ def main(args):
         data_suffix=args.data_suffix,
         binary_cutoff=args.binary_cutoff,
         add_noise=args.add_noise,
+        top_k=args.top_k,
     )
     print(
         "Data loaded:",
@@ -821,6 +784,12 @@ if __name__ == "__main__":
         help="name of the residue featurizer",
         type=str,
         default="MACCS",
+    )
+    parser.add_argument(
+        "--top_k",
+        help="k used for creating kNN residue grarph",
+        type=int,
+        default=30,
     )
     # training hparams
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
