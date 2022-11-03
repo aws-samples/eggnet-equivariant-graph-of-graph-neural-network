@@ -577,6 +577,7 @@ def evaluate_graph_classification(
                 is_hetero=is_hetero,
             )
             preds = preds.to("cpu")
+            preds = torch.sigmoid(preds)
             targets = batch["g_targets"].to("cpu").to(torch.int8)
 
             auroc = AUROC(preds, targets)
