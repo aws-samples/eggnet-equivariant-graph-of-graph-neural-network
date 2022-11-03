@@ -165,14 +165,23 @@ def init_model(
             complex_graph.edata["edge_v"].shape[1],
         )
 
-        model = MODEL_CONSTRUCTORS[model_name](
-            g=protein_graph,
-            ligand_node_in_dim=ligand_node_in_dim,
-            ligand_edge_in_dim=ligand_edge_in_dim,
-            complex_edge_in_dim=complex_edge_in_dim,
-            num_outputs=num_outputs,
-            **kwargs,
-        )
+        if kwargs["is_hetero"]:
+            model = MODEL_CONSTRUCTORS[model_name](
+                g_protein=protein_graph,
+                ligand_node_in_dim=ligand_node_in_dim,
+                ligand_edge_in_dim=ligand_edge_in_dim,
+                complex_edge_in_dim=complex_edge_in_dim,
+                num_outputs=num_outputs,
+                **kwargs,
+            )
+        else:
+            model = MODEL_CONSTRUCTORS[model_name](
+                g_protein=protein_graph,
+                g_ligand=ligand_graph,
+                complex_edge_in_dim=complex_edge_in_dim,
+                num_outputs=num_outputs,
+                **kwargs,
+            )
     else:
         model = MODEL_CONSTRUCTORS[model_name](
             in_feats=datum.ndata["node_s"].shape[1],
@@ -511,7 +520,8 @@ def predict_step(
                     batch["sample"],
                     cal_der_loss=False,
                     atom_to_residue=batch["atom_to_residue"],
-                    smiles_strings=batch["smiles_strings"],
+                    protein_smiles_strings=batch["protein_smiles_strings"],
+                    ligand_smiles_strings=batch["ligand_smiles_strings"],
                 )
             else:
                 energies, _, _ = model(
@@ -520,7 +530,8 @@ def predict_step(
                     batch["complex_graph"],
                     batch["sample"],
                     cal_der_loss=False,
-                    smiles_strings=batch["smiles_strings"],
+                    protein_smiles_strings=batch["protein_smiles_strings"],
+                    ligand_smiles_strings=batch["ligand_smiles_strings"],
                 )
             preds = energies.sum(-1).unsqueeze(-1)
         else:
@@ -528,7 +539,8 @@ def predict_step(
                 batch["protein_graph"],
                 batch["ligand_graph"],
                 batch["complex_graph"],
-                smiles_strings=batch["smiles_strings"],
+                protein_smiles_strings=batch["protein_smiles_strings"],
+                ligand_smiles_strings=batch["ligand_smiles_strings"],
             )
     else:
         raise NotImplementedError
