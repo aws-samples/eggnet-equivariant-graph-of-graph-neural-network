@@ -997,3 +997,86 @@ class PIGNetHeteroBigraphComplexDatasetForEnergyModel(data.Dataset):
             "g_targets": torch.tensor(g_targets).unsqueeze(-1),
             "smiles_strings": smiles_strings,
         }
+
+
+class PDBBigraphComplexDataset(BasePPIDataset):
+    """
+    To work with Propedia and ProtCID data, where each individual sample is a
+    PDB complex file.
+    """
+
+    def __init__(
+        self,
+        meta_df: pd.DataFrame,
+        path_to_data_files: str,
+        featurizer: object,
+        **kwargs
+    ):
+        self.meta_df = meta_df
+        self.path = path_to_data_files
+        self.pdb_parser = PDBParser(
+            QUIET=True,
+            PERMISSIVE=True,
+        )
+        self.cif_parser = MMCIFParser(QUIET=True)
+        self.featurizer = featurizer
+        super(PDBComplexDataset, self).__init__(**kwargs)
+
+    def __len__(self) -> int:
+        return self.meta_df.shape[0]
+
+    def _preprocess(self, idx: int) -> Dict[str, Any]:
+        row = self.meta_df.iloc[idx]
+        structure = parse_structure(
+            self.pdb_parser,
+            self.cif_parser,
+            name=str(idx),
+            file_path=os.path.join(self.path, row["pdb_file"]),
+        )
+        for chain in structure.get_chains():
+            if chain.id == row["receptor_chain_id"]:
+                protein = chain
+            elif chain.id == row["ligand_chain_id"]:
+                ligand = chain
+        sample = self.featurizer.featurize(
+            {"ligand": ligand, "protein": protein}
+        )
+        sample["target"] = row["label"]
+        return sample
+
+    @property
+    def pos_weight(self) -> torch.Tensor:
+        """To compute the weight of the positive class, assuming binary
+        classification"""
+        class_sizes = self.meta_df["label"].value_counts()
+        pos_weights = np.mean(class_sizes) / class_sizes
+        pos_weights = torch.from_numpy(pos_weights.values.astype(np.float32))
+        return pos_weights[1] / pos_weights[0]
+
+    def collate_fn(self, samples):
+        """Collating protein complex graphs and graph-level targets."""
+        protein_graphs = []
+        protein_smiles_strings = []
+        ligand_graphs = []
+        ligand_smiles_strings = []
+        complex_graphs = []
+        g_targets = []
+        for rec in samples:
+            protein_graphs.append(rec["protein_graph"])
+            ligand_graphs.append(rec["ligand_graph"])
+            complex_graphs.append(rec["complex_graph"])
+            g_targets.append(rec["target"])
+            if "protein_smiles_strings" in rec:
+                protein_smiles_strings.extend(rec["protein_smiles_strings"])
+            if "ligand_smiles_strings" in rec:
+                ligand_smiles_strings.extend(rec["ligand_smiles_strings"])
+        return {
+            "protein_graph": dgl.batch(protein_graphs),
+            "ligand_graph": dgl.batch(ligand_graphs),
+            "complex_graph": dgl.batch(complex_graphs),
+            "g_targets": torch.tensor(g_targets)
+            .to(torch.float32)
+            .unsqueeze(-1),
+            "protein_smiles_strings": protein_smiles_strings,
+            "ligand_smiles_strings": ligand_smiles_strings,
+        }
