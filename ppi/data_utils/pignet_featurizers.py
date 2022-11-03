@@ -245,8 +245,8 @@ def mol_to_feature(
             both inter and intra energies.
     """
     # Remove hydrogens
-    ligand_mol = Chem.RemoveHs(ligand_mol, sanitize=False)
-    target_mol = Chem.RemoveHs(target_mol, sanitize=False)
+    ligand_mol = Chem.RemoveHs(ligand_mol)
+    target_mol = Chem.RemoveHs(target_mol)
 
     # prepare ligand
     ligand_pos = np.array(ligand_mol.GetConformers()[0].GetPositions())
