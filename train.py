@@ -708,7 +708,7 @@ def main(args):
         persistent_workers=args.persistent_workers,
     )
     # 3. Prepare model
-    if args.dataset_name in ["PDBBind", "ProtCID]":
+    if args.dataset_name in ["PDBBind", "ProtCID"]:
         if args.model_name in ["gvp", "hgvp"]:
             datum = train_dataset[0]["graph"]
         elif args.model_name in ["multistage-gvp", "multistage-hgvp"]:
