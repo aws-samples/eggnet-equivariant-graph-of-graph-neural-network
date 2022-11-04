@@ -500,7 +500,7 @@ def predict_step(
     """Make prediction on one batch of data"""
     # Move relevant tensors to GPU
     for key, val in batch.items():
-        if key not in ("sample", "atom_to_residue", "smiles_strings"):
+        if key not in ("sample", "atom_to_residue", "smiles_strings", "protein_smiles_strings", "ligand_smiles_strings"):
             batch[key] = val.to(device)
     if model_name in ("gvp", "hgvp"):
         batch["graph"] = batch["graph"].to(device)
