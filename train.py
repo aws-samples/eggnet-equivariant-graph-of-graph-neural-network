@@ -221,9 +221,9 @@ def get_datasets(
         residue_featurizer = get_residue_featurizer(residue_featurizer_name)
     # initialize complex featurizer based on dataset type
     if name in ("Propedia", "ProtCID"):
-        featurizer = NoncanonicalComplexFeaturizer(residue_featurizer)
         # load Propedia metadata
         if input_type == "complex":
+            featurizer = NoncanonicalComplexFeaturizer(residue_featurizer)
             test_df = pd.read_csv(
                 os.path.join(data_dir, f"test_{data_suffix}.csv")
             )
@@ -251,6 +251,7 @@ def get_datasets(
                     featurizer=featurizer,
                 )
         elif input_type == "multistage-complex":
+            featurizer = NoncanonicalBigraphComplexFeaturizer(residue_featurizer)
             test_df = pd.read_csv(
                 os.path.join(data_dir, f"test_{data_suffix}.csv")
             )
