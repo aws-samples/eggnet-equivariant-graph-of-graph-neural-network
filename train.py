@@ -124,6 +124,7 @@ def init_model(
             ligand_edge_in_dim=ligand_edge_in_dim,
             complex_edge_in_dim=complex_edge_in_dim,
             num_outputs=num_outputs,
+            classify=classify,
             **kwargs,
         )
     elif model_name == "multistage-hgvp":
