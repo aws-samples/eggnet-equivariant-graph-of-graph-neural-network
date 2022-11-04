@@ -1062,6 +1062,7 @@ class PDBBigraphComplexDataset(BasePPIDataset):
         complex_graphs = []
         g_targets = []
         for rec in samples:
+            print(rec.keys())
             protein_graphs.append(rec["protein_graph"])
             ligand_graphs.append(rec["ligand_graph"])
             complex_graphs.append(rec["complex_graph"])
