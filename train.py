@@ -28,6 +28,7 @@ from ppi.model import (
 )
 from ppi.data import (
     PDBComplexDataset,
+    PDBBigraphComplexDataset,
     PIGNetComplexDataset,
     PIGNetAtomicBigraphComplexDataset,
     PIGNetHeteroBigraphComplexDataset,
@@ -37,6 +38,7 @@ from ppi.data import (
 from ppi.data_utils import (
     get_residue_featurizer,
     NoncanonicalComplexFeaturizer,
+    NoncanonicalBigraphComplexFeaturizer,
     PDBBindComplexFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizerForEnergyModel,
@@ -245,7 +247,36 @@ def get_datasets(
                     data_dir,
                     featurizer=featurizer,
                 )
+        elif input_type == "multistage-complex":
+            test_df = pd.read_csv(
+                os.path.join(data_dir, f"test_{data_suffix}.csv")
+            )
+            test_dataset = PDBBigraphComplexDataset(
+                test_df,
+                data_dir,
+                featurizer=featurizer,
+            )
+            if not test_only:
+                train_df = pd.read_csv(
+                    os.path.join(data_dir, f"train_{data_suffix}.csv")
+                ).sample(frac=1)
+                n_train = int(0.8 * train_df.shape[0])
+                featurizer = NoncanonicalBigraphComplexFeaturizer(
+                    residue_featurizer, add_noise=add_noise
+                )
+                train_dataset = PDBBigraphComplexDataset(
+                    train_df.iloc[:n_train],
+                    data_dir,
+                    featurizer=featurizer,
+                )
+                valid_dataset = PDBBigraphComplexDataset(
+                    train_df.iloc[n_train:],
+                    data_dir,
+                    featurizer=featurizer,
+                )
         elif input_type == "polypeptides":
+            raise NotImplementedError
+        else:
             raise NotImplementedError
     elif name == "PDBBind":
         # PIGNet parsed PDBBind datasets
