@@ -1020,7 +1020,7 @@ class PDBBigraphComplexDataset(BasePPIDataset):
         )
         self.cif_parser = MMCIFParser(QUIET=True)
         self.featurizer = featurizer
-        super(PDBComplexDataset, self).__init__(**kwargs)
+        super(PDBBigraphComplexDataset, self).__init__(**kwargs)
 
     def __len__(self) -> int:
         return self.meta_df.shape[0]
