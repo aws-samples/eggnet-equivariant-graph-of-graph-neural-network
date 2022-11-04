@@ -642,7 +642,6 @@ def evaluate_graph_classification(
     MCC = torchmetrics.MatthewsCorrCoef(num_classes=2)
     with torch.no_grad():
         for batch in data_loader:
-            print(batch.keys())
             preds = predict_step(
                 model,
                 batch,
