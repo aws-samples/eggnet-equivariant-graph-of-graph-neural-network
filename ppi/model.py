@@ -507,8 +507,14 @@ class LitMultiStageGVPModel(pl.LightningModule):
             "loss_der1_ratio",
             "loss_der2_ratio",
             "min_loss_der2",
+            "classify",
         ]
         self.save_hyperparameters(*hparams)
+        self.classify = kwargs.get("classify", False)
+        if self.classify:
+            self.register_buffer(
+                "pos_weight", kwargs.get("pos_weight", torch.tensor(1.0))
+            )
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
         self.model = MultiStageGVPModel(**model_kwargs)
 
@@ -610,6 +616,12 @@ class LitMultiStageGVPModel(pl.LightningModule):
         # binary classification
         # loss = F.binary_cross_entropy_with_logits(logits, targets)
         # regression
+        if self.classify:
+            loss = F.binary_cross_entropy_with_logits(
+                logits, targets, pos_weight=self.pos_weight
+            )
+        else:
+            loss = F.mse_loss(logits, targets)
         if self.hparams.use_energy_decoder:
             loss_all = 0.0
             loss = F.mse_loss(logits, targets)
@@ -753,8 +765,14 @@ class LitMultiStageHGVPModel(pl.LightningModule):
             "loss_der1_ratio",
             "loss_der2_ratio",
             "min_loss_der2",
+            "classify",
         ]
         self.save_hyperparameters(*hparams)
+        self.classify = kwargs.get("classify", False)
+        if self.classify:
+            self.register_buffer(
+                "pos_weight", kwargs.get("pos_weight", torch.tensor(1.0))
+            )
         model_kwargs = {key: kwargs[key] for key in hparams if key in kwargs}
         self.model = MultiStageGVPModel(**model_kwargs)
 
@@ -856,6 +874,12 @@ class LitMultiStageHGVPModel(pl.LightningModule):
         # binary classification
         # loss = F.binary_cross_entropy_with_logits(logits, targets)
         # regression
+        if self.classify:
+            loss = F.binary_cross_entropy_with_logits(
+                logits, targets, pos_weight=self.pos_weight
+            )
+        else:
+            loss = F.mse_loss(logits, targets)
         if self.hparams.use_energy_decoder:
             loss_all = 0.0
             loss = F.mse_loss(logits, targets)
