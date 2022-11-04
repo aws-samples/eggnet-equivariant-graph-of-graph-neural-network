@@ -174,6 +174,7 @@ def init_model(
                 ligand_edge_in_dim=ligand_edge_in_dim,
                 complex_edge_in_dim=complex_edge_in_dim,
                 num_outputs=num_outputs,
+                classify=classify,
                 **kwargs,
             )
         else:
@@ -182,6 +183,7 @@ def init_model(
                 g_ligand=ligand_graph,
                 complex_edge_in_dim=complex_edge_in_dim,
                 num_outputs=num_outputs,
+                classify=classify,
                 **kwargs,
             )
     else:
