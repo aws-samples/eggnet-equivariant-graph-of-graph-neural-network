@@ -163,6 +163,13 @@ if __name__ == "__main__":
         default=0,
         help="num_workers used in DataLoader",
     )
+    # featurizer params
+    parser.add_argument(
+        "--residue_featurizer_name",
+        help="name of the residue featurizer",
+        type=str,
+        default="MACCS",
+    )
     parser.add_argument("--use_energy_decoder", action="store_true")
     parser.add_argument("--is_hetero", action="store_true")
     parser.set_defaults(
