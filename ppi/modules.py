@@ -334,6 +334,7 @@ class GVPModel(nn.Module):
         seq_embedding=True,
         use_energy_decoder=False,
         intra_mol_energy=False,
+        final_energy_bias=False,
         energy_agg_type="0_1",
         vdw_N=6.0,
         max_vdw_interaction=0.0356,
@@ -370,6 +371,7 @@ class GVPModel(nn.Module):
         self.num_outputs = num_outputs
         self.use_energy_decoder = use_energy_decoder
         self.intra_mol_energy = intra_mol_energy
+        self.final_energy_bias = final_energy_bias
         ns, nv = self.gvp_encoder.node_out_dim
         ## Decoder
         if use_energy_decoder:
@@ -381,6 +383,8 @@ class GVPModel(nn.Module):
                 dev_vdw_radius=dev_vdw_radius,
                 no_rotor_penalty=no_rotor_penalty,
             )
+            if self.final_energy_bias:
+                self.bias = nn.Parameter(torch.zeros(1))
             if intra_mol_energy:
                 self.decoder_ligand = EnergyDecoder(
                     ns // 2,
@@ -511,6 +515,8 @@ class GVPModel(nn.Module):
                     der1_t,
                     der2_t,
                 )
+            if self.final_energy_bias:
+                energies += self.bias
             return energies, der1, der2
         else:
             # aggregate node vectors to graph

@@ -812,8 +812,12 @@ if __name__ == "__main__":
     parser.add_argument("--use_energy_decoder", action="store_true")
     parser.add_argument("--is_hetero", action="store_true")
     parser.add_argument("--intra_mol_energy", action="store_true")
+    parser.add_argument("--final_energy_bias", action="store_true")
     parser.set_defaults(
-        use_energy_decoder=False, is_hetero=False, intra_mol_energy=False
+        use_energy_decoder=False,
+        is_hetero=False,
+        intra_mol_energy=False,
+        final_energy_bias=False,
     )
     parser.add_argument(
         "--pretrained_weights",
