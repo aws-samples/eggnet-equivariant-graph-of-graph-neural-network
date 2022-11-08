@@ -1,7 +1,12 @@
 """
 Evaluate a trained pytorch-lightning model on a given dataset.
 """
-from train import get_datasets, evaluate_graph_regression, MODEL_CONSTRUCTORS
+from train import (
+    evaluate_graph_classification,
+    get_datasets,
+    evaluate_graph_regression,
+    MODEL_CONSTRUCTORS,
+)
 
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
@@ -44,6 +49,10 @@ def main(args):
         name=args.dataset_name,
         input_type=args.input_type,
         data_dir=args.data_dir,
+        residue_featurizer_name=args.residue_featurizer_name,
+        use_energy_decoder=args.use_energy_decoder,
+        data_suffix=args.data_suffix,
+        binary_cutoff=args.binary_cutoff,
         test_only=True,
     )
     print(
@@ -61,7 +70,18 @@ def main(args):
     # 3. Prepare model
     model = load_model_from_checkpoint(args.checkpoint_path, args.model_name)
     # 4. Evaluate
-    scores = evaluate_graph_regression(model, test_loader)
+    if args.evaluate_type == "regression":
+        eval_func = evaluate_graph_regression
+    elif args.evaluate_type == "classification":
+        eval_func = evaluate_graph_classification
+
+    scores = eval_func(
+        model,
+        test_loader,
+        model_name=args.model_name,
+        use_energy_decoder=args.use_energy_decoder,
+        is_hetero=args.is_hetero,
+    )
     pprint(scores)
     # save scores to file
     json.dump(
@@ -90,6 +110,12 @@ if __name__ == "__main__":
         help="ptl checkpoint path like `lightning_logs/version_x`",
         required=True,
     )
+    parser.add_argument(
+        "--evaluate_type",
+        type=str,
+        help="regression or classification",
+        default="regression",
+    )
 
     # dataset params
     parser.add_argument(
@@ -117,6 +143,18 @@ if __name__ == "__main__":
         required=True,
     )
     parser.add_argument(
+        "--data_suffix",
+        help="used to distinguish different verions of the same dataset",
+        type=str,
+        default="full",
+    )
+    parser.add_argument(
+        "--binary_cutoff",
+        help="used to convert PDBBind to a binary classification problem",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
         "--bs", type=int, default=64, help="batch size for test data"
     )
     parser.add_argument(
@@ -125,7 +163,12 @@ if __name__ == "__main__":
         default=0,
         help="num_workers used in DataLoader",
     )
-
+    parser.add_argument("--use_energy_decoder", action="store_true")
+    parser.add_argument("--is_hetero", action="store_true")
+    parser.set_defaults(
+        use_energy_decoder=False,
+        is_hetero=False,
+    )
     args = parser.parse_args()
 
     print("args:", args)
