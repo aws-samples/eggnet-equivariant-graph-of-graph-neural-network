@@ -18,7 +18,7 @@ from pprint import pprint
 
 
 def load_model_from_checkpoint(
-    checkpoint_path: str, model_name: str
+    checkpoint_path: str, model_name: str, classify=False
 ) -> pl.LightningModule:
     """Load a ptl model from checkpoint path.
     Args:
@@ -37,7 +37,7 @@ def load_model_from_checkpoint(
     # load the model from checkpoint
     ModelConstructor = MODEL_CONSTRUCTORS[model_name]
     model = ModelConstructor.load_from_checkpoint(
-        ckpt_file_path, classify=False
+        ckpt_file_path, classify=classify
     )
     return model
 
@@ -68,11 +68,16 @@ def main(args):
         collate_fn=test_dataset.collate_fn,
     )
     # 3. Prepare model
-    model = load_model_from_checkpoint(args.checkpoint_path, args.model_name)
+    classify = args.evaluate_type == "classification"
+    model = load_model_from_checkpoint(
+        args.checkpoint_path,
+        args.model_name,
+        classify=classify,
+    )
     # 4. Evaluate
-    if args.evaluate_type == "regression":
+    if not classify:
         eval_func = evaluate_graph_regression
-    elif args.evaluate_type == "classification":
+    else:
         eval_func = evaluate_graph_classification
 
     scores = eval_func(
