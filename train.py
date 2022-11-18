@@ -547,20 +547,20 @@ def predict_step(
             batch["sample"] = {
                 key: val.to(device) for key, val in batch["sample"].items()
             }
-            # if is_hetero:
-            #     energies, _, _ = model(
-            #         batch["protein_graph"],
-            #         batch["ligand_graph"],
-            #         batch["complex_graph"],
-            #         batch["sample"],
-            #         cal_der_loss=False,
-            #         atom_to_residue=batch["atom_to_residue"],
-            #         protein_smiles_strings=batch["protein_smiles_strings"],
-            #         ligand_smiles_strings=batch["ligand_smiles_strings"],
-            #         ligand_smiles=batch["ligand_smiles"],
-            #     )
-            # else:
-            energies, _, _ = model(
+            if is_hetero:
+                energies, _, _ = model(
+                    batch["protein_graph"],
+                    batch["ligand_graph"],
+                    batch["complex_graph"],
+                    batch["sample"],
+                    cal_der_loss=False,
+                    atom_to_residue=batch["atom_to_residue"],
+                    protein_smiles_strings=batch["protein_smiles_strings"],
+                    ligand_smiles_strings=batch["ligand_smiles_strings"],
+                    ligand_smiles=batch["ligand_smiles"],
+                )
+            else:
+                energies, _, _ = model(
                     batch["protein_graph"],
                     batch["ligand_graph"],
                     batch["complex_graph"],
