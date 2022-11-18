@@ -916,7 +916,7 @@ class LitMultiStageHGVPModel(pl.LightningModule):
         # Ligand (Polypeptide)
         if ligand_smiles_strings:
             ligand_node_s = ligand_graph.ndata["node_s"]
-            ligand_residue_embeddings = self.residue_featurizer(
+            ligand_residue_embeddings, _ = self.residue_featurizer(
                 ligand_smiles_strings, device=self.device
             )
             ligand_graph.ndata["node_s"] = torch.cat(
