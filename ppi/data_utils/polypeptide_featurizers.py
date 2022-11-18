@@ -426,7 +426,6 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
         Returns:
             dgl.graph instance representing with the protein complex information
         """
-<<<<<<< HEAD
         ligand, protein = protein_complex["ligand"], protein_complex["protein"]
         (
             protein_coords,
@@ -438,7 +437,6 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
         # SMILES strings of AA residues and ligand
         # in the same order with the nodes in the graph
         smiles_strings = protein_residue_smiles + ligand_residue_smiles
-=======
         protein1 = protein_complex["protein1"]
         protein2 = protein_complex["protein2"]
         with torch.no_grad():
@@ -471,7 +469,6 @@ class NoncanonicalComplexFeaturizer(BaseFeaturizer):
             # construct knn graph from C-alpha coordinates
             g = dgl.knn_graph(X_ca, k=min(self.top_k, X_ca.shape[0]))
             edge_index = g.edges()
->>>>>>> multistage-ligand-with-residue-featurizer
 
         # combine protein and ligand coordinates
         coords = torch.cat((protein_coords, ligand_coords))
