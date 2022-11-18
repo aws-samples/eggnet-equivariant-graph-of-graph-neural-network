@@ -731,6 +731,7 @@ class PIGNetHeteroBigraphComplexDataset(data.Dataset):
                 "ligand_graph": ligand_graph,
                 "complex_graph": complex_graph,
                 "protein_smiles_strings": protein_smiles_strings,
+                "ligand_smiles_strings": None,
                 "ligand_smiles": ligand_smiles
             }
         sample["affinity"] = self.id_to_y[key] * -1.36
@@ -762,6 +763,7 @@ class PIGNetHeteroBigraphComplexDataset(data.Dataset):
             "complex_graph": dgl.batch(complex_graphs),
             "g_targets": torch.tensor(g_targets).unsqueeze(-1),
             "protein_smiles_strings": protein_smiles_strings,
+            "ligand_smiles_strings": None,
             "ligand_smiles": ligand_smiles
         }
 
