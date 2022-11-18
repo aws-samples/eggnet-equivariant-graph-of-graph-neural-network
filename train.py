@@ -168,18 +168,18 @@ def init_model(
             complex_graph.edata["edge_v"].shape[1],
         )
 
-        if kwargs["is_hetero"]:
-            model = MODEL_CONSTRUCTORS[model_name](
-                g_protein=protein_graph,
-                ligand_node_in_dim=ligand_node_in_dim,
-                ligand_edge_in_dim=ligand_edge_in_dim,
-                complex_edge_in_dim=complex_edge_in_dim,
-                num_outputs=num_outputs,
-                classify=classify,
-                **kwargs,
-            )
-        else:
-            model = MODEL_CONSTRUCTORS[model_name](
+        # if kwargs["is_hetero"]:
+        #     model = MODEL_CONSTRUCTORS[model_name](
+        #         g_protein=protein_graph,
+        #         ligand_node_in_dim=ligand_node_in_dim,
+        #         ligand_edge_in_dim=ligand_edge_in_dim,
+        #         complex_edge_in_dim=complex_edge_in_dim,
+        #         num_outputs=num_outputs,
+        #         classify=classify,
+        #         **kwargs,
+        #     )
+        # else:
+        model = MODEL_CONSTRUCTORS[model_name](
                 g_protein=protein_graph,
                 g_ligand=ligand_graph,
                 complex_edge_in_dim=complex_edge_in_dim,
