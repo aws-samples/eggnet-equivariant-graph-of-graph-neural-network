@@ -739,7 +739,8 @@ class PIGNetHeteroBigraphComplexDataset(data.Dataset):
 
     def collate_fn(self, samples):
         """Collating protein complex graphs and graph-level targets."""
-        protein_graphs, ligand_graphs, complex_graphs, smiles_strings = (
+        protein_graphs, ligand_graphs, complex_graphs, protein_smiles_strings, ligand_smiles = (
+            [],
             [],
             [],
             [],
@@ -752,14 +753,17 @@ class PIGNetHeteroBigraphComplexDataset(data.Dataset):
             ligand_graphs.append(rec["ligand_graph"])
             complex_graphs.append(rec["complex_graph"])
             g_targets.append(rec["affinity"])
-            if "smiles_strings" in rec:
-                smiles_strings.extend(rec["smiles_strings"])
+            if "protein_smiles_strings" in rec:
+                protein_smiles_strings.extend(rec["protein_smiles_strings"])
+            if "ligand_smiles" in rec:
+                ligand_smiles.append(rec["ligand_smiles"])
         return {
             "protein_graph": dgl.batch(protein_graphs),
             "ligand_graph": dgl.batch(ligand_graphs),
             "complex_graph": dgl.batch(complex_graphs),
             "g_targets": torch.tensor(g_targets).unsqueeze(-1),
-            "smiles_strings": smiles_strings,
+            "protein_smiles_strings": protein_smiles_strings,
+            "ligand_smiles": ligand_smiles
         }
 
 
