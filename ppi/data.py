@@ -980,8 +980,9 @@ class PIGNetHeteroBigraphComplexDatasetForEnergyModel(data.Dataset):
             complex_graphs,
             physics,
             atom_to_residues,
-            smiles_strings,
-        ) = ([], [], [], [], [], [])
+            protein_smiles_strings,
+            ligand_smiles
+        ) = ([], [], [], [], [], [], [])
         g_targets = []
         for rec in samples:
             protein_graphs.append(rec["protein_graph"])
@@ -990,8 +991,10 @@ class PIGNetHeteroBigraphComplexDatasetForEnergyModel(data.Dataset):
             physics.append(rec["sample"])
             atom_to_residues.append(rec["atom_to_residue"])
             g_targets.append(rec["affinity"])
+            if "protein_smiles_strings" in rec:
+                protein_smiles_strings.extend(rec["protein_smiles_strings"])
             if "ligand_smiles" in rec:
-                smiles_strings.extend(rec["ligand_smiles"])
+                ligand_smiles.append(rec["ligand_smiles"])
         return {
             "protein_graph": dgl.batch(protein_graphs),
             "ligand_graph": dgl.batch(ligand_graphs),
@@ -999,8 +1002,9 @@ class PIGNetHeteroBigraphComplexDatasetForEnergyModel(data.Dataset):
             "sample": tensor_collate_fn(physics),
             "atom_to_residue": atom_to_residues,
             "g_targets": torch.tensor(g_targets).unsqueeze(-1),
+            "protein_smiles_strings": protein_smiles_strings,
             "ligand_smiles_strings": None,
-            "ligand_smiles": smiles_strings,
+            "ligand_smiles": ligand_smiles
         }
 
 
