@@ -744,7 +744,6 @@ class PIGNetHeteroBigraphComplexDataset(data.Dataset):
             [],
             [],
             [],
-            [],
             []
         )
         g_targets = []
