@@ -718,7 +718,8 @@ class PIGNetHeteroBigraphComplexDataset(data.Dataset):
                 protein_graph,
                 ligand_graph,
                 complex_graph,
-                smiles_strings,
+                protein_smiles_strings,
+                ligand_smiles,
             ) = self.featurizer.featurize(
                 {
                     "ligand": m1,
@@ -729,7 +730,8 @@ class PIGNetHeteroBigraphComplexDataset(data.Dataset):
                 "protein_graph": protein_graph,
                 "ligand_graph": ligand_graph,
                 "complex_graph": complex_graph,
-                "smiles_strings": smiles_strings,
+                "protein_smiles_strings": protein_smiles_strings,
+                "ligand_smiles": ligand_smiles
             }
         sample["affinity"] = self.id_to_y[key] * -1.36
         sample["key"] = key
