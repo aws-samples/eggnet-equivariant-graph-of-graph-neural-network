@@ -166,9 +166,8 @@ def init_model(
         )
 
         model = MODEL_CONSTRUCTORS[model_name](
-            g=protein_graph,
-            ligand_node_in_dim=ligand_node_in_dim,
-            ligand_edge_in_dim=ligand_edge_in_dim,
+            g_protein=protein_graph,
+            g_ligand=ligand_graph,
             complex_edge_in_dim=complex_edge_in_dim,
             num_outputs=num_outputs,
             **kwargs,
@@ -457,7 +456,7 @@ def predict_step(
     """Make prediction on one batch of data"""
     # Move relevant tensors to GPU
     for key, val in batch.items():
-        if key not in ("sample", "atom_to_residue", "smiles_strings"):
+        if key not in ("sample", "atom_to_residue", "smiles_strings", "ligand_smiles"):
             batch[key] = val.to(device)
     if model_name in ("gvp", "hgvp"):
         batch["graph"] = batch["graph"].to(device)
@@ -512,6 +511,7 @@ def predict_step(
                     cal_der_loss=False,
                     atom_to_residue=batch["atom_to_residue"],
                     smiles_strings=batch["smiles_strings"],
+                            ligand_smiles=batch["ligand_smiles"]
                 )
             else:
                 energies, _, _ = model(
@@ -521,6 +521,7 @@ def predict_step(
                     batch["sample"],
                     cal_der_loss=False,
                     smiles_strings=batch["smiles_strings"],
+                            ligand_smiles=batch["ligand_smiles"]
                 )
             preds = energies.sum(-1).unsqueeze(-1)
         else:
@@ -529,6 +530,7 @@ def predict_step(
                 batch["ligand_graph"],
                 batch["complex_graph"],
                 smiles_strings=batch["smiles_strings"],
+                        ligand_smiles=batch["ligand_smiles"]
             )
     else:
         raise NotImplementedError

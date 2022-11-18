@@ -719,6 +719,7 @@ class PIGNetHeteroBigraphComplexDataset(data.Dataset):
                 ligand_graph,
                 complex_graph,
                 smiles_strings,
+                ligand_smiles
             ) = self.featurizer.featurize(
                 {
                     "ligand": m1,
@@ -730,6 +731,7 @@ class PIGNetHeteroBigraphComplexDataset(data.Dataset):
                 "ligand_graph": ligand_graph,
                 "complex_graph": complex_graph,
                 "smiles_strings": smiles_strings,
+                "ligand_smiles": ligand_smiles
             }
         sample["affinity"] = self.id_to_y[key] * -1.36
         sample["key"] = key
@@ -737,11 +739,12 @@ class PIGNetHeteroBigraphComplexDataset(data.Dataset):
 
     def collate_fn(self, samples):
         """Collating protein complex graphs and graph-level targets."""
-        protein_graphs, ligand_graphs, complex_graphs, smiles_strings = (
+        protein_graphs, ligand_graphs, complex_graphs, smiles_strings, ligand_smiles = (
             [],
             [],
             [],
             [],
+            []
         )
         g_targets = []
         for rec in samples:
@@ -751,12 +754,15 @@ class PIGNetHeteroBigraphComplexDataset(data.Dataset):
             g_targets.append(rec["affinity"])
             if "smiles_strings" in rec:
                 smiles_strings.extend(rec["smiles_strings"])
+            if "ligand_smiles" in rec:
+                ligand_smiles.append(rec["ligand_smiles"])
         return {
             "protein_graph": dgl.batch(protein_graphs),
             "ligand_graph": dgl.batch(ligand_graphs),
             "complex_graph": dgl.batch(complex_graphs),
             "g_targets": torch.tensor(g_targets).unsqueeze(-1),
             "smiles_strings": smiles_strings,
+            "ligand_smiles": ligand_smiles
         }
 
 
@@ -949,6 +955,7 @@ class PIGNetHeteroBigraphComplexDatasetForEnergyModel(data.Dataset):
                 physics,
                 atom_to_residue,
                 smiles_strings,
+                ligand_smiles
             ) = self.featurizer.featurize(
                 {
                     "ligand": m1,
@@ -963,6 +970,7 @@ class PIGNetHeteroBigraphComplexDatasetForEnergyModel(data.Dataset):
                 "sample": physics,
                 "atom_to_residue": atom_to_residue,
                 "smiles_strings": smiles_strings,
+                "ligand_smiles": ligand_smiles
             }
         sample["affinity"] = self.id_to_y[key] * -1.36
         sample["key"] = key
@@ -977,7 +985,8 @@ class PIGNetHeteroBigraphComplexDatasetForEnergyModel(data.Dataset):
             physics,
             atom_to_residues,
             smiles_strings,
-        ) = ([], [], [], [], [], [])
+            ligand_smiles
+        ) = ([], [], [], [], [], [], [])
         g_targets = []
         for rec in samples:
             protein_graphs.append(rec["protein_graph"])
@@ -988,6 +997,8 @@ class PIGNetHeteroBigraphComplexDatasetForEnergyModel(data.Dataset):
             g_targets.append(rec["affinity"])
             if "smiles_strings" in rec:
                 smiles_strings.extend(rec["smiles_strings"])
+            if "ligand_smiles" in rec:
+                ligand_smiles.append(rec["ligand_smiles"])
         return {
             "protein_graph": dgl.batch(protein_graphs),
             "ligand_graph": dgl.batch(ligand_graphs),
@@ -996,4 +1007,5 @@ class PIGNetHeteroBigraphComplexDatasetForEnergyModel(data.Dataset):
             "atom_to_residue": atom_to_residues,
             "g_targets": torch.tensor(g_targets).unsqueeze(-1),
             "smiles_strings": smiles_strings,
+            "ligand_smiles": ligand_smiles
         }
