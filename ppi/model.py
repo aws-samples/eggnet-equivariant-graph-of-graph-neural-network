@@ -957,26 +957,26 @@ class LitMultiStageHGVPModel(pl.LightningModule):
                     cal_der_loss = True
             if self.hparams.is_hetero:
                 energies, der1, der2 = self.forward(
-                    batch["protein_graph"],
-                    batch["ligand_graph"],
-                    batch["complex_graph"],
-                    batch["sample"],
-                    batch["protein_smiles_strings"],
-                    batch["ligand_smiles_strings"],
-                    cal_der_loss,
-                    batch["atom_to_residue"],
-                    batch["ligand_smiles"]
+                    protein_graph=batch["protein_graph"],
+                    ligand_graph=batch["ligand_graph"],
+                    complex_graph=batch["complex_graph"],
+                    sample=batch["sample"],
+                    protein_smiles_strings=batch["protein_smiles_strings"],
+                    ligand_smiles_strings=batch["ligand_smiles_strings"],
+                    cal_der_loss=cal_der_loss,
+                    atom_to_residue=batch["atom_to_residue"],
+                    ligand_smiles=batch["ligand_smiles"]
                 )
             else:
                 energies, der1, der2 = self.forward(
-                    batch["protein_graph"],
-                    batch["ligand_graph"],
-                    batch["complex_graph"],
-                    batch["sample"],
-                    batch["protein_smiles_strings"],
-                    batch["ligand_smiles_strings"],
-                    cal_der_loss,
-                    batch["ligand_smiles"]
+                    protein_graph=batch["protein_graph"],
+                    ligand_graph=batch["ligand_graph"],
+                    complex_graph=batch["complex_graph"],
+                    sample=batch["sample"],
+                    protein_smiles_strings=batch["protein_smiles_strings"],
+                    ligand_smiles_strings=batch["ligand_smiles_strings"],
+                    cal_der_loss=cal_der_loss,
+                    ligand_smiles=batch["ligand_smiles"]
                 )
             g_preds = energies.sum(-1).unsqueeze(-1)
             g_targets = batch["g_targets"]
