@@ -2,7 +2,14 @@
 # Convert DiffDock's output into the same format with CASF-2016 Docking data.
 
 The output from DiffDock is a PDB file, which contains a single chain
-representing the pose of the small molecule ligandd.
+representing the pose of the small molecule ligand.
+
+Example usage:
+python preprocess_diffdock_output.py \
+    --data_dir /home/ec2-user/SageMaker/efs/data/DiffDockData/inference1 \
+    --pdb_data_dir /home/ec2-user/SageMaker/efs/data/DiffDockData/PDBBind_processed \
+    --thres 6 \
+    --output_dir /home/ec2-user/SageMaker/efs/data/DiffDockData/inference1_processed_t6
 
 In this pipeline, we perform the following steps to convert the outputs from
 DiffDock to a format compatible with our affinity prediction model:
@@ -22,22 +29,21 @@ import os
 import pickle
 import argparse
 from tqdm import tqdm
+from rdkit import Chem
 import pandas as pd
 import numpy as np
 from scipy.spatial.distance import cdist
-import matplotlib.pyplot as plt
-import seaborn as sns
-from Bio.PDB import MMCIFParser, PDBParser
-from Bio.PDB.Polypeptide import three_to_one, is_aa
-from Bio.PDB import Select, PDBIO
+from Bio.PDB import PDBParser, Select, PDBIO
+from Bio.PDB.Polypeptide import is_aa
 
-from ppi.data_utils import gunzip_to_ram, three_to_one_standard
 from ppi.data_utils import parse_pdb_structure
-from ppi.data_utils import contact_map_utils as utils
 
 
-def get_calpha(residue):
-    return residue["CA"]
+def get_calpha_coords(residue):
+    try:
+        return residue["CA"].coord
+    except KeyError:
+        return [np.nan] * 3
 
 
 def get_contact_residues(ligand_mol, chain, thres=10):
@@ -49,7 +55,7 @@ def get_contact_residues(ligand_mol, chain, thres=10):
     coords1 = ligand_mol.GetConformers()[0].GetPositions()
     # extract the C-alpha coordinates of all AA residues
     coords2 = np.asarray(
-        [get_calpha(res).coord for res in chain.get_residues() if is_aa(res)]
+        [get_calpha_coords(res) for res in chain.get_residues() if is_aa(res)]
     )
     # calculate interchain distance
     dist = cdist(coords1, coords2)
@@ -86,10 +92,9 @@ def subset_pdb_structure(structure, d_chain_residues, outfile):
 
 def process_one(row, pdb_parser, args):
     # 1. Parse ligand poses from PDB files
-    ligand = parse_pdb_structure(
-        pdb_parser, row.name, os.path.join(args.data_dir, row["pdb_file"])
+    ligand_mol = Chem.MolFromPDBFile(
+        os.path.join(args.data_dir, row["pdb_file"]), sanitize=False
     )
-    ligand_mol = utils.residue_to_mol(ligand)
     # 2. combine the ligand with protein PDB into the same coordinate system
     # parse the corresponding protein
     protein = parse_pdb_structure(
@@ -151,7 +156,7 @@ def main(args):
         QUIET=True,
         PERMISSIVE=True,
     )
-    for _, row in tqdm(meta_df.iterrows()):
+    for _, row in tqdm(meta_df.iterrows(), total=meta_df.shape[0]):
         process_one(row, pdb_parser, args)
 
     # Write RMSD files
