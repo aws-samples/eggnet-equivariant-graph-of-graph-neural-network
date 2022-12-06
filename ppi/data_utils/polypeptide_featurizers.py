@@ -1476,7 +1476,7 @@ class NoncanonicalBigraphComplexFeaturizer(BaseFeaturizer):
             residues = (
                 torch.stack(
                     [
-                        self.residue_featurizer.featurize(smiles)
+                        self.residue_featurizer.featurize(smiles)[0]
                         for smiles in smiles_strings
                     ]
                 )
