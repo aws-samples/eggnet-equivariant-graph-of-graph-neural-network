@@ -92,6 +92,31 @@ for seed in 43 44; do
         --random_seed $seed
 done
 
+seed=42
+num_layers=6
+python train.py --accelerator gpu \
+    --model_name gvp \
+    --devices $n_gpus \
+    --num_workers $num_workers \
+    --persistent_workers True \
+    --precision 16 \
+    --dataset_name $dataset_name \
+    --input_type complex \
+    --residue_featurizer_name $residue_featurizer_name \
+    --use_energy_decoder \
+    --is_hetero \
+    --data_dir $pdbbind_data \
+    --bs $bs \
+    --lr $lr \
+    --max_epochs $max_epochs \
+    --early_stopping_patience $early_stopping_patience \
+    --residual \
+    --node_h_dim $node_h_dim \
+    --edge_h_dim $edge_h_dim \
+    --num_layers $num_layers \
+    --default_root_dir /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_GIN_energy \
+    --random_seed $seed
+
 # row8: pretrained GNN joint training	GVP	E_int
 n_gpus=8
 bs=8
@@ -127,14 +152,14 @@ eval_data_dir=/home/ec2-user/SageMaker/efs/data/PIGNet/data/casf2016_processed
 python evaluate_casf2016.py --model_name gvp \
     --num_workers 8 \
     --data_dir $eval_data_dir \
-    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_GIN/lightning_logs/version_0 \
+    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_GIN/lightning_logs/version_2 \
     --residue_featurizer_name $residue_featurizer_name 
 
 # row4: pretrained GNN joint training	GVP	None
 python evaluate_casf2016.py --model_name hgvp \
     --num_workers 8 \
     --data_dir $eval_data_dir \
-    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_HGVP_GIN/lightning_logs/version_1 \
+    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_HGVP_GIN/lightning_logs/version_3 \
     --residue_featurizer_name $residue_featurizer_name-grad
 
 
@@ -142,7 +167,7 @@ python evaluate_casf2016.py --model_name hgvp \
 python evaluate_casf2016.py --model_name gvp \
     --num_workers 8 \
     --data_dir $eval_data_dir \
-    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_GIN_energy/lightning_logs/version_0 \
+    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_GVP_GIN_energy/lightning_logs/version_4 \
     --residue_featurizer_name $residue_featurizer_name \
     --use_energy_decoder \
     --is_hetero \
@@ -152,7 +177,7 @@ python evaluate_casf2016.py --model_name gvp \
 python evaluate_casf2016.py --model_name hgvp \
     --num_workers 8 \
     --data_dir $eval_data_dir \
-    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_HGVP_GIN_energy/lightning_logs/version_3 \
+    --checkpoint_path /home/ec2-user/SageMaker/efs/model_logs/zichen/PDBBind_HGVP_GIN_energy/lightning_logs/version_5 \
     --residue_featurizer_name $residue_featurizer_name-grad \
     --use_energy_decoder \
     --is_hetero \
