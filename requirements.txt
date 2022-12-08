@@ -1,5 +1,9 @@
 biopython==1.79
+dgl-cu111==0.9.1
 dgllife==0.2.9
 pytorch-lightning==1.7.3
+rdkit-pypi==2022.3.5
 sentencepiece==0.1.97
+torch==1.10.0
+torchmetrics==0.9.3
 transformers==4.21.2
