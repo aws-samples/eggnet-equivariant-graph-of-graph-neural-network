@@ -13,7 +13,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 import dgl
 
 import torchmetrics
@@ -28,6 +28,7 @@ from ppi.model import (
 )
 from ppi.data import (
     PDBComplexDataset,
+    PDBBigraphComplexDataset,
     PIGNetComplexDataset,
     PIGNetAtomicBigraphComplexDataset,
     PIGNetHeteroBigraphComplexDataset,
@@ -37,6 +38,7 @@ from ppi.data import (
 from ppi.data_utils import (
     get_residue_featurizer,
     NoncanonicalComplexFeaturizer,
+    NoncanonicalBigraphComplexFeaturizer,
     PDBBindComplexFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizerForEnergyModel,
@@ -122,6 +124,7 @@ def init_model(
             ligand_edge_in_dim=ligand_edge_in_dim,
             complex_edge_in_dim=complex_edge_in_dim,
             num_outputs=num_outputs,
+            classify=classify,
             **kwargs,
         )
     elif model_name == "multistage-hgvp":
@@ -165,12 +168,23 @@ def init_model(
             complex_graph.edata["edge_v"].shape[1],
         )
 
+        # if kwargs["is_hetero"]:
+        #     model = MODEL_CONSTRUCTORS[model_name](
+        #         g_protein=protein_graph,
+        #         ligand_node_in_dim=ligand_node_in_dim,
+        #         ligand_edge_in_dim=ligand_edge_in_dim,
+        #         complex_edge_in_dim=complex_edge_in_dim,
+        #         num_outputs=num_outputs,
+        #         classify=classify,
+        #         **kwargs,
+        #     )
+        # else:
         model = MODEL_CONSTRUCTORS[model_name](
-            g=protein_graph,
-            ligand_node_in_dim=ligand_node_in_dim,
-            ligand_edge_in_dim=ligand_edge_in_dim,
+            g_protein=protein_graph,
+            g_ligand=ligand_graph,
             complex_edge_in_dim=complex_edge_in_dim,
             num_outputs=num_outputs,
+            classify=classify,
             **kwargs,
         )
     else:
@@ -213,6 +227,7 @@ def get_datasets(
         )
         # load Propedia metadata
         if input_type == "complex":
+            featurizer = NoncanonicalComplexFeaturizer(residue_featurizer)
             test_df = pd.read_csv(
                 os.path.join(data_dir, f"test_{data_suffix}.csv")
             )
@@ -248,7 +263,39 @@ def get_datasets(
                     compute_energy=use_energy_decoder,
                     intra_mol_energy=intra_mol_energy,
                 )
+        elif input_type == "multistage-complex":
+            featurizer = NoncanonicalBigraphComplexFeaturizer(
+                residue_featurizer
+            )
+            test_df = pd.read_csv(
+                os.path.join(data_dir, f"test_{data_suffix}.csv")
+            )
+            test_dataset = PDBBigraphComplexDataset(
+                test_df,
+                data_dir,
+                featurizer=featurizer,
+            )
+            if not test_only:
+                train_df = pd.read_csv(
+                    os.path.join(data_dir, f"train_{data_suffix}.csv")
+                ).sample(frac=1)
+                n_train = int(0.8 * train_df.shape[0])
+                featurizer = NoncanonicalBigraphComplexFeaturizer(
+                    residue_featurizer, add_noise=add_noise
+                )
+                train_dataset = PDBBigraphComplexDataset(
+                    train_df.iloc[:n_train],
+                    data_dir,
+                    featurizer=featurizer,
+                )
+                valid_dataset = PDBBigraphComplexDataset(
+                    train_df.iloc[n_train:],
+                    data_dir,
+                    featurizer=featurizer,
+                )
         elif input_type == "polypeptides":
+            raise NotImplementedError
+        else:
             raise NotImplementedError
     elif name == "PDBBind":
         # PIGNet parsed PDBBind datasets
@@ -430,7 +477,14 @@ def predict_step(
     """Make prediction on one batch of data"""
     # Move relevant tensors to GPU
     for key, val in batch.items():
-        if key not in ("sample", "atom_to_residue", "smiles_strings"):
+        if key not in (
+            "sample",
+            "atom_to_residue",
+            "smiles_strings",
+            "protein_smiles_strings",
+            "ligand_smiles_strings",
+            "ligand_smiles",
+        ):
             batch[key] = val.to(device)
     if model_name in ("gvp", "hgvp"):
         batch["graph"] = batch["graph"].to(device)
@@ -484,7 +538,9 @@ def predict_step(
                     batch["sample"],
                     cal_der_loss=False,
                     atom_to_residue=batch["atom_to_residue"],
-                    smiles_strings=batch["smiles_strings"],
+                    protein_smiles_strings=batch["protein_smiles_strings"],
+                    ligand_smiles_strings=batch["ligand_smiles_strings"],
+                    ligand_smiles=batch["ligand_smiles"],
                 )
             else:
                 energies, _, _ = model(
@@ -493,7 +549,9 @@ def predict_step(
                     batch["complex_graph"],
                     batch["sample"],
                     cal_der_loss=False,
-                    smiles_strings=batch["smiles_strings"],
+                    protein_smiles_strings=batch["protein_smiles_strings"],
+                    ligand_smiles_strings=batch["ligand_smiles_strings"],
+                    ligand_smiles=batch["ligand_smiles"],
                 )
             preds = energies.sum(-1).unsqueeze(-1)
         else:
@@ -501,7 +559,9 @@ def predict_step(
                 batch["protein_graph"],
                 batch["ligand_graph"],
                 batch["complex_graph"],
-                smiles_strings=batch["smiles_strings"],
+                protein_smiles_strings=batch["protein_smiles_strings"],
+                ligand_smiles_strings=batch["ligand_smiles_strings"],
+                ligand_smiles=batch["ligand_smiles"],
             )
     else:
         raise NotImplementedError
@@ -640,7 +700,7 @@ def main(args):
         persistent_workers=args.persistent_workers,
     )
     # 3. Prepare model
-    if args.dataset_name == "PDBBind":
+    if args.dataset_name in ["PDBBind", "ProtCID"]:
         if args.model_name in ["gvp", "hgvp"]:
             datum = train_dataset[0]["graph"]
         elif args.model_name in ["multistage-gvp", "multistage-hgvp"]:
