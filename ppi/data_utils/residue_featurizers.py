@@ -7,12 +7,22 @@ from transformers import T5Tokenizer, T5EncoderModel
 import torch
 import torch.nn as nn
 import numpy as np
-from dgllife.utils import mol_to_bigraph, PretrainAtomFeaturizer, PretrainBondFeaturizer
+from dgllife.utils import (
+    mol_to_bigraph,
+    PretrainAtomFeaturizer,
+    PretrainBondFeaturizer,
+)
 from rdkit import Chem
 from rdkit.Chem import MACCSkeys
 from rdkit.Chem import AllChem
 from dgllife.model import load_pretrained
-from dgl.nn.pytorch.glob import GlobalAttentionPooling, SumPooling, AvgPooling, MaxPooling, Set2Set
+from dgl.nn.pytorch.glob import (
+    GlobalAttentionPooling,
+    SumPooling,
+    AvgPooling,
+    MaxPooling,
+    Set2Set,
+)
 
 
 class BaseResidueFeaturizer(object):
@@ -40,6 +50,8 @@ class FingerprintFeaturizer(BaseResidueFeaturizer):
         super(FingerprintFeaturizer, self).__init__()
 
     def _featurize(self, smiles: str) -> torch.tensor:
+        if self.fingerprint_type == "dummy":
+            return torch.zeros(167)
         mol = Chem.MolFromSmiles(smiles)
         if self.fingerprint_type == "MACCS":
             fps = MACCSkeys.GenMACCSKeys(mol)
@@ -61,7 +73,9 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
     to featurize the graph as a vector.
     """
 
-    def __init__(self, gin_model, readout='attention', requires_grad=False, device="cpu"):
+    def __init__(
+        self, gin_model, readout="attention", requires_grad=False, device="cpu"
+    ):
         nn.Module.__init__(self)
         BaseResidueFeaturizer.__init__(self)
         self.device = device
@@ -70,26 +84,34 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
 
         self.emb_dim = self.gin_model.node_embeddings[0].embedding_dim
 
-        if readout == 'sum':
+        if readout == "sum":
             self.readout = SumPooling()
-        elif readout == 'mean':
+        elif readout == "mean":
             self.readout = AvgPooling()
-        elif readout == 'max':
+        elif readout == "max":
             self.readout = MaxPooling()
-        elif readout == 'attention':
-            if gin_model.JK == 'concat':
+        elif readout == "attention":
+            if gin_model.JK == "concat":
                 self.readout = GlobalAttentionPooling(
-                    gate_nn=nn.Linear((self.gin_model.num_layers + 1) * self.emb_dim, 1))
+                    gate_nn=nn.Linear(
+                        (self.gin_model.num_layers + 1) * self.emb_dim, 1
+                    )
+                )
             else:
                 self.readout = GlobalAttentionPooling(
-                    gate_nn=nn.Linear(self.emb_dim, 1))
-        elif readout == 'set2set':
+                    gate_nn=nn.Linear(self.emb_dim, 1)
+                )
+        elif readout == "set2set":
             self.readout = Set2Set()
         else:
-            raise ValueError("Expect readout to be 'sum', 'mean', "
-                             "'max', 'attention' or 'set2set', got {}".format(readout))
+            raise ValueError(
+                "Expect readout to be 'sum', 'mean', "
+                "'max', 'attention' or 'set2set', got {}".format(readout)
+            )
 
-    def _featurize(self, smiles: Union[str, List[str]], device="cpu") -> torch.tensor:
+    def _featurize(
+        self, smiles: Union[str, List[str]], device="cpu"
+    ) -> torch.tensor:
         self.gin_model = self.gin_model.to(device)
         if not self.requires_grad:
             self.gin_model.eval()
@@ -97,15 +119,22 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         graphs = []
         if isinstance(smiles, str):
             mol = Chem.MolFromSmiles(smiles)
-            g = mol_to_bigraph(mol, add_self_loop=True,
-                                node_featurizer=PretrainAtomFeaturizer(),
-                                edge_featurizer=PretrainBondFeaturizer(),
-                                canonical_atom_order=False)
+            g = mol_to_bigraph(
+                mol,
+                add_self_loop=True,
+                node_featurizer=PretrainAtomFeaturizer(),
+                edge_featurizer=PretrainBondFeaturizer(),
+                canonical_atom_order=False,
+            )
             g = g.to(device)
-            nfeats = [g.ndata.pop('atomic_number').to(device),
-                    g.ndata.pop('chirality_type').to(device)]
-            efeats = [g.edata.pop('bond_type').to(device),
-                    g.edata.pop('bond_direction_type').to(device)]
+            nfeats = [
+                g.ndata.pop("atomic_number").to(device),
+                g.ndata.pop("chirality_type").to(device),
+            ]
+            efeats = [
+                g.edata.pop("bond_type").to(device),
+                g.edata.pop("bond_direction_type").to(device),
+            ]
             if not self.requires_grad:
                 with torch.no_grad():
                     node_feats = self.gin_model(g, nfeats, efeats)
@@ -119,17 +148,24 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
         else:
             for smi in smiles:
                 mol = Chem.MolFromSmiles(smi)
-                graph = mol_to_bigraph(mol, add_self_loop=True,
-                                node_featurizer=PretrainAtomFeaturizer(),
-                                edge_featurizer=PretrainBondFeaturizer(),
-                                canonical_atom_order=False)
+                graph = mol_to_bigraph(
+                    mol,
+                    add_self_loop=True,
+                    node_featurizer=PretrainAtomFeaturizer(),
+                    edge_featurizer=PretrainBondFeaturizer(),
+                    canonical_atom_order=False,
+                )
                 graphs.append(graph)
             bg = dgl.batch(graphs)
             bg = bg.to(device)
-            nfeats = [bg.ndata.pop('atomic_number').to(device),
-                    bg.ndata.pop('chirality_type').to(device)]
-            efeats = [bg.edata.pop('bond_type').to(device),
-                    bg.edata.pop('bond_direction_type').to(device)]
+            nfeats = [
+                bg.ndata.pop("atomic_number").to(device),
+                bg.ndata.pop("chirality_type").to(device),
+            ]
+            efeats = [
+                bg.edata.pop("bond_type").to(device),
+                bg.edata.pop("bond_direction_type").to(device),
+            ]
             if not self.requires_grad:
                 with torch.no_grad():
                     node_feats = self.gin_model(bg, nfeats, efeats)
@@ -148,6 +184,7 @@ class GINFeaturizer(BaseResidueFeaturizer, nn.Module):
     @property
     def output_size(self) -> int:
         return self.emb_dim
+
 
 class MolT5Featurizer(BaseResidueFeaturizer, nn.Module):
     """
@@ -208,11 +245,13 @@ def get_residue_featurizer(name="", device="cpu"):
     """
     Handles initializing the residue featurizer.
     """
-    fingerprint_names = ("MACCS", "Morgan")
-    gin_names = ('gin_supervised_contextpred', 
-                'gin_supervised_infomax',
-                'gin_supervised_edgepred',
-                'gin_supervised_masking')
+    fingerprint_names = ("MACCS", "Morgan", "dummy")
+    gin_names = (
+        "gin_supervised_contextpred",
+        "gin_supervised_infomax",
+        "gin_supervised_edgepred",
+        "gin_supervised_masking",
+    )
     if name in fingerprint_names:
         residue_featurizer = FingerprintFeaturizer(name)
     elif name.lower().startswith("molt5"):
@@ -234,10 +273,12 @@ def get_residue_featurizer(name="", device="cpu"):
         assert name in gin_names
         gin_model = load_pretrained(name)
         gin_model = gin_model.to(device)
-        residue_featurizer = GINFeaturizer(gin_model=gin_model, 
-                                            readout=readout, 
-                                            requires_grad=requires_grad, 
-                                            device=device)
+        residue_featurizer = GINFeaturizer(
+            gin_model=gin_model,
+            readout=readout,
+            requires_grad=requires_grad,
+            device=device,
+        )
     else:
         raise NotImplementedError
     return residue_featurizer
