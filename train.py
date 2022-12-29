@@ -43,7 +43,6 @@ from ppi.data_utils import (
     PIGNetHeteroBigraphComplexFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizerForEnergyModel,
     PIGNetAtomicBigraphGeometricComplexFeaturizer,
-    PIGNetAtomicBigraphPhysicalComplexFeaturizer,
 )
 from ppi.transfer import load_state_dict_to_model
 
@@ -386,45 +385,6 @@ def get_datasets(
                         train_keys[:n_train], data_dir, id_to_y, featurizer
                     )
                     valid_dataset = PIGNetHeteroBigraphComplexDataset(
-                        train_keys[n_train:], data_dir, id_to_y, featurizer
-                    )
-        elif input_type == "multistage-geometric":
-            if use_energy_decoder:
-                featurizer = PIGNetAtomicBigraphGeometricComplexFeaturizer(
-                    residue_featurizer=None, return_physics=True
-                )
-                test_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                    test_keys, data_dir, id_to_y, featurizer
-                )
-                if not test_only:
-                    with open(
-                        os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
-                    ) as f:
-                        train_keys = pickle.load(f)
-                    n_train = int(0.8 * len(train_keys))
-                    train_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                        train_keys[:n_train], data_dir, id_to_y, featurizer
-                    )
-                    valid_dataset = PIGNetAtomicBigraphComplexEnergyDataset(
-                        train_keys[n_train:], data_dir, id_to_y, featurizer
-                    )
-            else:
-                featurizer = PIGNetAtomicBigraphGeometricComplexFeaturizer(
-                    residue_featurizer=None
-                )
-                test_dataset = PIGNetAtomicBigraphComplexDataset(
-                    test_keys, data_dir, id_to_y, featurizer
-                )
-                if not test_only:
-                    with open(
-                        os.path.join(data_dir, "keys/train_keys.pkl"), "rb"
-                    ) as f:
-                        train_keys = pickle.load(f)
-                    n_train = int(0.8 * len(train_keys))
-                    train_dataset = PIGNetAtomicBigraphComplexDataset(
-                        train_keys[:n_train], data_dir, id_to_y, featurizer
-                    )
-                    valid_dataset = PIGNetAtomicBigraphComplexDataset(
                         train_keys[n_train:], data_dir, id_to_y, featurizer
                     )
         else:
