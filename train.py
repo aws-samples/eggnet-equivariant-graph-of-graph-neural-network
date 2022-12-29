@@ -19,7 +19,6 @@ import dgl
 import torchmetrics
 
 # custom imports
-# from ppi.modules import GATModel, GVPModel
 from ppi.model import (
     LitGVPModel,
     LitHGVPModel,
@@ -30,10 +29,8 @@ from ppi.data import (
     PDBComplexDataset,
     PDBBigraphComplexDataset,
     PIGNetComplexDataset,
-    PIGNetAtomicBigraphComplexDataset,
     PIGNetHeteroBigraphComplexDataset,
     PIGNetHeteroBigraphComplexDatasetForEnergyModel,
-    PIGNetAtomicBigraphComplexEnergyDataset,
 )
 from ppi.data_utils import (
     get_residue_featurizer,
@@ -42,7 +39,6 @@ from ppi.data_utils import (
     PDBBindComplexFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizer,
     PIGNetHeteroBigraphComplexFeaturizerForEnergyModel,
-    PIGNetAtomicBigraphGeometricComplexFeaturizer,
 )
 from ppi.transfer import load_state_dict_to_model
 
