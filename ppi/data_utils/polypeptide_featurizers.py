@@ -612,7 +612,7 @@ class PDBBindComplexFeaturizer(BaseFeaturizer):
             residues = (
                 torch.stack(
                     [
-                        self.residue_featurizer.featurize(smiles)[0]
+                        self.residue_featurizer.featurize(smiles)
                         for smiles in smiles_strings
                     ]
                 )
@@ -734,7 +734,7 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
             residues = (
                 torch.stack(
                     [
-                        self.residue_featurizer.featurize(smiles)[0]
+                        self.residue_featurizer.featurize(smiles)
                         for smiles in smiles_strings
                     ]
                 )
@@ -796,22 +796,12 @@ class PIGNetHeteroBigraphComplexFeaturizer(BaseFeaturizer):
             add_self_loop=self.add_self_loop,
         )
 
-        if self.residue_featurizer:
-            atoms = (
-                self.residue_featurizer.featurize(ligand_smiles)[1]
-                .to(self.device)
-                .to(torch.long)
-            )
-
         ligand_vectors = (
             ligand_coords[ligand_graph.edges()[0].long()]
             - ligand_coords[ligand_graph.edges()[1].long()]
         )
         # ligand node features
-        if self.residue_featurizer:
-            node_s = torch.cat([ligand_graph.ndata["h"], atoms], dim=-1)
-        else:
-            node_s = ligand_graph.ndata["h"]
+        node_s = ligand_graph.ndata["h"]
         ligand_graph.ndata["node_s"] = node_s
         ligand_graph.ndata["node_v"] = ligand_coords.unsqueeze(-2)
         # ligand edge features
@@ -940,7 +930,7 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
             residues = (
                 torch.stack(
                     [
-                        self.residue_featurizer.featurize(smiles)[0]
+                        self.residue_featurizer.featurize(smiles)
                         for smiles in smiles_strings
                     ]
                 )
@@ -1002,22 +992,12 @@ class PIGNetHeteroBigraphComplexFeaturizerForEnergyModel(BaseFeaturizer):
             add_self_loop=self.add_self_loop,
         )
 
-        if self.residue_featurizer:
-            atoms = (
-                self.residue_featurizer.featurize(ligand_smiles)[1]
-                .to(self.device)
-                .to(torch.long)
-            )
-
         ligand_vectors = (
             ligand_coords[ligand_graph.edges()[0].long()]
             - ligand_coords[ligand_graph.edges()[1].long()]
         )
         # ligand node features
-        if self.residue_featurizer:
-            node_s = torch.cat([ligand_graph.ndata["h"], atoms], dim=-1)
-        else:
-            node_s = ligand_graph.ndata["h"]
+        node_s = ligand_graph.ndata["h"]
         ligand_graph.ndata["node_s"] = node_s
         ligand_graph.ndata["node_v"] = ligand_coords.unsqueeze(-2)
         # ligand edge features
@@ -1184,7 +1164,7 @@ class NoncanonicalBigraphComplexFeaturizer(BaseFeaturizer):
             residues = (
                 torch.stack(
                     [
-                        self.residue_featurizer.featurize(smiles)[0]
+                        self.residue_featurizer.featurize(smiles)
                         for smiles in smiles_strings
                     ]
                 )
