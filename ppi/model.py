@@ -922,16 +922,23 @@ class LitMultiStageHGVPModel(pl.LightningModule):
             ligand_graph.ndata["node_s"] = torch.cat(
                 (ligand_node_s, ligand_residue_embeddings), axis=1
             )
-        # Ligand (Smal molecule)
+        # Ligand (Small molecule)
         if ligand_smiles:
             ligand_residue_embeddings = self.residue_featurizer(
                 ligand_smiles, device=self.device
             )
+            # repeat n_atoms times for the graph-level residue embeddings
+            out_h_atoms = []
+            for i, g in enumerate(dgl.unbatch(ligand_graph)):
+                n_atom = g.num_nodes()
+                out_h_i = ligand_residue_embeddings[[i]]
+                out_h_atoms.append(out_h_i.repeat(n_atom, 1))
+            out_h_atoms = torch.cat(out_h_atoms, axis=0)
             ligand_node_s = ligand_graph.ndata["node_s"]
             ligand_graph.ndata["node_s"] = torch.cat(
                 (
                     ligand_node_s,
-                    ligand_residue_embeddings.repeat(ligand_node_s.size(0), 1),
+                    out_h_atoms,
                 ),
                 axis=1,
             )
