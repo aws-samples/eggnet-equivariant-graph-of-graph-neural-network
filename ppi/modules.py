@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import List, Tuple, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,56 +7,6 @@ from torch import Tensor
 from .gvp import GVP, GVPConvLayer, LayerNorm
 
 import dgl
-
-# from transformers import BertModel
-from dgl.nn import GATConv
-
-
-ATOMIC_KEYS = [
-    "C",
-    "CA",
-    "CB",
-    "CD",
-    "CD1",
-    "CD2",
-    "CE",
-    "CE1",
-    "CE2",
-    "CE3",
-    "CG",
-    "CG1",
-    "CG2",
-    "CH2",
-    "CZ",
-    "CZ2",
-    "CZ3",
-    "N",
-    "ND1",
-    "ND2",
-    "NE",
-    "NE1",
-    "NE2",
-    "NH1",
-    "NH2",
-    "NI",
-    "NZ",
-    "O",
-    "OD1",
-    "OD2",
-    "OE1",
-    "OE2",
-    "OG",
-    "OG1",
-    "OH",
-    "SD",
-    "SG",
-    "MG",
-    "MN",
-    "ZN",
-    "FE",
-    "NA",
-    "K",
-]
 
 INTER_PHYS_KEYS = [
     "interaction_indice",
@@ -524,113 +474,9 @@ class GVPModel(nn.Module):
             return self.decoder(out) + 0.5, self.decoder(graph_out) + 0.5
 
 
-class GATModel(nn.Module):
-    """GAT structure-only model."""
-
-    def __init__(
-        self,
-        in_feats=6,
-        h_dim=128,
-        num_layers=3,
-        n_hidden=512,
-        drop_rate=0.2,
-        num_outputs=1,
-        seq_embedding=True,
-        **kwargs,
-    ):
-        """Initializes the model
-        Args:
-            in_feats: dim of the node scalar features
-            h_dim: dim of the output layer for GATConv
-            num_heads: number of attention heads for GATConv
-            num_layers: number of GATConv layers
-            n_hidden: number of hidden units in classification head
-            drop_rate: rate to use in the dropout layer
-            num_outputs: number of output units
-            seq_embedding: whether to one-hot embed the sequence
-        Returns:
-            None
-        """
-        super(GATModel, self).__init__()
-
-        self.seq_embedding = seq_embedding
-        self.embeding_dim = 20
-        # input dim for the 2nd layer forward
-        next_in_feats = kwargs["num_heads"] * h_dim
-        self.next_in_feats = next_in_feats
-
-        if seq_embedding:
-            # one-hot encoding for AAs
-            self.W_s = nn.Embedding(self.embeding_dim, self.embeding_dim)
-            node_in_feats = in_feats + self.embeding_dim
-        else:
-            node_in_feats = in_feats
-
-        # GAT layers
-        layers = []
-        for i in range(num_layers):
-            if i == 0:
-                layer = GATConv(node_in_feats, h_dim, **kwargs)
-            else:
-                layer = GATConv(next_in_feats, h_dim, **kwargs)
-            layers.append(layer)
-
-        self.layers = nn.ModuleList(layers)
-
-        self.relu = nn.ReLU(inplace=True)
-        self.dropout = nn.Dropout(p=drop_rate)
-
-        self.dense = nn.Sequential(
-            nn.Linear(next_in_feats, n_hidden),
-            nn.ReLU(inplace=True),
-            nn.Linear(n_hidden, num_outputs),
-        )
-
-    def forward(self, batch):
-        """Perform the forward pass.
-        Args:
-            batch: dgl.graph
-        Returns:
-            (node_logits, graph_logits)
-        """
-        logits, g_logits = self._forward(batch)
-        return logits, g_logits
-
-    def _forward(self, g):
-        """Helper function to perform the forward pass.
-        Args:
-            g: dgl.graph
-        Returns:
-            (node_logits, graph_logits)
-        """
-        seq = g.ndata["seq"]
-        # one-hot encodings
-        node_embeddings = self.W_s(seq)  # [n_nodes, 20]
-        # GAT forward
-        for i, layer in enumerate(self.layers):
-            if i == 0:
-                gat_out = layer(
-                    g, torch.cat((node_embeddings, g.ndata["node_s"]), axis=1)
-                )
-            else:
-                gat_out = layer(g, gat_out)
-            gat_out = gat_out.view(-1, self.next_in_feats)
-
-        out = self.dropout(self.relu(gat_out))  # [n_nodes, next_in_feats]
-        out = self.dense(out) + 0.5  # [n_nodes, num_outputs]
-
-        # aggregate node vectors to graph
-        g.ndata["out"] = out
-        graph_out = dgl.mean_nodes(g, "out")  # [bs, next_in_feats]
-
-        return out, graph_out
-
-
 class MultiStageGVPModel(nn.Module):
-    """GVP-GNN Model (structure-only) modified from `MQAModel`:
-    https://github.com/drorlab/gvp-pytorch/blob/main/gvp/model.py
+    """Multistage GVP-GNN Model
     """
-
     def __init__(
         self,
         protein_node_in_dim: Tuple[int, int],
@@ -822,31 +668,6 @@ class MultiStageGVPModel(nn.Module):
 
         ## Decoder
         if use_energy_decoder:
-            # if self.is_hetero:
-            # self.atomic_decomposition_s = nn.ModuleDict(
-            #     {
-            #         atomic_key: nn.Sequential(
-            #             nn.Linear(ns_c, 2 * ns_c),
-            #             nn.ReLU(inplace=True),
-            #             nn.Dropout(p=drop_rate),
-            #             nn.Linear(2 * ns_c, ns_c),
-            #         )
-            #         for atomic_key in ATOMIC_KEYS + ["Other"]
-            #     }
-            # )
-
-            # self.atomic_decomposition_v = nn.ModuleDict(
-            #     {
-            #         atomic_key: nn.Sequential(
-            #             nn.Linear(nv_c, 2 * nv_c),
-            #             nn.ReLU(inplace=True),
-            #             nn.Dropout(p=drop_rate),
-            #             nn.Linear(2 * nv_c, nv_c),
-            #         )
-            #         for atomic_key in ATOMIC_KEYS + ["Other"]
-            #     }
-            # )
-
             self.decoder = EnergyDecoder(
                 ns_c,
                 vdw_N=vdw_N,
@@ -1077,17 +898,6 @@ class MultiStageGVPModel(nn.Module):
                 torch.cat([h_V_c[1] for h_V_c in h_V_out_c], dim=-2),
             )
             out_c = self.W_out_c(h_V_out_c)
-
-        # # Apply skip projections to Stage 1 output and subtract
-        # out_c_s = h_V_out_c[0] if self.residual else h_V_c[0]
-        # out_c_v = h_V_out_c[1] if self.residual else h_V_c[1]
-        # out_c_s = out_c_s - self.skip_proj_s(stage1_node_hidden_s)
-        # out_c_v = out_c_v - self.skip_proj_v(
-        #     stage1_node_hidden_v.permute(0, 2, 1)
-        # ).permute(0, 2, 1)
-        # out_c = self.W_out_c((out_c_s, out_c_v))
-        # stage1_node_hidden = (stage1_node_hidden_s, stage1_node_hidden_v)
-        # out_c = out_c - self.W_out_skip(stage1_node_hidden)
 
         ## Decoder
         if self.use_energy_decoder:
@@ -1391,33 +1201,3 @@ class EnergyDecoder(nn.Module):
             der2 = torch.zeros_like(energies).sum()
 
         return energies, der1, der2
-
-
-class EigenDecoder(nn.Module):
-    def __init__(self, hidden_dim):
-        super(EigenDecoder, self).__init__()
-        self.energy_coeff = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 1),
-            nn.Sigmoid(),
-        )
-
-    def forward(self, X):
-        # X dim: [batch_size, num_atoms, hidden_dim]
-        E_batch = []
-        for i in range(X.shape[0]):
-            Xi = X[i, ...]
-            Ci = self.energy_coeff(Xi).squeeze(1)
-            Ai = torch.matmul(Xi, Xi.T)  # dim: [num_atoms, num_atoms]
-            Li, Vi = torch.linalg.eig(Ai)  # Eigendecomposition
-            # Li dim: [num_atoms, num_atoms] (diagonal of eigenvalues)
-            # Vi dim: [num_atoms, num_atoms] (stacked eigenvectors)
-            Zi = torch.matmul(Vi.T, Li)  # dim: [num_atoms]
-            Ai_complex = torch.complex(Ai, torch.zeros_like(Ai))
-            deltaZi = Zi - torch.matmul(Vi.T, torch.mean(Ai_complex, axis=1))
-            Ei = Ci * torch.real(
-                torch.square(deltaZi) / Li
-            )  # dim: [num_atoms]
-            E_batch.append(Ei)
-        return torch.stack(E_batch)  # dim: [batch_size, num_atoms]

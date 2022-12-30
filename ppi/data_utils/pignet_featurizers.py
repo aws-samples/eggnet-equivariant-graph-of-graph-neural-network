@@ -3,17 +3,13 @@ Utilities for computing physically relevant properties of molecules
 Source: https://github.com/ACE-KAIST/PIGNet/blob/main/dataset.py
 """
 
-import pickle
 import random
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List
 
 import numpy as np
-import torch
 from rdkit import Chem, RDLogger
 from rdkit.Chem import Atom, Mol
 from rdkit.Chem.rdMolDescriptors import CalcNumRotatableBonds
-from rdkit.Chem.rdmolops import GetAdjacencyMatrix
-from torch.utils.data import DataLoader, Dataset
 
 RDLogger.DisableLog("rdApp.*")
 random.seed(0)
