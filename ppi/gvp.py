@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """
 DGL implementation of GVP and GVP-GNN (without the autoregressive functionality)
 modified from source: https://github.com/drorlab/gvp-pytorch/blob/main/gvp/__init__.py

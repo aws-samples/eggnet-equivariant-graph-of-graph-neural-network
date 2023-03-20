@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """
 Evaluate a trained pytorch-lightning model on the three tasks on CASF2016:
 - Scoring => Spearman rho, R2

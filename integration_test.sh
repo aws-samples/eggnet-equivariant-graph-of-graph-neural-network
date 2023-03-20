@@ -1,11 +1,16 @@
 #!/bin/bash
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+# Run this on Amazon DLAMI or SageMaker
 source ~/anaconda3/etc/profile.d/conda.sh
 conda activate pytorch_p38
 
 # global variables shared across all tests:
 n_gpus=4 
 pdbbind_data=/home/ec2-user/SageMaker/efs/data/PIGNet/data/pdbbind_v2019/scoring
-residue_featurizer_name=gin-supervised-contextpred-mean # to change this to pretrained GNN residue featurizer
+residue_featurizer_name=gin-supervised-contextpred-mean
+# residue_featurizer_name=MACCS
 
 # row2: pretrained GNN	GVP	None
 python train.py --accelerator gpu \

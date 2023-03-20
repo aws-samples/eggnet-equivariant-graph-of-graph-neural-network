@@ -1,3 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+"""
+Train and evaluate EGGNet models
+"""
 from rdkit import Chem
 from transformers import T5Tokenizer, T5EncoderModel
 import pytorch_lightning as pl
