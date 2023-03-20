@@ -57,7 +57,3 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 ## License
 
 This library is licensed under the MIT-0 License. See the LICENSE file.
-<<<<<<< HEAD
-=======
-
->>>>>>> ed86865602b796ae5b2f1adb30e7fcd893e81e49
