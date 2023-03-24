@@ -1,6 +1,6 @@
 # EGGNet: Equivariant Graph-of-Graphs Neural Network
 
-Source code for "EGGNet, a generalizable geometric deep learning framework for protein complex pose scoring."
+Source code for "[EGGNet, a generalizable geometric deep learning framework for protein complex pose scoring](https://www.biorxiv.org/content/10.1101/2023.03.22.533800v1)"
 
 <img src="figs/GoGs_of_molecules.png">
 
@@ -48,7 +48,21 @@ PDBbind/CASF-2016 data can be downloaded using [the script](https://github.com/A
 
 ## Citation
 
-Coming soon...
+Please cite the following preprint:
+```
+@article {Wang2023.03.22.533800,
+	author = {Wang, Zichen and Brand, Ryan and Adolf-Bryfogle, Jared and Grewal, Jasleen and Qi, Yanjun and Combs, Steven A. and Golovach, Nataliya and Alford, Rebecca and Rangwala, Huzefa and Clark, Peter M.},
+	title = {EGGNet, a generalizable geometric deep learning framework for protein complex pose scoring},
+	elocation-id = {2023.03.22.533800},
+	year = {2023},
+	doi = {10.1101/2023.03.22.533800},
+	publisher = {Cold Spring Harbor Laboratory},
+	abstract = {Computational prediction of molecule-protein interactions has been key for developing new molecules to interact with a target protein for therapeutics development. Literature includes two independent streams of approaches: (1) predicting protein-protein interactions between naturally occurring proteins and (2) predicting the binding affinities between proteins and small molecule ligands (aka drug target interaction, or DTI). Studying the two problems in isolation has limited computational models{\textquoteright} ability to generalize across tasks, both of which ultimately involve non-covalent interactions with a protein target. In this work, we developed Equivariant Graph of Graphs neural Network (EGGNet), a geometric deep learning framework for molecule-protein binding predictions that can handle three types of molecules for interacting with a target protein: (1) small molecules, (2) synthetic peptides and (3) natural proteins. EGGNet leverages a graph of graphs (GoGs) representation constructed from the molecule structures at atomic-resolution and utilizes a multiresolution equivariant graph neural network (GNN) to learn from such representations. In addition, EGGNet gets inspired by biophysics and makes use of both atom- and residue-level interactions, which greatly improve EGGNet{\textquoteright}s ability to rank candidate poses from blind docking. EGGNet achieves competitive performance on both a public proteinsmall molecule binding affinity prediction task (80.2\% top-1 success rate on CASF-2016) and an synthetic protein interface prediction task (88.4\% AUPR). We envision that the proposed geometric deep learning framework can generalize to many other protein interaction prediction problems, such as binding site prediction and molecular docking, helping to accelerate protein engineering and structure-based drug development.Competing Interest StatementThe authors have declared no competing interest.},
+	URL = {https://www.biorxiv.org/content/early/2023/03/22/2023.03.22.533800},
+	eprint = {https://www.biorxiv.org/content/early/2023/03/22/2023.03.22.533800.full.pdf},
+	journal = {bioRxiv}
+}
+```
 
 ## Security
 
