@@ -167,7 +167,6 @@ def get_datasets(
         )
         # load Propedia metadata
         if input_type == "complex":
-            featurizer = NoncanonicalComplexFeaturizer(residue_featurizer)
             test_df = pd.read_csv(
                 os.path.join(data_dir, f"test_{data_suffix}.csv")
             )
