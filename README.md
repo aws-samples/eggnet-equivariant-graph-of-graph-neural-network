@@ -14,6 +14,19 @@ $ pip install dgl-cu111 dglgo -f https://data.dgl.ai/wheels/repo.html
 $ pip install -r requirements.txt
 ```
 
+
+## Data preparation
+
+PDBbind/CASF-2016 data can be downloaded using [the script](https://github.com/ACE-KAIST/PIGNet/blob/main/data/download_train_data.sh) from the PIGNet repository. 
+The included python notebooks can be used as a guide for data prep in order to reproduce results or train on new datasets. This command was used to download DC and MANY data from DeepRank: `rsync -av rsync://data.sbgrid.org/10.15785/SBGRID/843`. Note that the whole download is 500GB. A script for ProtCid-like data can be used for classification tasks (`prep_eggnet_data_protcid_model.py`).  This script will be run twice.  Once for each label.  The input is a directory of PDB structures. 
+```
+prep_eggnet_data_protcid_model.py --dir many_xtal --label 0 --threshold 12 --skip_filter
+prep_eggnet_data_protcid_model.py --dir many_bio --label 1 --threshold 12 --skip_filter --datafile processed/train_full.csv
+```
+
+Note that datasets are hard-coded, so if you have a new dataset that is very different than what EggNet was trained on, you will need to modify the code to add a new dataset. 
+
+
 ## Training
 
 Training of EGGNet and competing models for protein complex scoring tasks can be done in `train.py`, which utilizes the [PyTorch Lightning Trainer](https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html#). All of the [trainer flags](https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html#trainer-flags) in PyTorch Lightning are supported. To see the usage, run: 
@@ -42,9 +55,59 @@ pl.Trainer:
   # other pl.Trainer flags...
 ```
 
-## Data preparation
+Training scripts for ProtCid and pdbbind can be found in `ablation_protcid.sh` and `ablation_pdbbind.sh`
+Example is below for ProtCid-like data joint training with GIN featurizer. 
 
-PDBbind/CASF-2016 data can be downloaded using [the script](https://github.com/ACE-KAIST/PIGNet/blob/main/data/download_train_data.sh) from the PIGNet repository. 
+```
+n_gpus=4
+num_workers=8
+
+suffix=full
+
+residue_featurizer_name=gin-supervised-contextpred-mean # to change this to pretrained GNN residue featurizer
+dataset_name=ProtCID
+bs=16
+lr=1e-4
+max_epochs=1000
+early_stopping_patience=50
+seed=42
+
+node_h_dim=200\ 32
+edge_h_dim=64\ 2
+num_layers=3
+crop=12
+
+data_dir=/home/ec2-user/SageMaker/eggnet-equivariant-graph-of-graph-neural-network/crop_${crop}_no_filter
+root_dir=/home/ec2-user/SageMaker/eggnet_training_results/crop${crop}
+
+# 3: pretrained GNN joint training	GVP	None
+python train.py --accelerator gpu \
+    --model_name hgvp \
+    --devices $n_gpus \
+    --num_workers 16 \
+    --precision 32 \
+    --dataset_name $dataset_name \
+    --input_type complex \
+    --residue_featurizer_name $residue_featurizer_name-grad \
+    --data_dir $data_dir \
+    --data_suffix $suffix \
+    --bs $bs \
+    --lr $lr \
+    --max_epochs $max_epochs \
+    --early_stopping_patience $early_stopping_patience \
+    --residual \
+    --node_h_dim $node_h_dim \
+    --edge_h_dim $edge_h_dim \
+    --num_layers $num_layers \
+    --default_root_dir ${root_dir}/3_ProtCID_t6_small_HGVP_GIN \
+    --random_seed $seed
+```
+
+## Evaluation
+EggNet is dataset-centric, so all inputs will need to be prepped either through the notebook or script. Once prepped, an example evaluation command is below:
+```
+python evaluate.py --checkpoint_path ../eggnet_training_results/crop12/6_ProtCID_Molt5-small/lightning_logs/version_0 --evaluate_type classification --dataset_name ProtCID --input_type complex --data_suffix full --data_dir /home/ec2-user/SageMaker/eggnet-equivariant-graph-of-graph-neural-network/crop_12_no_filter --residue_featurizer_name MolT5-small-grad --model_name hgvp --num_workers 8 --bs 4 --dataset_alias protcid_test
+```
 
 ## Citation
 
