@@ -8,6 +8,7 @@ from transformers import T5Tokenizer, T5EncoderModel
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
+from torchmetrics.classification import BinaryAccuracy, BinaryPrecision, BinaryRecall, BinaryStatScores, BinaryConfusionMatrix
 
 import os
 import json
@@ -513,18 +514,31 @@ def evaluate_graph_classification(
     model_name="gvp",
     use_energy_decoder=False,
     is_hetero=False,
+
 ):
     """Evaluate model on datasets and return metrics for graph-level
     binary classification."""
+    
     # make predictions on test set
     device = torch.device("cuda:0")
     model = model.to(device)
     model.eval()
 
-    AUROC = torchmetrics.AUROC()
-    AP = torchmetrics.AveragePrecision()
-    MCC = torchmetrics.MatthewsCorrCoef(num_classes=2)
+    AUROC = torchmetrics.AUROC(task='binary')
+    AP = torchmetrics.AveragePrecision(task='binary')
+    MCC = torchmetrics.MatthewsCorrCoef(task='binary', num_classes=2)
+    
+    ACC = BinaryAccuracy()
+    PRECISION = BinaryPrecision()
+    RECALL = BinaryRecall()
+    MAT = BinaryConfusionMatrix()
+    
+    thresholds = np.linspace(0, 1, 99)
     with torch.no_grad():
+        all_results = []
+        all_preds = []
+        all_targets = []
+        
         for batch in data_loader:
             preds = predict_step(
                 model,
@@ -534,18 +548,68 @@ def evaluate_graph_classification(
                 use_energy_decoder=use_energy_decoder,
                 is_hetero=is_hetero,
             )
+
             preds = preds.to("cpu")
             preds = torch.sigmoid(preds)
             targets = batch["g_targets"].to("cpu").to(torch.int8)
 
-            auroc = AUROC(preds, targets)
-            ap = AP(preds, targets)
-            mcc = MCC(preds.sigmoid(), targets)
-    results = {
-        "AUROC": AUROC.compute().item(),
-        "AP": AP.compute().item(),
-        "MCC": MCC.compute().item(),
-    }
+            all_preds.append(preds)
+            all_targets.append(targets)
+            
+        preds = torch.cat(all_preds)
+        targets = torch.cat(all_targets)
+        
+        #Main results
+        
+        auroc = AUROC(preds, targets)
+        ap = AP(preds, targets)
+        mcc = MCC(preds.sigmoid(), targets)
+        acc = ACC(preds, targets)
+        precision = PRECISION(preds, targets)
+        recall = RECALL(preds, targets)
+        mat = MAT(preds, targets)
+        mat_results = MAT.compute()
+        
+        results = {
+            "AUROC": AUROC.compute().item(),
+            "AP": AP.compute().item(),
+            "MCC": MCC.compute().item(),
+            "ACC": ACC.compute().item(),
+            "PRECISION": PRECISION.compute().item(),
+            "RECALL": RECALL.compute().item(),
+            "TP": mat_results[0][0].item(),
+            "TN": mat_results[1][1].item(),
+            "FP": mat_results[0][1].item(),
+            "FN": mat_results[1][0].item(), 
+        }
+        
+        thres_results = []
+        thres_acc = []
+        for threshold in thresholds:
+
+            #Reset metrics
+            AUROC.reset(); ACC.reset(); MAT.reset()
+
+            #Get True/False using threshold
+            preds_t = (preds > threshold).to(torch.int8)
+            
+            acc = ACC(preds_t, targets)
+            auroc = AUROC(preds_t, targets)
+            mat = MAT(preds_t, targets)
+            
+            mat_results = MAT.compute()
+            acc_result = ACC.compute().item()
+            thres_acc.append(acc_result)
+            
+            results_t = {
+                "THRESHOLD_best": threshold,
+                "ACC_best_threshold": acc_result,
+                "AUROC_best_threshold": AUROC.compute().item()
+            }
+            thres_results.append(results_t)
+        best_results = thres_results[thres_acc.index(max(thres_acc))]
+        results = {**results, **best_results}
+        
     return results
 
 
